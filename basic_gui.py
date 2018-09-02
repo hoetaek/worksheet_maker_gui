@@ -4,7 +4,7 @@ import re
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QProgressBar, QLabel,
                              QTreeWidget, QTreeWidgetItem, QTreeWidgetItemIterator, QLineEdit,
                              QPlainTextEdit, QSpinBox, QGridLayout, QHBoxLayout, QVBoxLayout,
-                             QPushButton, QDesktopWidget, QMessageBox)
+                             QPushButton, QDesktopWidget, QMessageBox, QFileDialog)
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QObject, pyqtSignal, Qt, QEvent, QThreadPool, pyqtSlot, QRunnable
 import download_images
@@ -107,7 +107,7 @@ class DownloadImage(QWidget):
         # add tree widget to layout
         grid.addWidget(self.tree, 0, 0)
         # settings for tree widget
-        header = QTreeWidgetItem(["단어", "키워드", '검색 개수', "이미지"])
+        header = QTreeWidgetItem(["단어", "키워드", '검색 개수', "이미지", ''])
         self.tree.setHeaderItem(header)
         self.tree.itemPressed.connect(self.changePic)
 
@@ -117,9 +117,6 @@ class DownloadImage(QWidget):
         self.every_search_num = QSpinBox()
         self.every_search_num.setValue(3)
         self.every_search_num.valueChanged.connect(self.change_every_search)
-
-        self.update_bt = QPushButton("사진 업데이트")
-        self.update_bt.clicked.connect(self.update_pic)
 
         self.download_bt = QPushButton("이미지 다운로드")
         self.download_bt.clicked.connect(self.start_download)
@@ -132,7 +129,6 @@ class DownloadImage(QWidget):
         vbox.addWidget(self.every_search_num)
         # stretch is needed to make gui better
         vbox.addStretch(1)
-        vbox.addWidget(self.update_bt)
         vbox.addWidget(self.download_bt)
         # add vbox to the layout
         grid.addLayout(vbox, 0, 1)
@@ -207,18 +203,21 @@ class DownloadImage(QWidget):
         for it_idx in range(self.tree.topLevelItemCount()):
             self.tree.topLevelItem(it_idx).setData(2, 0, value)
 
+    def enable_buttons(self):
+        self.download_bt.setEnabled(True)
+        self.c.enable_set_keyword_bt.emit()
+
+    def disable_buttons(self):
+        self.download_bt.setEnabled(False)
+        self.c.disable_set_keyword_bt.emit()
 
     def start_download(self):
         # disable the buttons
-        self.download_bt.setEnabled(False)
-        self.update_bt.setEnabled(False)
-        self.c.disable_set_keyword_bt.emit()
+        self.disable_buttons()
 
         # if no keywords exist enable buttons and press Set Keyword Button
         if self.tree.topLevelItemCount() == 0:
-            self.download_bt.setEnabled(True)
-            self.update_bt.setEnabled(True)
-            self.c.enable_set_keyword_bt.emit()
+            self.enable_buttons()
 
             self.c.press_set_keyword_bt.emit()
 
@@ -250,9 +249,6 @@ class DownloadImage(QWidget):
         self.word_imagePath = word_imagePath[0]
         self.old_word_imagePath = word_imagePath[1]
 
-        # for update_bt we need the path of google directory
-        self.google_dir = word_imagePath[2]
-
         # combine word_imagePath and old_word_imagePath to update the images only on first download
         if self.picture_on == False:
             self.word_imagePath.update(self.old_word_imagePath)
@@ -279,6 +275,9 @@ class DownloadImage(QWidget):
                     # set path variable so the image can be used
                     pic_item.path = path
                     pic_item.setData(3, 1, picture.scaled(self.scale_num, self.scale_num))
+
+
+
             except KeyError:
                 # if word doesn't exist in the given image path leave it be
                 pass
@@ -287,63 +286,12 @@ class DownloadImage(QWidget):
         self.picture_on = True
 
         # after downloding the pictures 'Download Button', 'Update Button' and 'Set Keyword Button' is set back to enabled
-        self.download_bt.setEnabled(True)
-        self.update_bt.setEnabled(True)
-        self.c.enable_set_keyword_bt.emit()
+        self.enable_buttons()
 
         # to expand the pictures you need to change the search_num value (I don't know exactly why)
         self.every_search_num.setValue(4)
         self.every_search_num.setValue(3)
 
-    def update_pic(self):
-        # execute when 'Update Button' is pressed
-        # iterator that goes over every item that has children(only the top level items when downloaded button is pressed)
-        iterator = QTreeWidgetItemIterator(self.tree, QTreeWidgetItemIterator.HasChildren)
-        if not iterator.value():
-            # if there is (no top level items) or (Download Button is not pressed) press the Download Button
-            self.start_download()
-            return
-        while iterator.value():
-            item = iterator.value()
-            # remove all children to initiate the top level items
-            for i in reversed(range(item.childCount())):
-                item.removeChild(item.child(i))
-
-            # set the path of images of top level item word
-            word_dir = os.path.join(self.google_dir, item.data(0, 0))
-            if os.path.exists(word_dir):
-                # get the image files if the word directory exists
-                files = os.listdir(word_dir)
-                # set the elements of files in the latest file order
-                files.sort(key=lambda x: os.path.getmtime(word_dir + '\\' + x))
-                files.reverse()
-                if not files:
-                    # if there are no images in directory push Download Button
-                    self.start_download()
-                    return
-
-            else:
-                # if there is no word directory push Download Button
-                self.start_download()
-                return
-
-            # retrieve the paths of all images within the directory
-            pic_path = [os.path.join(word_dir, file) for file in files]
-
-            # set the main image
-            init_pic = QPixmap(pic_path[0])
-            item.setData(3, 1, init_pic.scaled(self.scale_num, self.scale_num))
-            # set path variable so the image can be used
-            item.path = pic_path[0]
-
-            # set the children of top level item
-            for path in pic_path:
-                picture = QPixmap(path)
-                pic_item = QTreeWidgetItem(item)
-                # set path variable so the image can be used
-                pic_item.path = path
-                pic_item.setData(3, 1, picture.scaled(self.scale_num, self.scale_num))
-            iterator += 1
 
 # thread to download pictures while not stopping the Gui
 class DownloadWorker(QRunnable):

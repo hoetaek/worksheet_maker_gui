@@ -17,7 +17,6 @@ class download_image():
         self.input_search_num = search_num
         self.images = dict()
         self.old_images = dict()
-        self.dir_path = ''
         self.pr_bar = pr_bar
 
 
@@ -37,7 +36,6 @@ class download_image():
             os.mkdir(self.desktop + '\\구글이미지')
         google_dir = self.desktop + '\\구글이미지'
 
-        self.dir_path = google_dir
         self.keyword_list = shelve.open(google_dir + "\\keyword_list", writeback=True)
         for keyword, word, image_num in zip(self.input_keywords, self.input_words, self.input_search_num):
             image_num = str(image_num)
@@ -90,7 +88,7 @@ class download_image():
             else:
                 self.old_images[word] = [os.path.join(google_dir, google_file) for google_file in google_files]
 
-        return [self.images, self.old_images, self.dir_path]
+        return [self.images, self.old_images]
 
 if __name__=='__main__':
     words = ['hello', 'world', ' stories', 'more than', 'ht']
