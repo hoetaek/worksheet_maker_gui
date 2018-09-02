@@ -545,22 +545,22 @@ class DownloadImage(QWidget):
         fname = QFileDialog.getOpenFileName(self, 'Open file', 'c:\\', "Image files (*.jpg *.gif *.png)")
         path = fname[0]
         if path:
+            # copy image file to dir_path
+            copy(path, dir_path)
+            img_path = os.path.join(dir_path, os.path.basename(path))
             # change main image
-            init_pic = QPixmap(path)
+            init_pic = QPixmap(img_path)
             item.setData(3, 1, init_pic.scaled(self.scale_num, self.scale_num))
             # set path variable so the image can be used
-            item.path = path
+            item.path = img_path
 
             # add child to item
             pic_item = QTreeWidgetItem(item)
             # add picture data
-            picture = QPixmap(path)
+            picture = QPixmap(img_path)
             pic_item.setData(3, 1, picture.scaled(self.scale_num, self.scale_num))
             # set path variable so the image can be used
-            pic_item.path = path
-
-            # save image file to dir_path
-            copy(path, dir_path)
+            pic_item.path = img_path
 
 
     def make_puzzle(self):
@@ -582,10 +582,10 @@ class DownloadImage(QWidget):
             if self.picture_on:
                 pic = item.path
                 if not os.path.exists(pic):
-                    self.start_download()
+                    self.c.press_set_keyword_bt.emit()
                     self.enable_buttons()
                     q = QMessageBox(self)
-                    q.information(self, 'information', '사진이 존재하지 않아서 사진 업데이트 버튼을 대신 눌렀습니다ㅎㅎ', QMessageBox.Ok)
+                    q.information(self, 'information', '선택하신 이미지가 존재하지 않습니다. 다시 다운로드 눌러주세요.', QMessageBox.Ok)
                     return
             word_image.append([word, pic])
             iterator += 1
