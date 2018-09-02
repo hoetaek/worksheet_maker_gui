@@ -52,10 +52,12 @@ class Settings(QWidget):
         # TODO 구글 이미지 폴더 저장할 경로 구하기
         self.label_puzzle_width = QLabel('가로 길이: ')
         self.width_spin = QSpinBox()
+        self.width_spin.setToolTip('마우스 스크롤 가능합니다.')
         self.width_spin.setValue(15)
 
         self.label_puzzle_height = QLabel('세로 길이: ')
         self.height_spin = QSpinBox()
+        self.width_spin.setToolTip('마우스 스크롤 가능합니다.')
         self.height_spin.setValue(15)
         self.height_spin.valueChanged.connect(self.puzzle_height_change)
 
@@ -296,6 +298,8 @@ class DownloadImage(QWidget):
         grid.addWidget(self.tree, 0, 0)
         # settings for tree widget
         header = QTreeWidgetItem(["단어", "키워드", '검색 개수', "이미지", ''])
+        for i in range(5):
+            header.setToolTip(i, '목록에서 아이템 하나를 선택한 후\n화살표, 엔터, 백스페이스(또는 delete) 키를 눌러보세요.')
         self.tree.setHeaderItem(header)
         self.tree.itemPressed.connect(self.changePic)
 
@@ -307,6 +311,8 @@ class DownloadImage(QWidget):
         self.every_search_num.valueChanged.connect(self.change_every_search)
 
         self.download_bt = QPushButton("이미지 다운로드")
+        self.download_bt.setShortcut('Ctrl+Q')
+        self.download_bt.setToolTip('단축키 : Ctrl + q')
         self.download_bt.clicked.connect(self.start_download)
         # TODO shortcut for button
         # TODO status_bar for shortcut explaination
