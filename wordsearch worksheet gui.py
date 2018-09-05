@@ -57,7 +57,7 @@ class Settings(QWidget):
 
         self.label_puzzle_height = QLabel('세로 길이: ')
         self.height_spin = QSpinBox()
-        self.width_spin.setToolTip('마우스 스크롤 가능합니다.')
+        self.height_spin.setToolTip('마우스 스크롤 가능합니다.')
         self.height_spin.setValue(15)
         self.height_spin.valueChanged.connect(self.puzzle_height_change)
 
@@ -547,7 +547,6 @@ class DownloadImage(QWidget):
         self.every_search_num.setValue(3)
 
     def add_image(self, item,  dir_path):
-
         fname = QFileDialog.getOpenFileName(self, 'Open file', 'c:\\', "Image files (*.jpg *.gif *.png)")
         path = fname[0]
         if path:

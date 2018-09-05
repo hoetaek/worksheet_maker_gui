@@ -217,7 +217,7 @@ class MakeWordSearch():
         return
 
 
-    def make_puzzle(self):
+    def make_puzzle(self, filename = 'puzzle'):
         difficulty = self.diff
         option = self.option
         if difficulty == 1:
@@ -307,7 +307,7 @@ class MakeWordSearch():
 
         puzzle_table = document.add_table(rows=self.height, cols=self.width, style='Table Grid')
         puzzle_table.alignment = WD_TABLE_ALIGNMENT.CENTER
-        self.set_height = 7500 / self.height
+        self.set_height = 7200 / self.height
         for i, row in enumerate(puzzle_table.rows):
             #######################세로 길이 정하기!
             # accessing row xml and setting tr height
@@ -392,7 +392,7 @@ class MakeWordSearch():
                                             run.add_picture(self.word_image[index][1], width=Mm(40 - size * 3.2),
                                                             height=Mm(40 - size * 3.2))
                                     except:
-                                        pass
+                                        paragraph.add_run("에러 발생. 다른 사진 선택해주세요.")
 
 
                             #####가운데 정렬!!
@@ -532,7 +532,6 @@ class MakeWordSearch():
                 tcVAlign.set(qn('w:val'), "center")
                 tcPr.append(tcVAlign)
 
-        answ_doc.save(str(self.desktop) + '\puzzle_정답.hwp')
-        document.save(str(self.desktop) +'\puzzle.docx')
-        document.save(str(self.desktop) +'\puzzle.hwp')
+        answ_doc.save(str(self.desktop) + '\{}_정답.hwp'.format(filename))
+        document.save(str(self.desktop) +'\{}.hwp'.format(filename))
         print("바탕화면에 puzzle.docx와 puzzle.hwp 로 저장")

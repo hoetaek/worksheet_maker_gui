@@ -4,9 +4,10 @@ import re
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QProgressBar, QLabel,
                              QTreeWidget, QTreeWidgetItem, QTreeWidgetItemIterator, QLineEdit,
                              QPlainTextEdit, QSpinBox, QGridLayout, QHBoxLayout, QVBoxLayout,
-                             QPushButton, QDesktopWidget, QMessageBox, QFileDialog)
+                             QPushButton, QDesktopWidget, QMessageBox, QFileDialog, QStatusBar)
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QObject, pyqtSignal, Qt, QEvent, QThreadPool, pyqtSlot, QRunnable
+from shutil import copy
 import download_images
 import qdarkstyle
 
@@ -34,7 +35,6 @@ class EnterWords(QWidget):
         # Text box to input words
         self.input_words = QPlainTextEdit()
         self.input_words.setPlaceholderText("단어를 입력한 후 *검색 키워드 설정* 버튼을 누르세요.")
-        #TODO if the text is all filled tooltip box appears saying press the button!
         grid.addWidget(self.input_words, 1, 0, 4, 1)
 
         # line edit box to set the suffix words
@@ -93,19 +93,21 @@ class DownloadImage(QWidget):
         self.picture_on = False
         # size of the images
         self.scale_num = MainWindow.y//10
+        # set default path
+        # self.set_default_path()
 
     def init_UI(self):
         # get the data from Enterwords
         self.c.set_keyword.connect(self.search_setting)
         # basic layout for download widget
-        grid = QGridLayout()
+        self.grid = QGridLayout()
 
         # tree widget to show word, keyword, search_num and downloaded images
         self.tree = QTreeWidget()
         # to make UX make add keyboard events
         self.tree.installEventFilter(self)
         # add tree widget to layout
-        grid.addWidget(self.tree, 0, 0)
+        self.grid.addWidget(self.tree, 0, 0)
         # settings for tree widget
         header = QTreeWidgetItem(["단어", "키워드", '검색 개수', "이미지", ''])
         self.tree.setHeaderItem(header)
@@ -119,9 +121,9 @@ class DownloadImage(QWidget):
         self.every_search_num.valueChanged.connect(self.change_every_search)
 
         self.download_bt = QPushButton("이미지 다운로드")
+        self.download_bt.setShortcut('Ctrl+F')
+        self.download_bt.setToolTip('단축키 : Ctrl + F')
         self.download_bt.clicked.connect(self.start_download)
-        # TODO shortcut for button
-        # TODO status_bar for shortcut explaination
 
         # add label, update, download button widget to the vertical layout box(vbox)
         vbox = QVBoxLayout()
@@ -131,17 +133,26 @@ class DownloadImage(QWidget):
         vbox.addStretch(1)
         vbox.addWidget(self.download_bt)
         # add vbox to the layout
-        grid.addLayout(vbox, 0, 1)
+        self.grid.addLayout(vbox, 0, 1)
 
         # shows the progress of image download
         self.pr_bar = QProgressBar()
         # add progressbar to layout
-        grid.addWidget(self.pr_bar, 1, 0, 1, 2)
+        self.grid.addWidget(self.pr_bar, 1, 0, 1, 2)
 
         # adjust the size of the column layout
-        grid.setColumnStretch(0, 13)
-        grid.setColumnStretch(1, 2)
-        self.setLayout(grid)
+        self.grid.setColumnStretch(0, 13)
+        self.grid.setColumnStretch(1, 2)
+        self.setLayout(self.grid)
+
+    def set_default_path(self):
+        if os.path.exists('save_path.txt'):
+            print("exitst")
+        else:
+            fname =str(QFileDialog.getExistingDirectory(self, "Select"))
+            print(fname)
+            # with open('save_path.txt', 'w') as save_path:
+            #     save_path.write(dir_path)
 
     # self.eventFilter, self.changePic is for the basic behavior of Tree widget
     # it uses the keypress event to make UX better
@@ -268,6 +279,19 @@ class DownloadImage(QWidget):
                 # set path variable so the image can be used
                 item.path = pic_path[0]
 
+                # make a button that can add additional pictures
+                add_image_bt = QPushButton("이미지 추가")
+                # open file dialog, pass the image dir path as parameter
+                add_image_bt.clicked.connect(
+                    lambda _, item=item, path=os.path.dirname(pic_path[0]): self.add_image(item=item, dir_path=path))
+                # layout setting for the button
+                button_widget = QWidget()
+                vbox = QVBoxLayout()
+                vbox.addWidget(add_image_bt)
+                button_widget.setLayout(vbox)
+                # add button widget to tree widget
+                self.tree.setItemWidget(item, 4, button_widget)
+
                 # update new children
                 for path in pic_path:
                     picture = QPixmap(path)
@@ -291,6 +315,27 @@ class DownloadImage(QWidget):
         # to expand the pictures you need to change the search_num value (I don't know exactly why)
         self.every_search_num.setValue(4)
         self.every_search_num.setValue(3)
+
+    def add_image(self, item,  dir_path):
+        fname = QFileDialog.getOpenFileName(self, 'Open file', '.', "Image files (*.jpg *.gif *.png)")
+        path = fname[0]
+        if path:
+            # copy image file to dir_path
+            copy(path, dir_path)
+            img_path = os.path.join(dir_path, os.path.basename(path))
+            # change main image
+            init_pic = QPixmap(img_path)
+            item.setData(3, 1, init_pic.scaled(self.scale_num, self.scale_num))
+            # set path variable so the image can be used
+            item.path = img_path
+
+            # add child to item
+            pic_item = QTreeWidgetItem(item)
+            # add picture data
+            picture = QPixmap(img_path)
+            pic_item.setData(3, 1, picture.scaled(self.scale_num, self.scale_num))
+            # set path variable so the image can be used
+            pic_item.path = img_path
 
 
 # thread to download pictures while not stopping the Gui
@@ -320,17 +365,22 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(QWidget(self))
 
         self.vbox = QVBoxLayout()
+        """
         # signal to communicate between widgets
-        c = Communication()
+        self.c = Communication()
         # Settings widget needed
-        self.vbox.addWidget(EnterWords(c))
-        self.vbox.addWidget(DownloadImage(c))
+        self.vbox.addWidget(EnterWords(self.c))
+        self.vbox.addWidget(DownloadImage(self.c))
+        """
         # Your customized widget needed
         self.centralWidget().setLayout(self.vbox)
 
-
         # Set the title
-        self.setWindowTitle('Example generatorr')
+        self.setWindowTitle('Example generator')
+        # Set copyright
+        status = QStatusBar()
+        status.showMessage("Copyright 2018 택스비")
+        self.setStatusBar(status)
         self.show()
 
     def center(self):
