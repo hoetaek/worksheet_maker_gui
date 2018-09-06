@@ -34,7 +34,9 @@ class EnterWords(QWidget):
 
         # Text box to input words
         self.input_words = QPlainTextEdit()
+        # self.input_words.resize()
         self.input_words.setPlaceholderText("단어를 입력한 후 *검색 키워드 설정* 버튼을 누르세요.")
+        # TODO reduce the height of textedit
         grid.addWidget(self.input_words, 1, 0, 4, 1)
 
         # line edit box to set the suffix words
