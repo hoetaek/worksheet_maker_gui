@@ -310,6 +310,9 @@ class MainWindow(MainWindow):
         self.vbox.addWidget(Settings(c))
         self.vbox.addWidget(EnterWords(c))
         self.vbox.addWidget(DownloadImage(c))
+        self.vbox.setStretch(0, 1)
+        self.vbox.setStretch(1, 1)
+        self.vbox.setStretch(2, 4)
 
 
 if __name__ == '__main__':

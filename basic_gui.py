@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QProgressBar, Q
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QObject, pyqtSignal, Qt, QEvent, QThreadPool, pyqtSlot, QRunnable
 from shutil import copy
+import json
 import download_images
 import qdarkstyle
 
@@ -95,8 +96,6 @@ class DownloadImage(QWidget):
         self.picture_on = False
         # size of the images
         self.scale_num = MainWindow.y//10
-        # set default path
-        # self.set_default_path()
 
     def init_UI(self):
         # get the data from Enterwords
@@ -147,14 +146,6 @@ class DownloadImage(QWidget):
         self.grid.setColumnStretch(1, 2)
         self.setLayout(self.grid)
 
-    def set_default_path(self):
-        if os.path.exists('save_path.txt'):
-            print("exitst")
-        else:
-            fname =str(QFileDialog.getExistingDirectory(self, "Select"))
-            print(fname)
-            # with open('save_path.txt', 'w') as save_path:
-            #     save_path.write(dir_path)
 
     # self.eventFilter, self.changePic is for the basic behavior of Tree widget
     # it uses the keypress event to make UX better
@@ -224,7 +215,20 @@ class DownloadImage(QWidget):
         self.download_bt.setEnabled(False)
         self.c.disable_set_keyword_bt.emit()
 
+    def get_save_dir(self):
+        is_dir_path = os.path.exists('dir_path.json')
+        if is_dir_path:
+            with open('dir_path.json') as f:
+                data = json.load(f)
+            dir_path = data['default_dir']
+        else:
+            fname = str(QFileDialog.getExistingDirectory(self, "이미지를 저장할 폴더를 선택하세요."))
+        # with open('save_path.txt', 'w') as save_path:
+        #     save_path.write(dir_path)
+        return
+
     def start_download(self):
+        desktop = self.get_save_dir()
         # disable the buttons
         self.disable_buttons()
 
