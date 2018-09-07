@@ -228,6 +228,7 @@ class DownloadImage(QWidget):
         return
 
     def start_download(self):
+        raise Exception
         desktop = self.get_save_dir()
         # disable the buttons
         self.disable_buttons()
@@ -289,7 +290,7 @@ class DownloadImage(QWidget):
                 add_image_bt = QPushButton("이미지 추가")
                 # open file dialog, pass the image dir path as parameter
                 add_image_bt.clicked.connect(
-                    lambda _, item=item, path=os.path.dirname(pic_path[0]): self.add_image(item=item, dir_path=path))
+                    lambda _, item=item, path=os.path.dirname(item.path): self.add_image(item=item, dir_path=path))
                 # layout setting for the button
                 button_widget = QWidget()
                 vbox = QVBoxLayout()
@@ -362,6 +363,8 @@ class MainWindow(QMainWindow):
     x, y = 0, 0
     def __init__(self):
         super().__init__()
+        # catch Exception
+        sys.excepthook = my_excepthook
         self.init_UI()
 
     def init_UI(self):
@@ -371,13 +374,13 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(QWidget(self))
 
         self.vbox = QVBoxLayout()
-        """
+
         # signal to communicate between widgets
         self.c = Communication()
         # Settings widget needed
         self.vbox.addWidget(EnterWords(self.c))
         self.vbox.addWidget(DownloadImage(self.c))
-        """
+
         # Your customized widget needed
         self.centralWidget().setLayout(self.vbox)
 
@@ -400,6 +403,35 @@ class MainWindow(QMainWindow):
         # Set the window size according to the size of screen
         self.resize(MainWindow.x/8*4, MainWindow.y//5*4)
 
+import traceback
+# Catch Exception
+def my_excepthook(type, value, tback):
+    # log the exception here
+    # then call the default handlerq
+    traceback_text = ''.join(traceback.format_tb(tback))
+    send_error_smtp(traceback_text)
+    sys.__excepthook__(type, value, tback)
+    exit(0)
+
+import smtplib
+def send_error_smtp(msg):
+# Specifying the from and to addresses
+    fromaddr = 'test.smtp.lms@gmail.com'
+
+
+    username = 'test.smtp.lms@gmail.com'
+    password = 'lmstest1'
+
+    # Sending the mail
+
+    server = smtplib.SMTP('smtp.gmail.com:587')
+    server.starttls()
+    server.login(username,password)
+    print("google logged in")
+    toaddrs = 'hoetaek@student.snue.ac.kr'
+    server.sendmail(fromaddr, toaddrs, msg.encode('utf-8'))
+    print("sent an alert mail")
+    server.quit()
 
 if __name__ == '__main__':
     import sys

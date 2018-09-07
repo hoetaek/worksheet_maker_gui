@@ -241,6 +241,7 @@ class DownloadImage(DownloadImage):
         self.c.disable_set_keyword_bt.emit()
 
     def make_puzzle(self):
+        raise Exception
         word_image = []
         if self.tree.topLevelItemCount() == 0:
             self.start_download()
@@ -312,12 +313,11 @@ class MainWindow(MainWindow):
         self.vbox.addWidget(DownloadImage(c))
         self.vbox.setStretch(0, 1)
         self.vbox.setStretch(1, 1)
-        self.vbox.setStretch(2, 4)
+        self.vbox.setStretch(2, 7)
 
 
 if __name__ == '__main__':
-    import sys
-    from PyQt5.QtWidgets import QApplication
+
     app = QApplication(sys.argv)
     ex = MainWindow()
     app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
