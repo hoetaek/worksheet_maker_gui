@@ -5,12 +5,12 @@ site_packages = next(p for p in sys.path if 'site-packages' in p)
 block_cipher = None
 
 
-a = Analysis(['wordsearch worksheet gui.py'],
+a = Analysis(['wordsearch_maker.py'],
              pathex=['C:\\Users\\hoetaekpro\\PycharmProjects\\worksheet_maker_gui',
               'C:\\Users\\hoetaekpro\\PycharmProjects\\worksheet_maker_gui\\venv\\lib\\site-packages'],
              binaries=[],
-             datas=[(path.join(site_packages,"docx","templates"), "docx/templates"), ("download_images.py", '.'),
-              ('wordsearch_generater.py', '.'), ('wordsearch.ico', '.'), ('random_words.txt', '.')],
+             datas=[(path.join(site_packages,"docx","templates"), "docx/templates"), ('wordsearch.ico', '.'),
+              ('random_words.txt', '.')],
              hiddenimports=['PyQt5', 'PyQt5.sip'],
              hookspath=[],
              runtime_hooks=[],
@@ -23,7 +23,7 @@ pyz = PYZ(a.pure, a.zipped_data,
 exe = EXE(pyz,
           a.scripts,
           exclude_binaries=True,
-          name='wordsearch worksheet gui',
+          name='wordsearch_maker',
           debug=False,
           strip=False,
           upx=True,
@@ -34,4 +34,4 @@ coll = COLLECT(exe,
                a.datas,
                strip=False,
                upx=True,
-               name='wordsearch worksheet gui')
+               name='wordsearch_maker')

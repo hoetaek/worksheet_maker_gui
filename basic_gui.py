@@ -34,10 +34,14 @@ class EnterWords(QWidget):
     def init_UI(self):
         grid = QGridLayout()
 
+        # Title for widget
+        title = QLabel("2, 단어를 입력세요.")
+        grid.addWidget(title, 0, 0)
+
         # Text box to input words
         self.input_words = QPlainTextEdit()
         # self.input_words.resize()
-        self.input_words.setPlaceholderText("단어들을 입력한 후 *검색 키워드 설정* 버튼을 누르세요.\nex) 토끼, 거북이, 사자 or banana, peach, grape \n단축키는 마우스를 버튼 위로 올려두면 표시됩니다.")
+        self.input_words.setPlaceholderText("단어들을 입력한 후 *검색 키워드 설정* 버튼을 누르세요.\nex) 토끼, 거북이, 사자 or banana, peach, grape \n각 버튼의 단축키는 마우스를 버튼 위로 올려두면 표시됩니다.")
         grid.addWidget(self.input_words, 1, 0, 4, 1)
 
         # line edit box to set the suffix words
@@ -105,14 +109,18 @@ class DownloadImage(QWidget):
         # basic layout for download widget
         self.grid = QGridLayout()
 
+        # Title for widget
+        title = QLabel("3. 이미지를 선택하세요.")
+        self.grid.addWidget(title, 0, 0)
+
         # tree widget to show word, keyword, search_num and downloaded images
         self.tree = QTreeWidget()
         # to make UX make add keyboard events
         self.tree.installEventFilter(self)
         # add tree widget to layout
-        self.grid.addWidget(self.tree, 0, 0)
+        self.grid.addWidget(self.tree, 1, 0)
         # settings for tree widget
-        header = QTreeWidgetItem(["단어", "키워드", '검색 개수', "이미지", ''])
+        header = QTreeWidgetItem(["단어", "검색 키워드", '검색 개수', "이미지", ''])
         self.tree.setHeaderItem(header)
         self.tree.itemPressed.connect(self.changePic)
 
@@ -136,12 +144,12 @@ class DownloadImage(QWidget):
         vbox.addStretch(1)
         vbox.addWidget(self.download_bt)
         # add vbox to the layout
-        self.grid.addLayout(vbox, 0, 1)
+        self.grid.addLayout(vbox, 1, 1)
 
         # shows the progress of image download
         self.pr_bar = QProgressBar()
         # add progressbar to layout
-        self.grid.addWidget(self.pr_bar, 1, 0, 1, 2)
+        self.grid.addWidget(self.pr_bar, 2, 0, 1, 2)
 
         # adjust the size of the column layout
         self.grid.setColumnStretch(0, 13)
@@ -199,14 +207,14 @@ class DownloadImage(QWidget):
             # make item
             item = QTreeWidgetItem([word, keyword])
             # Tooltip for keyboard
-            item.setToolTip(3, '사진을 선택할 때 화살표, 엔터, 백스페이스 키보드를 누르면 편리합니다.')
-            item.setToolTip(4, '사진을 선택할 때 화살표, 엔터, 백스페이스 키보드를 누르면 편리합니다.')
+            item.setToolTip(1, '더블 클릭하여 변경하세요.')
+            item.setToolTip(3, '사진을 선택할 때 화살표, 엔터, 백스페이스 키보드를 누를 수 있습니다.')
+
             # 2 is the index column, 0 is the type of data, and the last parameter is the data
             item.setData(2, 0, self.every_search_num.value())
             # add the items to top level within tree widget
             self.tree.addTopLevelItem(item)
             item.setFlags(Qt.ItemIsSelectable |Qt.ItemIsEnabled | Qt.ItemIsEditable)
-        self.tree.topLevelItem(0).setExpanded(True)
 
     # when you change the spin box you change all of the search_num
     def change_every_search(self, value):
@@ -316,7 +324,7 @@ class DownloadImage(QWidget):
                     item.path = pic_path[0]
 
                     # make a button that can add additional pictures
-                    add_image_bt = QPushButton("이미지 추가")
+                    add_image_bt = QPushButton("이미지 변경")
                     # open file dialog, pass the image dir path as parameter
                     add_image_bt.clicked.connect(
                         lambda _, item=item, path=os.path.dirname(item.path): self.add_image(item=item, dir_path=path))
@@ -340,17 +348,13 @@ class DownloadImage(QWidget):
         # after downloding the pictures 'Download Button', 'Update Button' and 'Set Keyword Button' is set back to enabled
         self.enable_buttons()
 
-        # to expand the pictures you need to change the search_num value (I don't know exactly why)
-        # self.every_search_num.setValue(3)
-
     def add_image(self, item,  dir_path):
-        fname = QFileDialog.getOpenFileName(self, 'Open file', self.dir_path, "Image files (*.jpg *.gif *.png *bmp)")
-        path = fname[0]
-        if path:
-            img_path = os.path.join(dir_path, os.path.basename(path))
-            try:
+        fname = QFileDialog.getOpenFileName(self, 'Open file', dir_path, "Image files (*.jpg *.gif *.png *bmp)")
+        img_path = fname[0]
+        if img_path:
+            if os.path.basename(img_path) not in os.listdir(dir_path):
                 # copy image file to dir_path
-                copy(path, dir_path)
+                copy(img_path, dir_path)
                 # add child to item
                 pic_item = QTreeWidgetItem(item)
                 # add picture data
@@ -358,15 +362,12 @@ class DownloadImage(QWidget):
                 pic_item.setData(3, 1, picture.scaled(self.scale_num, self.scale_num))
                 # set path variable so the image can be used
                 pic_item.path = img_path
-            except SameFileError:
-                q = QMessageBox(self)
-                q.warning(self, 'information', '이미 폴더 안에 있는 이미지를 선택했습니다.', QMessageBox.Ok)
-            finally:
-                # change main image
-                init_pic = QPixmap(img_path)
-                item.setData(3, 1, init_pic.scaled(self.scale_num, self.scale_num))
-                # set path variable so the image can be used
-                item.path = img_path
+
+            # change main image
+            init_pic = QPixmap(img_path)
+            item.setData(3, 1, init_pic.scaled(self.scale_num, self.scale_num))
+            # set path variable so the image can be used
+            item.path = img_path
 
 
 # thread to download pictures while not stopping the Gui
@@ -433,7 +434,7 @@ def my_excepthook(type, value, tback):
     # log the exception here
     # then call the default handlerq
     traceback_text = ''.join(traceback.format_tb(tback))
-    send_error_to_form(traceback_text)
+    # send_error_to_form(traceback_text)
     sys.__excepthook__(type, value, tback)
     exit(1)
 
