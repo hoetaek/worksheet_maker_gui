@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QProgressBar, Q
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QObject, pyqtSignal, Qt, QEvent, QThreadPool, pyqtSlot, QRunnable
 from shutil import copy
+from shutil import SameFileError
 import json
 import download_images
 import qdarkstyle
@@ -36,8 +37,7 @@ class EnterWords(QWidget):
         # Text box to input words
         self.input_words = QPlainTextEdit()
         # self.input_words.resize()
-        self.input_words.setPlaceholderText("단어를 입력한 후 *검색 키워드 설정* 버튼을 누르세요.")
-        # TODO reduce the height of textedit
+        self.input_words.setPlaceholderText("단어들을 입력한 후 *검색 키워드 설정* 버튼을 누르세요.\nex) 토끼, 거북이, 사자 or banana, peach, grape \n단축키는 마우스를 버튼 위로 올려두면 표시됩니다.")
         grid.addWidget(self.input_words, 1, 0, 4, 1)
 
         # line edit box to set the suffix words
@@ -49,6 +49,8 @@ class EnterWords(QWidget):
 
         # make button
         self.set_keyword_bt = QPushButton('검색 키워드 설정')
+        self.set_keyword_bt.setToolTip('단축키 : Ctrl + G')
+        self.set_keyword_bt.setShortcut("Ctrl+G")
         # settings for Set Keyword Button
         self.set_keyword_bt.clicked.connect(self.set_keyword)
         self.c.press_set_keyword_bt.connect(self.set_keyword)
@@ -196,11 +198,15 @@ class DownloadImage(QWidget):
         for word, keyword in zip(search_list[0], search_list[1]):
             # make item
             item = QTreeWidgetItem([word, keyword])
+            # Tooltip for keyboard
+            item.setToolTip(3, '사진을 선택할 때 화살표, 엔터, 백스페이스 키보드를 누르면 편리합니다.')
+            item.setToolTip(4, '사진을 선택할 때 화살표, 엔터, 백스페이스 키보드를 누르면 편리합니다.')
             # 2 is the index column, 0 is the type of data, and the last parameter is the data
             item.setData(2, 0, self.every_search_num.value())
             # add the items to top level within tree widget
             self.tree.addTopLevelItem(item)
             item.setFlags(Qt.ItemIsSelectable |Qt.ItemIsEnabled | Qt.ItemIsEditable)
+        self.tree.topLevelItem(0).setExpanded(True)
 
     # when you change the spin box you change all of the search_num
     def change_every_search(self, value):
@@ -221,15 +227,21 @@ class DownloadImage(QWidget):
             with open('dir_path.json') as f:
                 data = json.load(f)
             dir_path = data['default_dir']
+            return dir_path
         else:
-            fname = str(QFileDialog.getExistingDirectory(self, "이미지를 저장할 폴더를 선택하세요."))
-        # with open('save_path.txt', 'w') as save_path:
-        #     save_path.write(dir_path)
-        return
+            q = QMessageBox(self)
+            q.information(self, 'information', '다운로드 받은 이미지를 저장할 폴더를 선택하세요.', QMessageBox.Ok)
+            fname = str(QFileDialog.getExistingDirectory(self, "이미지를 저장할 폴더"))
+            if fname:
+                with open('dir_path.json', 'w') as f:
+                    json.dump({'default_dir' : fname}, f)
+                dir_path = fname
+                return dir_path
+            else:
+                return None
+
 
     def start_download(self):
-        raise Exception
-        desktop = self.get_save_dir()
         # disable the buttons
         self.disable_buttons()
 
@@ -254,8 +266,11 @@ class DownloadImage(QWidget):
             words.append(self.tree.topLevelItem(it_idx).text(0))
             keywords.append(self.tree.topLevelItem(it_idx).text(1))
             search_num.append(self.tree.topLevelItem(it_idx).text(2))
-
-        download_worker = DownloadWorker(download_images.download_image, words, keywords, search_num, self.pr_bar)
+        self.dir_path = self.get_save_dir()
+        if self.dir_path == None:
+            self.enable_buttons()
+            return
+        download_worker = DownloadWorker(download_images.download_image, words, keywords, search_num, self.pr_bar, self.dir_path)
         download_worker.signal.download_complete.connect(self.finish_download)
 
         # Execute
@@ -280,32 +295,38 @@ class DownloadImage(QWidget):
                 for i in reversed(range(item.childCount())):
                     item.removeChild(item.child(i))
 
-                # because the children are updated the main image changes
-                init_pic = QPixmap(pic_path[0])
-                item.setData(3, 1, init_pic.scaled(self.scale_num, self.scale_num))
-                # set path variable so the image can be used
-                item.path = pic_path[0]
-
-                # make a button that can add additional pictures
-                add_image_bt = QPushButton("이미지 추가")
-                # open file dialog, pass the image dir path as parameter
-                add_image_bt.clicked.connect(
-                    lambda _, item=item, path=os.path.dirname(item.path): self.add_image(item=item, dir_path=path))
-                # layout setting for the button
-                button_widget = QWidget()
-                vbox = QVBoxLayout()
-                vbox.addWidget(add_image_bt)
-                button_widget.setLayout(vbox)
-                # add button widget to tree widget
-                self.tree.setItemWidget(item, 4, button_widget)
-
                 # update new children
                 for path in pic_path:
                     picture = QPixmap(path)
-                    pic_item = QTreeWidgetItem(item)
+                    if not picture.isNull():
+                        pic_item = QTreeWidgetItem(item)
+                        # set path variable so the image can be used
+                        pic_item.path = path
+                        pic_item.setData(3, 1, picture.scaled(self.scale_num, self.scale_num))
+                    else:
+                        # if picture is not valid delete it
+                        os.unlink(path)
+
+                # because the children are updated the main image changes
+                if item.childCount() > 0:
+                    # set main image and add image button only if child exists
+                    init_pic = QPixmap(item.child(0).path)
+                    item.setData(3, 1, init_pic.scaled(self.scale_num, self.scale_num))
                     # set path variable so the image can be used
-                    pic_item.path = path
-                    pic_item.setData(3, 1, picture.scaled(self.scale_num, self.scale_num))
+                    item.path = pic_path[0]
+
+                    # make a button that can add additional pictures
+                    add_image_bt = QPushButton("이미지 추가")
+                    # open file dialog, pass the image dir path as parameter
+                    add_image_bt.clicked.connect(
+                        lambda _, item=item, path=os.path.dirname(item.path): self.add_image(item=item, dir_path=path))
+                    # layout setting for the button
+                    button_widget = QWidget()
+                    vbox = QVBoxLayout()
+                    vbox.addWidget(add_image_bt)
+                    button_widget.setLayout(vbox)
+                    # add button widget to tree widget
+                    self.tree.setItemWidget(item, 4, button_widget)
 
 
 
@@ -320,29 +341,32 @@ class DownloadImage(QWidget):
         self.enable_buttons()
 
         # to expand the pictures you need to change the search_num value (I don't know exactly why)
-        self.every_search_num.setValue(4)
-        self.every_search_num.setValue(3)
+        # self.every_search_num.setValue(3)
 
     def add_image(self, item,  dir_path):
-        fname = QFileDialog.getOpenFileName(self, 'Open file', '.', "Image files (*.jpg *.gif *.png)")
+        fname = QFileDialog.getOpenFileName(self, 'Open file', self.dir_path, "Image files (*.jpg *.gif *.png *bmp)")
         path = fname[0]
         if path:
-            # copy image file to dir_path
-            copy(path, dir_path)
             img_path = os.path.join(dir_path, os.path.basename(path))
-            # change main image
-            init_pic = QPixmap(img_path)
-            item.setData(3, 1, init_pic.scaled(self.scale_num, self.scale_num))
-            # set path variable so the image can be used
-            item.path = img_path
-
-            # add child to item
-            pic_item = QTreeWidgetItem(item)
-            # add picture data
-            picture = QPixmap(img_path)
-            pic_item.setData(3, 1, picture.scaled(self.scale_num, self.scale_num))
-            # set path variable so the image can be used
-            pic_item.path = img_path
+            try:
+                # copy image file to dir_path
+                copy(path, dir_path)
+                # add child to item
+                pic_item = QTreeWidgetItem(item)
+                # add picture data
+                picture = QPixmap(img_path)
+                pic_item.setData(3, 1, picture.scaled(self.scale_num, self.scale_num))
+                # set path variable so the image can be used
+                pic_item.path = img_path
+            except SameFileError:
+                q = QMessageBox(self)
+                q.warning(self, 'information', '이미 폴더 안에 있는 이미지를 선택했습니다.', QMessageBox.Ok)
+            finally:
+                # change main image
+                init_pic = QPixmap(img_path)
+                item.setData(3, 1, init_pic.scaled(self.scale_num, self.scale_num))
+                # set path variable so the image can be used
+                item.path = img_path
 
 
 # thread to download pictures while not stopping the Gui
@@ -374,13 +398,13 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(QWidget(self))
 
         self.vbox = QVBoxLayout()
-
+        """
         # signal to communicate between widgets
         self.c = Communication()
         # Settings widget needed
         self.vbox.addWidget(EnterWords(self.c))
         self.vbox.addWidget(DownloadImage(self.c))
-
+        """
         # Your customized widget needed
         self.centralWidget().setLayout(self.vbox)
 
@@ -388,7 +412,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('Example generator')
         # Set copyright
         status = QStatusBar()
-        status.showMessage("Copyright 2018 택스비")
+        status.showMessage("Copyright 2018 라회택")
         self.setStatusBar(status)
         self.show()
 
@@ -409,33 +433,17 @@ def my_excepthook(type, value, tback):
     # log the exception here
     # then call the default handlerq
     traceback_text = ''.join(traceback.format_tb(tback))
-    send_error_smtp(traceback_text)
+    send_error_to_form(traceback_text)
     sys.__excepthook__(type, value, tback)
-    exit(0)
+    exit(1)
 
-import smtplib
-def send_error_smtp(msg):
-# Specifying the from and to addresses
-    fromaddr = 'test.smtp.lms@gmail.com'
-
-
-    username = 'test.smtp.lms@gmail.com'
-    password = 'lmstest1'
-
-    # Sending the mail
-
-    server = smtplib.SMTP('smtp.gmail.com:587')
-    server.starttls()
-    server.login(username,password)
-    print("google logged in")
-    toaddrs = 'hoetaek@student.snue.ac.kr'
-    server.sendmail(fromaddr, toaddrs, msg.encode('utf-8'))
-    print("sent an alert mail")
-    server.quit()
+import requests
+def send_error_to_form(msg):
+    url = "https://docs.google.com/forms/d/e/1FAIpQLSfz1_NEDEV9qpQHpojNGZJUxe5A1PBAtv7LK8BdFNZ3q6JqQA/formResponse"
+    payload = {'entry.1147734626':msg}
+    requests.post(url, data=payload)
 
 if __name__ == '__main__':
-    import sys
-    from PyQt5.QtWidgets import QApplication
     app = QApplication(sys.argv)
     ex = MainWindow()
     app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())

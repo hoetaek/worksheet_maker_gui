@@ -297,13 +297,11 @@ class MakeWordSearch():
         heading = 'Word Puzzle'
         if self.korean:
             heading = "낱말 찾기"
-        document.add_heading(heading, 0)
+        head = document.add_heading(heading, 0)
+        head.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-        para_belong = document.add_paragraph(' 학년  반')
+        para_belong = document.add_paragraph('__학년 __반 이름: _______')
         para_belong.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        para_name = document.add_paragraph('이름: ')
-        para_name.add_run("홍길동").font.color.rgb = RGBColor(255, 255, 255)
-        para_name.alignment = WD_ALIGN_PARAGRAPH.RIGHT
 
         puzzle_table = document.add_table(rows=self.height, cols=self.width, style='Table Grid')
         puzzle_table.alignment = WD_TABLE_ALIGNMENT.CENTER

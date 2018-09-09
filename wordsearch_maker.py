@@ -1,5 +1,6 @@
 from basic_gui import *
 from PyQt5.QtWidgets import (QRadioButton, QGroupBox, QCheckBox)
+from PyQt5.QtGui import QIcon
 import wordsearch_generater
 
 class Communication(Communication):
@@ -203,6 +204,8 @@ class DownloadImage(DownloadImage):
 
         self.make_puzzle_bt = QPushButton("Word Search 퍼즐 만들기")
         self.make_puzzle_bt.clicked.connect(self.make_puzzle)
+        self.make_puzzle_bt.setToolTip("단축키 : Ctrl + D")
+        self.make_puzzle_bt.setShortcut('Ctrl+D')
 
         hbox_puzzle_bt = QHBoxLayout()
         hbox_puzzle_bt.addStretch(1)
@@ -223,6 +226,8 @@ class DownloadImage(DownloadImage):
         else:
             self.chosung_checkBox.close()
             self.make_puzzle_bt.setText('Word Search 퍼즐 만들기')
+        self.make_puzzle_bt.setToolTip("단축키 : Ctrl + D")
+        self.make_puzzle_bt.setShortcut('Ctrl+D')
 
     def chosung_on(self):
         if self.chosung_checkBox.isChecked() == True:
@@ -241,7 +246,6 @@ class DownloadImage(DownloadImage):
         self.c.disable_set_keyword_bt.emit()
 
     def make_puzzle(self):
-        raise Exception
         word_image = []
         if self.tree.topLevelItemCount() == 0:
             self.start_download()
@@ -307,6 +311,8 @@ class MainWindow(MainWindow):
 
     def init_UI(self):
         super(MainWindow, self).init_UI()
+        self.setWindowTitle('Word Puzzle generator')
+        self.setWindowIcon(QIcon('wordsearch.ico'))
         c = Communication()
         self.vbox.addWidget(Settings(c))
         self.vbox.addWidget(EnterWords(c))

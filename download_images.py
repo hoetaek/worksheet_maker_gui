@@ -6,12 +6,8 @@ import threading
 
 
 class download_image():
-    def __init__(self, words, keywords, search_num, pr_bar):
-        try:
-            self.desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'desktop')
-            os.listdir(self.desktop)
-        except FileNotFoundError:
-            self.desktop = '.'
+    def __init__(self, words, keywords, search_num, pr_bar, dir_path):
+        self.desktop = dir_path
         self.input_words = words
         self.input_keywords = keywords
         self.input_search_num = search_num
@@ -33,10 +29,10 @@ class download_image():
         if '구글이미지' in os.listdir(self.desktop):
             pass
         else:
-            os.mkdir(self.desktop + '\\구글이미지')
-        google_dir = self.desktop + '\\구글이미지'
+            os.mkdir(os.path.join(self.desktop, '구글이미지'))
+        google_dir = os.path.join(self.desktop, '구글이미지')
 
-        self.keyword_list = shelve.open(google_dir + "\\keyword_list", writeback=True)
+        self.keyword_list = shelve.open(os.path.join(google_dir, "keyword_list"), writeback=True)
         for keyword, word, image_num in zip(self.input_keywords, self.input_words, self.input_search_num):
             image_num = str(image_num)
             try:
@@ -79,7 +75,7 @@ class download_image():
         self.keyword_list.close()
 
         for word in self.input_words:
-            google_dir = self.desktop + '\구글이미지\\' + word
+            google_dir = os.path.join(self.desktop, '구글이미지', word)
             google_files = os.listdir(google_dir)
             google_files.sort(key=lambda x: os.path.getmtime(google_dir + '\\' + x))
             google_files.reverse()
