@@ -1,5 +1,5 @@
 from basic_gui import *
-from PyQt5.QtWidgets import (QRadioButton, QGroupBox, QCheckBox)
+from PyQt5.QtWidgets import (QRadioButton, QGroupBox, QCheckBox, QHBoxLayout, QTreeWidgetItemIterator)
 from PyQt5.QtGui import QIcon
 import wordsearch_generater
 
@@ -20,7 +20,8 @@ class Settings(QWidget):
         self.c = c
         self.puzzle_width = 15
         self.puzzle_height = 15
-        self.diff = '가로세로'
+        self.shape = 0
+        self.direction = 1
         self.diff_val = 1
         self.option = '겹치지 않도록'
         self.option_val = 0
@@ -29,14 +30,17 @@ class Settings(QWidget):
     def init_UI(self):
         title_label = QLabel("1. 퍼즐 옵션을 선택하세요.")
 
+        # Group for size
         grp_size = QGroupBox("크기 조정")
         self.label_puzzle_width = QLabel('가로 길이: ')
         self.width_spin = QSpinBox()
+        self.width_spin.setMinimum(5)
         self.width_spin.setToolTip('마우스 스크롤 가능합니다.')
         self.width_spin.setValue(15)
 
         self.label_puzzle_height = QLabel('세로 길이: ')
         self.height_spin = QSpinBox()
+        self.height_spin.setMinimum(5)
         self.height_spin.setToolTip('마우스 스크롤 가능합니다.')
         self.height_spin.setValue(15)
         self.height_spin.valueChanged.connect(self.puzzle_height_change)
@@ -71,54 +75,41 @@ class Settings(QWidget):
 
         grp_size.setLayout(vbox_size)
 
-        self.label_explain = QLabel("난이도 : 글자 방향은 <font color='yellow'>가로세로</font>, 채워지는 글자는 되도록  <font color='yellow'>겹치지 않도록</font> 설정합니다.")
+        # Group for word shape
+        grp_shape = QGroupBox("단어 모양")
+        shape_1 = QRadioButton("가로세로")
+        shape_1.setToolTip("<p style='white-space:pre'>단어를 <font color='yellow'>가로세로로</font> 설정합니다.")
+        shape_1.setChecked(True)
+        shape_2 = QRadioButton("가로세로 + 대각선")
+        shape_2.setToolTip("<p style='white-space:pre'>단어를 <font color='yellow'>가로세로, 대각선으로</font> 설정합니다.")
 
-        grp_difficulty = QGroupBox("난이도")
-        diff_1 = QRadioButton("난이도 1")
-        diff_1.setToolTip("<p style='white-space:pre'>글자 방향은 <font color='yellow'>가로세로로</font> 설정합니다.")
-        diff_1.setChecked(True)
-        diff_2 = QRadioButton("난이도 2")
-        diff_2.setToolTip("<p style='white-space:pre'>글자 방향은 <font color='yellow'>가로세로, 가로세로 거꾸로</font> 설정합니다.")
-        diff_3 = QRadioButton("난이도 3")
-        diff_3.setToolTip("<p style='white-space:pre'>글자 방향은 <font color='yellow'>가로세로 그리고 대각선으로</font> 설정합니다.")
-        diff_4 = QRadioButton("난이도 4")
-        diff_4.setToolTip("<p style='white-space:pre'>글자 방향은 <font color='yellow'>가로세로, 가로세로 거꾸로 그리고 대각선으로</font> 설정합니다.")
-        diff_5 = QRadioButton("난이도 5")
-        diff_5.setToolTip("<p style='white-space:pre'>글자 방향은 <font color='yellow'>가로세로, 가로세로 거꾸로 그리고 대각선, 대각선 거꾸로</font> 설정합니다.")
-        diff_1.clicked.connect(lambda: self.diff_checked(diff_1))
-        diff_2.clicked.connect(lambda: self.diff_checked(diff_2))
-        diff_3.clicked.connect(lambda: self.diff_checked(diff_3))
-        diff_4.clicked.connect(lambda: self.diff_checked(diff_4))
-        diff_5.clicked.connect(lambda: self.diff_checked(diff_5))
-        placeholder = QLabel('')
-        # layout difficulty
-        grp_difficulty_layout = QVBoxLayout()
-        """
-        hbox_diff = QHBoxLayout()
-        
-        vbox_diff123 = QVBoxLayout()
-        vbox_diff45 = QVBoxLayout()
-        vbox_diff123.addWidget(diff_1)
-        vbox_diff123.addWidget(diff_2)
-        vbox_diff123.addWidget(diff_3)
-        vbox_diff45.addWidget(diff_4)
-        vbox_diff45.addWidget(diff_5)
-        vbox_diff45.addWidget(placeholder)
-        hbox_diff.addLayout(vbox_diff123)
+        shape_1.clicked.connect(lambda: self.diff_checked(shape_1))
+        shape_2.clicked.connect(lambda: self.diff_checked(shape_2))
 
-        hbox_diff.addLayout((vbox_diff45))"""
-        hbox_diff = QHBoxLayout()
-        hbox_diff.addWidget(diff_1)
-        hbox_diff.addWidget(diff_2)
-        hbox_diff.addWidget(diff_3)
-        hbox_diff.addWidget(diff_4)
-        hbox_diff.addWidget(diff_5)
-        grp_difficulty_layout.addLayout(hbox_diff)
-        self.line_explain = QLineEdit("글자 방향은 가로세로로 설정합니다.")
-        self.line_explain.setReadOnly(True)
-        self.line_explain.setAlignment(Qt.AlignHCenter)
-        grp_difficulty_layout.addWidget(self.line_explain)
-        grp_difficulty.setLayout(grp_difficulty_layout)
+        # layout shape
+        grp_shape_layout = QVBoxLayout()
+        grp_shape_layout.addWidget(shape_1)
+        grp_shape_layout.addWidget(shape_2)
+
+        grp_shape.setLayout(grp_shape_layout)
+
+        # Group for word direction
+        grp_direction = QGroupBox("단어 방향")
+        direction_1 = QRadioButton("정방향")
+        direction_1.setToolTip("<p style='white-space:pre'>글자 방향은 <font color='yellow'>정방향으로</font> 설정합니다.")
+        direction_2 = QRadioButton("정방향 + 역방향")
+        direction_2.setToolTip(
+            "<p style='white-space:pre'>글자 방향은 <font color='yellow'>역방향으로</font> 설정합니다.")
+        direction_1.clicked.connect(lambda: self.diff_checked(direction_1))
+        direction_2.clicked.connect(lambda: self.diff_checked(direction_2))
+
+        # layout direction
+        grp_direction_layout = QVBoxLayout()
+        grp_direction_layout.addWidget(direction_1)
+        grp_direction_layout.addWidget(direction_2)
+
+        grp_direction.setLayout(grp_direction_layout)
+
 
         grp_option = QGroupBox("옵션")
         option_1 = QRadioButton("글자 겹치지 않게")
@@ -144,11 +135,9 @@ class Settings(QWidget):
 
         hbox_setting = QHBoxLayout()
         hbox_setting.addWidget(grp_size)
-        hbox_setting.addWidget(grp_difficulty)
+        hbox_setting.addWidget(grp_shape)
+        hbox_setting.addWidget(grp_direction)
         hbox_setting.addWidget(grp_option)
-        hbox_setting.setStretch(0, 1)
-        hbox_setting.setStretch(1, 3)
-        hbox_setting.setStretch(3, 1)
 
         vbox_display.addWidget(title_label)
         vbox_display.addLayout(hbox_setting)
@@ -166,22 +155,17 @@ class Settings(QWidget):
 
     def diff_checked(self, diff):
         text = diff.text()
-        if text == '난이도 1':
-            self.diff = "가로세로로"
-            self.diff_val = 1
-        elif text == '난이도 2':
-            self.diff = "가로세로, 가로세로 거꾸로"
-            self.diff_val = 2
-        elif text == '난이도 3':
-            self.diff = "가로세로, 대각선으로"
-            self.diff_val = 3
-        elif text == '난이도 4':
-            self.diff = "가로세로, 가로세로 거꾸로, 대각선으로"
-            self.diff_val = 4
-        elif text == '난이도 5':
-            self.diff = "가로세로, 가로세로 거꾸로, 대각선, 대각선 거꾸로"
-            self.diff_val = 5
-        self.set_line_explain()
+        if text == '가로세로':
+            self.shape = 0
+        elif text == '가로세로 + 대각선':
+            self.shape = 2
+        elif text == '정방향':
+            self.direction = 1
+        elif text == '정방향 + 역방향':
+            self.direction = 2
+
+        self.diff_val = self.shape + self.direction
+        self.c.puzzle_setting.emit([self.puzzle_width, self.puzzle_height, self.diff_val, self.option_val])
 
     def option_checked(self, option):
         text = option.text()
@@ -191,9 +175,7 @@ class Settings(QWidget):
             self.option_val = 1
         elif text == '글자 겹치게':
             self.option_val = 2
-    def set_line_explain(self):
-        self.line_explain.setText("방향을 {} 설정합니다.".format(self.diff))
-        # self.line_explain.resize(self.line_explain.sizeHint())
+
         self.c.puzzle_setting.emit([self.puzzle_width, self.puzzle_height, self.diff_val, self.option_val])
 
 class EnterWords(EnterWords):
@@ -233,16 +215,13 @@ class DownloadImage(DownloadImage):
         self.chosung_checkBox.close()
         self.chosung_checkBox.stateChanged.connect(self.chosung_on)
 
-        self.make_puzzle_bt = QPushButton("Word Search 퍼즐 만들기")
+        self.make_puzzle_bt = QPushButton("Word Search\n퍼즐 만들기")
         self.make_puzzle_bt.clicked.connect(self.make_puzzle)
         self.make_puzzle_bt.setToolTip("단축키 : Ctrl + D")
         self.make_puzzle_bt.setShortcut('Ctrl+D')
 
-        hbox_puzzle_bt = QHBoxLayout()
-        hbox_puzzle_bt.addStretch(1)
-        hbox_puzzle_bt.addWidget(self.chosung_checkBox)
-        hbox_puzzle_bt.addWidget(self.make_puzzle_bt)
-        self.grid.addLayout(hbox_puzzle_bt, 3, 0, 1, 2)
+        self.vbox.addWidget(self.chosung_checkBox)
+        self.vbox.addWidget(self.make_puzzle_bt)
 
     # define puzzle settings
     def puzzle_setting(self, puzzle_setting):
@@ -252,10 +231,10 @@ class DownloadImage(DownloadImage):
         self.korean = bool
         if bool == True:
             self.chosung_checkBox.show()
-            self.make_puzzle_bt.setText('낱말 찾기 퍼즐 만들기')
+            self.make_puzzle_bt.setText('낱말 퍼즐 만들기')
         else:
             self.chosung_checkBox.close()
-            self.make_puzzle_bt.setText('Word Search 퍼즐 만들기')
+            self.make_puzzle_bt.setText('Word Search\n퍼즐 만들기')
         self.make_puzzle_bt.setToolTip("단축키 : Ctrl + D")
         self.make_puzzle_bt.setShortcut('Ctrl+D')
 

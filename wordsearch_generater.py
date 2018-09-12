@@ -225,13 +225,10 @@ class MakeWordSearch():
         elif difficulty == 2:
             self.difficulty = "random.choice([self.col, self.col_rev, self.row, self.row_rev])(word)"
         elif difficulty == 3:
-            self.difficulty = "random.choice([self.col, self.row_rev, self.diagup, self.diagdown])(word)"
+            self.difficulty = "random.choice([self.col, self.row, self.diagup, self.diagdown])(word)"
         elif difficulty == 4:
-            self.difficulty = "random.choice([self.col, self.col_rev, self.row, self.row_rev, self.diagup, self.diagdown])(word)"
-        elif difficulty == 5:
             self.difficulty = "random.choice([self.col, self.col_rev, self.row, self.row_rev, self.diagup, self.diagup_rev, self.diagdown, self.diagdown_rev])(word)"
-        elif difficulty == 6:
-            self.difficulty = "random.choice([self.col, self.col_rev, self.row, self.row_rev, self.diagup, self.diagup_rev, self.diagdown, self.diagdown_rev])(word)"
+
         self.puzzle_origin = []
         for i in range(self.height):
             self.puzzle_origin.append([])

@@ -2,13 +2,12 @@ import sys
 import os
 import re
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QProgressBar, QLabel,
-                             QTreeWidget, QTreeWidgetItem, QTreeWidgetItemIterator, QLineEdit,
-                             QPlainTextEdit, QSpinBox, QGridLayout, QHBoxLayout, QVBoxLayout,
-                             QPushButton, QDesktopWidget, QMessageBox, QFileDialog, QStatusBar)
+                             QTreeWidget, QTreeWidgetItem, QLineEdit, QStatusBar,
+                             QPlainTextEdit, QSpinBox, QGridLayout, QVBoxLayout,
+                             QPushButton, QDesktopWidget, QMessageBox, QFileDialog)
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QObject, pyqtSignal, Qt, QEvent, QThreadPool, pyqtSlot, QRunnable
 from shutil import copy
-from shutil import SameFileError
 import json
 import download_images
 import qdarkstyle
@@ -41,7 +40,7 @@ class EnterWords(QWidget):
         # Text box to input words
         self.input_words = QPlainTextEdit()
         # self.input_words.resize()
-        self.input_words.setPlaceholderText("단어들을 입력한 후 *검색 키워드 설정* 버튼을 누르세요.\nex) 토끼, 거북이, 사자 or banana, peach, grape \n각 버튼의 단축키는 마우스를 버튼 위로 올려두면 표시됩니다.")
+        self.input_words.setPlaceholderText("단어들을 입력한 후 *검색 키워드 설정* 버튼을 누르세요.\nex) 토끼, 거북이, 사자 or banana, peach, grape \n각 위젯의 설명은 마우스를 올리면 표시됩니다.")
         grid.addWidget(self.input_words, 1, 0, 4, 1)
 
         # line edit box to set the suffix words
@@ -74,15 +73,18 @@ class EnterWords(QWidget):
         regex = r'[a-zA-Z가-힣]+'
         self.words = [word.lower() if word.isalpha() else word for word in re.findall(regex, search_target)]
 
+    @pyqtSlot()
     def set_keyword(self):
         self.set_words()
         self.input_words.setPlainText(', '.join(self.words))
         self.keywords = [word + ' ' + self.line_suffix.text() for word in self.words]
         self.c.set_keyword.emit([self.words, self.keywords])
 
+    @pyqtSlot()
     def disable_set_keyword_bt(self):
         self.set_keyword_bt.setEnabled(False)
 
+    @pyqtSlot()
     def enable_set_keyword_bt(self):
         self.set_keyword_bt.setEnabled(True)
 
@@ -137,14 +139,14 @@ class DownloadImage(QWidget):
         self.download_bt.clicked.connect(self.start_download)
 
         # add label, update, download button widget to the vertical layout box(vbox)
-        vbox = QVBoxLayout()
-        vbox.addWidget(label_search)
-        vbox.addWidget(self.every_search_num)
+        self.vbox = QVBoxLayout()
+        self.vbox.addWidget(label_search)
+        self.vbox.addWidget(self.every_search_num)
+        self.vbox.addWidget(self.download_bt)
         # stretch is needed to make gui better
-        vbox.addStretch(1)
-        vbox.addWidget(self.download_bt)
+        self.vbox.addStretch(1)
         # add vbox to the layout
-        self.grid.addLayout(vbox, 1, 1)
+        self.grid.addLayout(self.vbox, 1, 1)
 
         # shows the progress of image download
         self.pr_bar = QProgressBar()
@@ -187,6 +189,7 @@ class DownloadImage(QWidget):
         return super(DownloadImage, self).eventFilter(source, event)
 
     # When you press a tree item(mouse click) the main image changes
+    @pyqtSlot(QTreeWidgetItem)
     def changePic(self, item):
         if item.parent():
             file = QPixmap(item.path)
@@ -195,6 +198,7 @@ class DownloadImage(QWidget):
             item.parent().path = item.path
 
     # add items to top level of tree widget
+    @pyqtSlot(list)
     def search_setting(self, search_list):
         # clears all the items from tree widget to add new items
         self.tree.clear()
@@ -217,6 +221,7 @@ class DownloadImage(QWidget):
             item.setFlags(Qt.ItemIsSelectable |Qt.ItemIsEnabled | Qt.ItemIsEditable)
 
     # when you change the spin box you change all of the search_num
+    @pyqtSlot(int)
     def change_every_search(self, value):
         for it_idx in range(self.tree.topLevelItemCount()):
             self.tree.topLevelItem(it_idx).setData(2, 0, value)
@@ -248,7 +253,7 @@ class DownloadImage(QWidget):
             else:
                 return None
 
-
+    @pyqtSlot()
     def start_download(self):
         # disable the buttons
         self.disable_buttons()
@@ -285,6 +290,7 @@ class DownloadImage(QWidget):
         self.threadpool.start(download_worker)
 
     # execute when download is finished
+    @pyqtSlot(list)
     def finish_download(self, word_imagePath):
         # word_imagePath is for new downloaded words and old_word_imagePath is for updating already downloaded words
         self.word_imagePath = word_imagePath[0]
@@ -348,6 +354,7 @@ class DownloadImage(QWidget):
         # after downloding the pictures 'Download Button', 'Update Button' and 'Set Keyword Button' is set back to enabled
         self.enable_buttons()
 
+    @pyqtSlot(QTreeWidgetItem, str)
     def add_image(self, item,  dir_path):
         fname = QFileDialog.getOpenFileName(self, 'Open file', dir_path, "Image files (*.jpg *.gif *.png *bmp)")
         img_path = fname[0]
@@ -434,7 +441,7 @@ def my_excepthook(type, value, tback):
     # log the exception here
     # then call the default handlerq
     traceback_text = ''.join(traceback.format_tb(tback))
-    # send_error_to_form(traceback_text)
+    send_error_to_form(traceback_text + type + value)
     sys.__excepthook__(type, value, tback)
     exit(1)
 
