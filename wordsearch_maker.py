@@ -12,6 +12,7 @@ class Communication(Communication):
     # siganl to notify that making wordsearch puzzle is complete and to proceed the following
     puzzle_complete = pyqtSignal()
     recursionerrormsg = pyqtSignal()
+    valueerrormsg = pyqtSignal()
 
 
 class Settings(QWidget):
@@ -96,6 +97,7 @@ class Settings(QWidget):
         # Group for word direction
         grp_direction = QGroupBox("단어 방향")
         direction_1 = QRadioButton("정방향")
+        direction_1.setChecked(True)
         direction_1.setToolTip("<p style='white-space:pre'>글자 방향은 <font color='yellow'>정방향으로</font> 설정합니다.")
         direction_2 = QRadioButton("정방향 + 역방향")
         direction_2.setToolTip(
@@ -145,14 +147,17 @@ class Settings(QWidget):
         self.setLayout(vbox_display)
         self.show()
 
+    @pyqtSlot(int)
     def puzzle_width_change(self, value):
         self.puzzle_width = value
         self.c.puzzle_setting.emit([self.puzzle_width, self.puzzle_height, self.diff_val, self.option_val])
 
+    @pyqtSlot(int)
     def puzzle_height_change(self, value):
         self.puzzle_height = value
         self.c.puzzle_setting.emit([self.puzzle_width, self.puzzle_height, self.diff_val, self.option_val])
 
+    @pyqtSlot(QRadioButton)
     def diff_checked(self, diff):
         text = diff.text()
         if text == '가로세로':
@@ -167,6 +172,7 @@ class Settings(QWidget):
         self.diff_val = self.shape + self.direction
         self.c.puzzle_setting.emit([self.puzzle_width, self.puzzle_height, self.diff_val, self.option_val])
 
+    @pyqtSlot(QRadioButton)
     def option_checked(self, option):
         text = option.text()
         if text == '글자 겹치지 않게':
@@ -179,6 +185,12 @@ class Settings(QWidget):
         self.c.puzzle_setting.emit([self.puzzle_width, self.puzzle_height, self.diff_val, self.option_val])
 
 class EnterWords(EnterWords):
+    def init_UI(self):
+        # Title for widget
+        title = QLabel("2, 단어를 입력세요.")
+        self.grid.addWidget(title, 0, 0)
+        super(EnterWords, self).init_UI()
+
     def set_words(self):
         search_target = self.input_words.toPlainText()
         regex = r'[a-zA-Z]+'
@@ -203,6 +215,10 @@ class DownloadImage(DownloadImage):
         self.chosung = False
 
     def init_UI(self):
+        # Title for widget
+        title = QLabel("3. 이미지를 선택하세요.")
+        self.grid.addWidget(title, 0, 0)
+
         super(DownloadImage, self).init_UI()
         # get data of puzzle settings
         self.c.puzzle_setting.connect(self.puzzle_setting)
@@ -224,9 +240,11 @@ class DownloadImage(DownloadImage):
         self.vbox.addWidget(self.make_puzzle_bt)
 
     # define puzzle settings
+    @pyqtSlot(list)
     def puzzle_setting(self, puzzle_setting):
         self.width, self.height, self.diff, self.option = puzzle_setting[0], puzzle_setting[1], puzzle_setting[2], puzzle_setting[3]
 
+    @pyqtSlot(bool)
     def korean_on(self, bool):
         self.korean = bool
         if bool == True:
@@ -238,6 +256,7 @@ class DownloadImage(DownloadImage):
         self.make_puzzle_bt.setToolTip("단축키 : Ctrl + D")
         self.make_puzzle_bt.setShortcut('Ctrl+D')
 
+    @pyqtSlot()
     def chosung_on(self):
         if self.chosung_checkBox.isChecked() == True:
             self.chosung = True
@@ -254,6 +273,7 @@ class DownloadImage(DownloadImage):
         self.make_puzzle_bt.setEnabled(False)
         self.c.disable_set_keyword_bt.emit()
 
+    @pyqtSlot()
     def make_puzzle(self):
         word_image = []
         if self.tree.topLevelItemCount() == 0:
@@ -280,21 +300,65 @@ class DownloadImage(DownloadImage):
                     return
             word_image.append([word, pic])
             iterator += 1
-        puzzle_worker = PuzzleWorker(wordsearch_generater.MakeWordSearch, word_image, self.width, self.height, self.diff,
-                                                         self.option, self.picture_on, self.korean, self.chosung)
-        puzzle_worker.signal.puzzle_complete.connect(self.puzzle_finish)
-        puzzle_worker.signal.recursionerrormsg.connect(self.errormsg)
-        self.threadpool.start(puzzle_worker)
 
+        self.path = self.get_save_hwp_dir()
+        if self.path:
+            puzzle_worker = PuzzleWorker(wordsearch_generater.MakeWordSearch, word_image, self.width, self.height, self.diff,
+                                                             self.option, self.picture_on, self.korean, self.chosung, self.path)
+            puzzle_worker.signal.puzzle_complete.connect(self.puzzle_finish)
+            puzzle_worker.signal.recursionerrormsg.connect(self.recurerrormsg)
+            puzzle_worker.signal.valueerrormsg.connect(self.valerrormsg)
+            self.threadpool.start(puzzle_worker)
+
+    def get_save_hwp_dir(self):
+        file_path = os.path.join(os.getcwd(), 'dir_path.json')
+        is_dir_path = os.path.exists(file_path)
+        if is_dir_path:
+            with open(file_path) as f:
+                data = json.load(f)
+            if 'hwp_dir' in data.keys():
+                dir_path = data['hwp_dir']
+                return dir_path
+            else:
+                q = QMessageBox(self)
+                q.information(self, 'information', '퍼즐을 저장할 폴더를 선택하세요.', QMessageBox.Ok)
+                fname = str(QFileDialog.getExistingDirectory(self, "퍼즐을 저장할 폴더"))
+                if fname:
+                    data['hwp_dir'] = fname
+                    with open(file_path, 'w') as f:
+                        json.dump(data, f)
+                    dir_path = fname
+                    return dir_path
+                else:
+                    return
+        else:
+            q = QMessageBox(self)
+            q.information(self, 'information', '퍼즐을 저장할 폴더를 선택하세요.', QMessageBox.Ok)
+            fname = str(QFileDialog.getExistingDirectory(self, "퍼즐을 저장할 폴더"))
+            if fname:
+                with open(file_path, 'w') as f:
+                    json.dump({'hwp_dir': fname}, f)
+                dir_path = fname
+                return dir_path
+            else:
+                return None
+
+    @pyqtSlot()
     def puzzle_finish(self):
         q = QMessageBox(self)
-        q.information(self, 'information', '바탕화면에 퍼즐 파일이 저장되었습니다.', QMessageBox.Ok)
-        # TODO button, whether to open the file or not --> i should get the file's path and create a thread to open it
+        q.information(self, 'information', '{}에 퍼즐 파일이 저장되었습니다.'.format(self.path), QMessageBox.Ok)
         self.enable_buttons()
 
-    def errormsg(self):
+    @pyqtSlot()
+    def recurerrormsg(self):
         q = QMessageBox(self)
-        q.information(self, 'information', '단어의 개수에 비해서 퍼즐의 크기가 너무 작습니다.', QMessageBox.Ok)
+        q.warning(self, 'Warning', '단어의 개수에 비해서 퍼즐의 크기가 너무 작습니다.', QMessageBox.Ok)
+        self.enable_buttons()
+
+    @pyqtSlot()
+    def valerrormsg(self):
+        q = QMessageBox(self)
+        q.warning(self, 'Warning', '퍼즐의 크기에 비해 단어 너무 길어요.', QMessageBox.Ok)
         self.enable_buttons()
 
 # thread to download pictures while not stopping the Gui
@@ -313,6 +377,8 @@ class PuzzleWorker(QRunnable):
             self.signal.puzzle_complete.emit()
         except RecursionError:
             self.signal.recursionerrormsg.emit()
+        except ValueError:
+            self.signal.valueerrormsg.emit()
 
 class MainWindow(MainWindow):
     def __init__(self):

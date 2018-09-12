@@ -18,12 +18,8 @@ from pathlib import Path
 
 
 class MakeWordSearch():
-    def __init__(self, word_image, width, height, diff, option, pic_on, korean, chosung):
-        try:
-            self.desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'desktop')
-            os.listdir(self.desktop)
-        except FileNotFoundError:
-            self.desktop = '.'
+    def __init__(self, word_image, width, height, diff, option, pic_on, korean, chosung, path):
+        self.desktop = path
         self.word_image = word_image
         self.width = width
         self.height = height

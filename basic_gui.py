@@ -3,7 +3,7 @@ import os
 import re
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QProgressBar, QLabel,
                              QTreeWidget, QTreeWidgetItem, QLineEdit, QStatusBar,
-                             QPlainTextEdit, QSpinBox, QGridLayout, QVBoxLayout,
+                             QPlainTextEdit, QSpinBox, QGridLayout, QVBoxLayout, QAction,
                              QPushButton, QDesktopWidget, QMessageBox, QFileDialog)
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QObject, pyqtSignal, Qt, QEvent, QThreadPool, pyqtSlot, QRunnable
@@ -28,27 +28,23 @@ class EnterWords(QWidget):
         self.words = []
         self.keywords = []
         self.c = c
+        # basic layout for EnterWords widget
+        self.grid = QGridLayout()
         self.init_UI()
 
     def init_UI(self):
-        grid = QGridLayout()
-
-        # Title for widget
-        title = QLabel("2, 단어를 입력세요.")
-        grid.addWidget(title, 0, 0)
-
         # Text box to input words
         self.input_words = QPlainTextEdit()
         # self.input_words.resize()
         self.input_words.setPlaceholderText("단어들을 입력한 후 *검색 키워드 설정* 버튼을 누르세요.\nex) 토끼, 거북이, 사자 or banana, peach, grape \n각 위젯의 설명은 마우스를 올리면 표시됩니다.")
-        grid.addWidget(self.input_words, 1, 0, 4, 1)
+        self.grid.addWidget(self.input_words, 1, 0, 4, 1)
 
         # line edit box to set the suffix words
         self.line_suffix = QLineEdit()
         self.line_suffix.setPlaceholderText('예시: png')
         self.line_suffix.resize(self.line_suffix.sizeHint())
         # add line edit widget to layout
-        grid.addWidget(self.line_suffix, 3, 1)
+        self.grid.addWidget(self.line_suffix, 3, 1)
 
         # make button
         self.set_keyword_bt = QPushButton('검색 키워드 설정')
@@ -60,12 +56,12 @@ class EnterWords(QWidget):
         self.c.disable_set_keyword_bt.connect(self.disable_set_keyword_bt)
         self.c.enable_set_keyword_bt.connect(self.enable_set_keyword_bt)
         # add button widget to layout
-        grid.addWidget(self.set_keyword_bt, 4, 1)
+        self.grid.addWidget(self.set_keyword_bt, 4, 1)
 
         # adjust the size of the column layout
-        grid.setColumnStretch(0, 13)
-        grid.setColumnStretch(1, 2)
-        self.setLayout(grid)
+        self.grid.setColumnStretch(0, 13)
+        self.grid.setColumnStretch(1, 2)
+        self.setLayout(self.grid)
         self.show()
 
     def set_words(self):
@@ -94,6 +90,8 @@ class DownloadImage(QWidget):
     def __init__(self, c):
         super().__init__()
         self.c = c
+        # basic layout for download widget
+        self.grid = QGridLayout()
         self.init_UI()
         self.threadpool = QThreadPool()
         # variables to add to tree widget
@@ -105,15 +103,10 @@ class DownloadImage(QWidget):
         # size of the images
         self.scale_num = MainWindow.y//10
 
+
     def init_UI(self):
         # get the data from Enterwords
         self.c.set_keyword.connect(self.search_setting)
-        # basic layout for download widget
-        self.grid = QGridLayout()
-
-        # Title for widget
-        title = QLabel("3. 이미지를 선택하세요.")
-        self.grid.addWidget(title, 0, 0)
 
         # tree widget to show word, keyword, search_num and downloaded images
         self.tree = QTreeWidget()
@@ -235,18 +228,32 @@ class DownloadImage(QWidget):
         self.c.disable_set_keyword_bt.emit()
 
     def get_save_dir(self):
-        is_dir_path = os.path.exists('dir_path.json')
+        save_path = os.path.join(os.getcwd(), 'dir_path.json')
+        is_dir_path = os.path.exists(save_path)
         if is_dir_path:
-            with open('dir_path.json') as f:
+            with open(save_path) as f:
                 data = json.load(f)
-            dir_path = data['default_dir']
-            return dir_path
+            if 'default_dir' in data.keys():
+                dir_path = data['default_dir']
+                return dir_path
+            else:
+                q = QMessageBox(self)
+                q.information(self, 'information', '다운로드 받은 이미지를 저장할 폴더를 선택하세요.', QMessageBox.Ok)
+                fname = str(QFileDialog.getExistingDirectory(self, "이미지를 저장할 폴더"))
+                if fname:
+                    data['default_dir'] = fname
+                    with open(save_path, 'w') as f:
+                        json.dump(data, f)
+                    dir_path = fname
+                    return dir_path
+                else:
+                    return None
         else:
             q = QMessageBox(self)
             q.information(self, 'information', '다운로드 받은 이미지를 저장할 폴더를 선택하세요.', QMessageBox.Ok)
             fname = str(QFileDialog.getExistingDirectory(self, "이미지를 저장할 폴더"))
             if fname:
-                with open('dir_path.json', 'w') as f:
+                with open(save_path, 'w') as f:
                     json.dump({'default_dir' : fname}, f)
                 dir_path = fname
                 return dir_path
@@ -391,20 +398,29 @@ class DownloadWorker(QRunnable):
         result = self.fn(*self.args, **self.kwargs).download()
         self.signal.download_complete.emit(result)
 
+# class OpenSaveWords(QObject):
+#     Save = pyqtSignal()
+#     Open = pyqtSignal()
+
 class MainWindow(QMainWindow):
     x, y = 0, 0
     def __init__(self):
         super().__init__()
         # catch Exception
         sys.excepthook = my_excepthook
+        # self.s = OpenSaveWords()
         self.init_UI()
 
     def init_UI(self):
         # Moves the mainwidget to the center
         self.center()
 
-        self.setCentralWidget(QWidget(self))
+        # # Set copyright
+        # status = QStatusBar()
+        # status.showMessage("Copyright 2018 라회택")
+        # self.setStatusBar(status)
 
+        self.setCentralWidget(QWidget(self))
         self.vbox = QVBoxLayout()
         """
         # signal to communicate between widgets
@@ -416,12 +432,26 @@ class MainWindow(QMainWindow):
         # Your customized widget needed
         self.centralWidget().setLayout(self.vbox)
 
+        # Set menu
+        mainMenu = self.menuBar()
+        fileMenu = mainMenu.addMenu('File')
+
+        # TODO opening txt file and saving it
+        # open_Button = QAction('불러오기', self)
+        # open_Button.triggered.connect(self.open)
+        # fileMenu.addAction(open_Button)
+
+        reset_path_Button = QAction('저장 경로 초기화하기', self)
+        reset_path_Button.triggered.connect(self.reset_path)
+        fileMenu.addAction(reset_path_Button)
+
+        exit_Button = QAction('나가기', self)
+        exit_Button.setShortcut('Ctrl+Q')
+        exit_Button.triggered.connect(self.close)
+        fileMenu.addAction(exit_Button)
+
         # Set the title
         self.setWindowTitle('Example generator')
-        # Set copyright
-        status = QStatusBar()
-        status.showMessage("Copyright 2018 라회택")
-        self.setStatusBar(status)
         self.show()
 
     def center(self):
@@ -435,13 +465,20 @@ class MainWindow(QMainWindow):
         # Set the window size according to the size of screen
         self.resize(MainWindow.x/8*4, MainWindow.y//5*4)
 
+    def reset_path(self):
+        if os.path.exists('dir_path.json'):
+            os.unlink('dir_path.json')
+
+    def open(self):
+        self.s.Open.emit()
+
 import traceback
 # Catch Exception
 def my_excepthook(type, value, tback):
     # log the exception here
     # then call the default handlerq
     traceback_text = ''.join(traceback.format_tb(tback))
-    send_error_to_form(traceback_text + type + value)
+    send_error_to_form(traceback_text + str(type) + str(value))
     sys.__excepthook__(type, value, tback)
     exit(1)
 
