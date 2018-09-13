@@ -286,6 +286,12 @@ class DownloadImage(DownloadImage):
             iterator = QTreeWidgetItemIterator(self.tree, QTreeWidgetItemIterator.HasChildren)
         else:
             iterator = QTreeWidgetItemIterator(self.tree, QTreeWidgetItemIterator.All)
+            if iterator.value() == None:
+                self.c.press_set_keyword_bt.emit()
+                q = QMessageBox(self)
+                q.information(self, 'information', '검색어 키워드가 존재하지 않아요. 그래서 검색어 키워드 버튼을 대신 눌렀습니다~.', QMessageBox.Ok)
+                self.makePpt_bt.setEnabled(True)
+                return
         while iterator.value():
             item = iterator.value()
             word = item.data(0, 0)
@@ -358,7 +364,7 @@ class DownloadImage(DownloadImage):
     @pyqtSlot()
     def valerrormsg(self):
         q = QMessageBox(self)
-        q.warning(self, 'Warning', '퍼즐의 크기에 비해 단어 너무 길어요.', QMessageBox.Ok)
+        q.warning(self, 'Warning', '퍼즐의 크기에 비해 단어가 너무 길어요.', QMessageBox.Ok)
         self.enable_buttons()
 
 # thread to download pictures while not stopping the Gui

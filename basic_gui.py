@@ -36,7 +36,7 @@ class EnterWords(QWidget):
         # Text box to input words
         self.input_words = QPlainTextEdit()
         # self.input_words.resize()
-        self.input_words.setPlaceholderText("단어들을 입력한 후 *검색 키워드 설정* 버튼을 누르세요.\nex) 토끼, 거북이, 사자 or banana, peach, grape \n각 위젯의 설명은 마우스를 올리면 표시됩니다.")
+        self.input_words.setPlaceholderText("단어들을 3가지 이상 입력한 후 *검색 키워드 설정* 버튼을 누르세요.\nex) 토끼, 거북이, 사자 or banana, peach, grape \n설명을 보고 싶으면 버튼, 라디오 버튼 등 위에 마우스를 올리세요.")
         self.grid.addWidget(self.input_words, 1, 0, 4, 1)
 
         # line edit box to set the suffix words
@@ -478,7 +478,7 @@ def my_excepthook(type, value, tback):
     # log the exception here
     # then call the default handlerq
     traceback_text = ''.join(traceback.format_tb(tback))
-    send_error_to_form(traceback_text + str(type) + str(value))
+    # send_error_to_form(traceback_text + str(type) + str(value))
     sys.__excepthook__(type, value, tback)
     exit(1)
 
