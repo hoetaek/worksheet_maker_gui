@@ -123,14 +123,10 @@ class PptCardMaker():
 
         file_path = os.path.join(self.desktop, 'dobble_{}cards_picture.pptx'.format(self.num))
         prs.save(file_path)
-        # open_ppt = threading.Thread(target=self.thread_system_dobbleppt, args=(file_path, ))
-        # open_ppt.start()
         return [file_path]
 
     def make_card_with_word(self):
         prs = Presentation('template_for_{}cards.pptx'.format(self.num))
-        # prs.slide_width = 11887200
-        # prs.slide_height = 6686550
         for i in range((len(self.pics)-1)//self.num+1):
             card_layout = prs.slide_layouts[randint(3, 5)]
             slide = prs.slides.add_slide(card_layout)
@@ -139,16 +135,13 @@ class PptCardMaker():
                 text_frame = shape.text_frame
                 text_frame.text = self.words[self.num * i + j]
                 text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
-                # text_frame.fit_text(max_size=69)
         file_path = os.path.join(self.desktop, 'dobble_{}cards_word.pptx'.format(self.num))
         prs.save(file_path)
-        # open_ppt = threading.Thread(target=self.thread_system_dobbleppt, args=(file_path,))
-        # open_ppt.start()
         return [file_path]
 
 
 
-class convert_ppt_to_png():
+class ConvertPptToPng():
     def __init__(self, input_file):
         self.input_file = input_file
     def init_powerpoint(self):
@@ -165,9 +158,11 @@ class convert_ppt_to_png():
         powerpoint = self.init_powerpoint()
         self.ppt_to_png(powerpoint, self.input_file, self.input_file)
         powerpoint.Quit()
-        # comtypes.CoUninitialize()
+        comtypes.CoUninitialize()
+
+
 import threading
 if __name__ == '__main__':
-    con = convert_ppt_to_png("C:\\Users\\hoetaekpro\\Desktop\\dobble_3cards_word.pptx")
+    con = ConvertPptToPng("C:\\Users\\hoetaekpro\\Desktop\\dobble_3cards_word.pptx")
     p = threading.Thread(target=con.convert)
     p.start()

@@ -27,7 +27,7 @@ class ConvertDoc2Pdf:
         word_doc = self.init_word()
         pdf = self.word_to_pdf(word_doc, self.input_file)
         word_doc.Quit()
-        # comtypes.CoUninitialize()
+        comtypes.CoUninitialize()
 
         self.pdf_to_png(pdf)
 

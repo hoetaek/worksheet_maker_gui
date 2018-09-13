@@ -123,6 +123,7 @@ class DownloadImage(QWidget):
         # label, button widget to set the number of search_num, update from the image folder and download the images depending on the tree widget
         label_search = QLabel('전체 검색 개수')
         self.every_search_num = QSpinBox()
+        self.every_search_num.setMinimum(1)
         self.every_search_num.setValue(3)
         self.every_search_num.valueChanged.connect(self.change_every_search)
 

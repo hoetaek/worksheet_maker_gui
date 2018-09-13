@@ -1,7 +1,7 @@
 from basic_gui import *
 from PyQt5.QtWidgets import QHBoxLayout, QTreeWidgetItemIterator
 from PyQt5.QtGui import QIcon
-from ppt_dobble_maker import *
+from ppt_dobble_generator import *
 
 class Communication(Communication):
     super(Communication)
@@ -172,6 +172,7 @@ class DownloadImage(DownloadImage):
             ppt_picture = ppt_card_maker.make_card_with_picture()
         ppt_word = ppt_card_maker.make_card_with_word()
         self.ppts = ppt_picture + ppt_word
+
 
         for ppt in self.ppts:
             convert_worker = ConvertWorker(ConvertPptToPng, ppt)
