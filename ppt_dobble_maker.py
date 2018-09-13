@@ -1,5 +1,4 @@
 import os
-import threading
 from pptx import Presentation
 from pptx.enum.text import MSO_AUTO_SIZE
 from random import randint
@@ -108,9 +107,6 @@ class PptCardMaker():
         self.pics = [pic[1] for pic in self.words_pics]
 
     def make_card_with_picture(self):
-        # try:
-        #     prs = Presentation(sys._MEIPASS + '\\emplate_for_{}cards.pptx')
-        # except AttributeError:
         prs = Presentation('template_for_{}cards.pptx'.format(self.num))
         # prs.slide_width = 11887200
         # prs.slide_height = 6686550
@@ -132,9 +128,6 @@ class PptCardMaker():
         return [file_path]
 
     def make_card_with_word(self):
-        # try:
-        #     prs = Presentation(sys._MEIPASS + '\\template_for_{}cards.pptx')
-        # except AttributeError:
         prs = Presentation('template_for_{}cards.pptx'.format(self.num))
         # prs.slide_width = 11887200
         # prs.slide_height = 6686550
