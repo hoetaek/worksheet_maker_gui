@@ -93,7 +93,6 @@ class GenerateDobbleIndex():
         cards_index = [pic for card in cards for pic in card]
         return cards_index
 
-# TODO Must make card template pptx for 3, 5, 6, 7, 8 pics for card
 class PptCardMaker():
     def __init__(self, words_pics, num):
         self.words_pics = words_pics
@@ -107,11 +106,11 @@ class PptCardMaker():
         self.pics = [pic[1] for pic in self.words_pics]
 
     def make_card_with_picture(self):
-        prs = Presentation('template_for_{}cards.pptx'.format(self.num))
+        prs = Presentation('template_for_dobble_cards.pptx')
         # prs.slide_width = 11887200
         # prs.slide_height = 6686550
         for i in range((len(self.pics)-1)//self.num+1):
-            card_layout = prs.slide_layouts[randint(0, 2)]
+            card_layout = prs.slide_layouts[self.num-3]
             slide = prs.slides.add_slide(card_layout)
 
             for j, shape in enumerate(slide.placeholders):
@@ -126,9 +125,9 @@ class PptCardMaker():
         return [file_path]
 
     def make_card_with_word(self):
-        prs = Presentation('template_for_{}cards.pptx'.format(self.num))
+        prs = Presentation('template_for_dobble_cards.pptx')
         for i in range((len(self.pics)-1)//self.num+1):
-            card_layout = prs.slide_layouts[randint(3, 5)]
+            card_layout = prs.slide_layouts[self.num-3]
             slide = prs.slides.add_slide(card_layout)
 
             for j, shape in enumerate(slide.placeholders):

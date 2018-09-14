@@ -171,6 +171,7 @@ class DownloadImage(DownloadImage):
         if self.picture_on:
             ppt_picture = ppt_card_maker.make_card_with_picture()
         ppt_word = ppt_card_maker.make_card_with_word()
+        # TODO apply word
         self.ppts = ppt_picture + ppt_word
 
 
