@@ -1,12 +1,13 @@
 import shelve
 import os
 from google_images_download import google_images_download
+from text2image import text2png
 import time
 import threading
 
 
 class download_image():
-    def __init__(self, words, keywords, search_num, pr_bar, dir_path):
+    def __init__(self, words, keywords, search_num, pr_bar, dir_path, text_image):
         self.desktop = dir_path
         self.input_words = words
         self.input_keywords = keywords
@@ -14,11 +15,14 @@ class download_image():
         self.images = dict()
         self.old_images = dict()
         self.pr_bar = pr_bar
+        self.text_image = text_image
 
 
     def thread_download_image(self, word, keyword, image_num):
         self.response.download({"keywords": keyword, 'limit': image_num, "output_directory": os.path.join(self.desktop, '구글이미지'),
                        'image_directory': word})
+        if self.text_image:
+            text2png(word, os.path.join(os.path.join(self.desktop, '구글이미지', word), word + '.png'))
         return
 
     def settings(self):
@@ -79,6 +83,8 @@ class download_image():
             google_files = os.listdir(google_dir)
             google_files.sort(key=lambda x: os.path.getmtime(google_dir + '\\' + x))
             google_files.reverse()
+            # Put the text image at the back of google_files list
+            google_files.insert(1, google_files.pop(0))
             if word in self.words:
                 self.images[word] = [os.path.join(google_dir, google_file) for google_file in google_files]
             else:

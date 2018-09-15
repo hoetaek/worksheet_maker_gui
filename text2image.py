@@ -26,7 +26,3 @@ def text2png(text, path):
     d.text(((img_x - x)//2, (img_y - y)//2), text, font=fnt, fill=(0, 0, 0))
 
     img.save(path)
-
-text = '와우'
-path = 'picture' + '.png'
-text2png(text, path)

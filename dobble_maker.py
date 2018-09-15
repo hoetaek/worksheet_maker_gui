@@ -18,10 +18,13 @@ class Settings(QWidget):
     def init_UI(self):
         grid = QGridLayout()
 
-        label_set_pic_num = QLabel('카드당 들어갈 사진 개수 :')
+        title = QLabel("1. 카드 한 장에 들어가는 사진의 개수를 정하세요.")
+        grid.addWidget(title)
+
+        label_set_pic_num = QLabel('사진 개수 :')
         self.pic_num = QSpinBox()
         self.pic_num.setMinimum(3)
-        self.pic_num.setMaximum(8)
+        self.pic_num.setMaximum(9)
         self.pic_num.setValue(3)
         self.pic_num.valueChanged.connect(self.change_word_num)
 
@@ -58,12 +61,15 @@ class EnterWords(EnterWords):
         hbox = QHBoxLayout()
         title = QLabel('2, 단어를 입력세요.')
         self.label_remaining = QLabel("필요한 단어 : {}개".format(7))
+        hbox_label_remaining = QHBoxLayout()
+        hbox_label_remaining.addWidget(self.label_remaining)
+        hbox_label_remaining.setAlignment(Qt.AlignRight)
 
         self.c.pic_num_changed.connect(self.set_word_num)
         self.input_words.textChanged.connect(self.get_remaining)
 
         hbox.addWidget(title)
-        hbox.addWidget(self.label_remaining)
+        hbox.addLayout(hbox_label_remaining)
         self.grid.addLayout(hbox, 0, 0)
 
     @pyqtSlot()
@@ -84,7 +90,7 @@ class EnterWords(EnterWords):
         else:
             self.c.set_keyword.emit([self.words, self.keywords])
 
-    @pyqtSlot()
+    @pyqtSlot(int)
     def set_word_num(self, pic_num):
         word_num = pic_num**2 - pic_num + 1
         self.pic_num = pic_num
@@ -101,12 +107,16 @@ class DownloadImage(DownloadImage):
         super(DownloadImage, self).__init__(c)
         self.pic_num = 3
         self.picture_on = False
+        self.text_image = True
 
     def init_UI(self):
         # Title for widget
         title = QLabel("3. 이미지를 선택하세요.")
         self.grid.addWidget(title, 0, 0)
         super(DownloadImage, self).init_UI()
+        # Download the images right away
+        self.c.set_keyword.connect(self.start_download)
+        self.c.pic_num_changed.connect(self.get_pic_num)
         self.makePpt_bt = QPushButton('도블 만들기')
         self.makePpt_bt.pressed.connect(self.start_makedobblePpt)
         self.makePpt_bt.setToolTip("단축키 : Ctrl + D")
@@ -122,6 +132,10 @@ class DownloadImage(DownloadImage):
         self.download_bt.setEnabled(False)
         self.makePpt_bt.setEnabled(False)
         self.c.disable_set_keyword_bt.emit()
+
+    @pyqtSlot(int)
+    def get_pic_num(self, pic_num):
+        self.pic_num = pic_num
 
     @pyqtSlot()
     def start_makedobblePpt(self):
@@ -165,24 +179,54 @@ class DownloadImage(DownloadImage):
 
         # list of word, image_path from word_image according to dobble_index
         card_list = [word_image[i] for i in dobble_index]
-        # put the images into the ppt
-        ppt_card_maker = PptCardMaker(card_list, self.pic_num)
-        ppt_picture = []
-        if self.picture_on:
-            ppt_picture = ppt_card_maker.make_card_with_picture()
-        ppt_word = ppt_card_maker.make_card_with_word()
-        # TODO apply word
-        self.ppts = ppt_picture + ppt_word
 
-
-        for ppt in self.ppts:
-            convert_worker = ConvertWorker(ConvertPptToPng, ppt)
+        self.path = self.get_save_dobble_dir()
+        if self.path:
+            # put the images into the ppt
+            ppt_card_maker = PptCardMaker(card_list, self.pic_num)
+            ppt_picture = ppt_card_maker.make_card_with_picture(self.path)
+            convert_worker = ConvertWorker(ConvertPptToPng, ppt_picture)
             convert_worker.signal.convert_complete.connect(self.finish_makedobblePpt)
             self.threadpool.start(convert_worker)
+        else:
+            self.enable_buttons()
+
+    def get_save_dobble_dir(self):
+        file_path = os.path.join(os.getcwd(), 'dir_path.json')
+        is_dir_path = os.path.exists(file_path)
+        if is_dir_path:
+            with open(file_path) as f:
+                data = json.load(f)
+            if 'dobble_dir' in data.keys():
+                dir_path = data['dobble_dir']
+                return dir_path
+            else:
+                q = QMessageBox(self)
+                q.information(self, 'information', '도블을 저장할 폴더를 선택하세요.', QMessageBox.Ok)
+                fname = str(QFileDialog.getExistingDirectory(self, "도블을 저장할 폴더"))
+                if fname:
+                    data['dobble_dir'] = fname
+                    with open(file_path, 'w') as f:
+                        json.dump(data, f)
+                    dir_path = fname
+                    return dir_path
+                else:
+                    return
+        else:
+            q = QMessageBox(self)
+            q.information(self, 'information', '도블을 저장할 폴더를 선택하세요.', QMessageBox.Ok)
+            fname = str(QFileDialog.getExistingDirectory(self, "도블을 저장할 폴더"))
+            if fname:
+                with open(file_path, 'w') as f:
+                    json.dump({'dobble_dir': fname}, f)
+                dir_path = fname
+                return dir_path
+            else:
+                return
 
     @pyqtSlot()
     def finish_makedobblePpt(self):
-        self.makePpt_bt.setEnabled(True)
+        self.enable_buttons()
 
 class ConvertWorker(QRunnable):
     def __init__(self, fn, *args, **kwargs):

@@ -102,6 +102,7 @@ class DownloadImage(QWidget):
         self.picture_on = False
         # size of the images
         self.scale_num = MainWindow.y//10
+        self.text_image = False
 
 
     def init_UI(self):
@@ -228,39 +229,6 @@ class DownloadImage(QWidget):
         self.download_bt.setEnabled(False)
         self.c.disable_set_keyword_bt.emit()
 
-    def get_save_dir(self):
-        save_path = os.path.join(os.getcwd(), 'dir_path.json')
-        is_dir_path = os.path.exists(save_path)
-        if is_dir_path:
-            with open(save_path) as f:
-                data = json.load(f)
-            if 'default_dir' in data.keys():
-                dir_path = data['default_dir']
-                return dir_path
-            else:
-                q = QMessageBox(self)
-                q.information(self, 'information', '다운로드 받은 이미지를 저장할 폴더를 선택하세요.', QMessageBox.Ok)
-                fname = str(QFileDialog.getExistingDirectory(self, "이미지를 저장할 폴더"))
-                if fname:
-                    data['default_dir'] = fname
-                    with open(save_path, 'w') as f:
-                        json.dump(data, f)
-                    dir_path = fname
-                    return dir_path
-                else:
-                    return None
-        else:
-            q = QMessageBox(self)
-            q.information(self, 'information', '다운로드 받은 이미지를 저장할 폴더를 선택하세요.', QMessageBox.Ok)
-            fname = str(QFileDialog.getExistingDirectory(self, "이미지를 저장할 폴더"))
-            if fname:
-                with open(save_path, 'w') as f:
-                    json.dump({'default_dir' : fname}, f)
-                dir_path = fname
-                return dir_path
-            else:
-                return None
-
     @pyqtSlot()
     def start_download(self):
         # disable the buttons
@@ -288,14 +256,47 @@ class DownloadImage(QWidget):
             keywords.append(self.tree.topLevelItem(it_idx).text(1))
             search_num.append(self.tree.topLevelItem(it_idx).text(2))
         self.dir_path = self.get_save_dir()
-        if self.dir_path == None:
-            self.enable_buttons()
-            return
-        download_worker = DownloadWorker(download_images.download_image, words, keywords, search_num, self.pr_bar, self.dir_path)
-        download_worker.signal.download_complete.connect(self.finish_download)
+        if self.dir_path:
+            download_worker = DownloadWorker(download_images.download_image, words, keywords, search_num, self.pr_bar, self.dir_path, self.text_image)
+            download_worker.signal.download_complete.connect(self.finish_download)
 
-        # Execute
-        self.threadpool.start(download_worker)
+            # Execute
+            self.threadpool.start(download_worker)
+        else:
+            self.enable_buttons()
+
+    def get_save_dir(self):
+        save_path = os.path.join(os.getcwd(), 'dir_path.json')
+        is_dir_path = os.path.exists(save_path)
+        if is_dir_path:
+            with open(save_path) as f:
+                data = json.load(f)
+            if 'default_dir' in data.keys():
+                dir_path = data['default_dir']
+                return dir_path
+            else:
+                q = QMessageBox(self)
+                q.information(self, 'information', '다운로드 받은 이미지를 저장할 폴더를 선택하세요.', QMessageBox.Ok)
+                fname = str(QFileDialog.getExistingDirectory(self, "이미지를 저장할 폴더"))
+                if fname:
+                    data['default_dir'] = fname
+                    with open(save_path, 'w') as f:
+                        json.dump(data, f)
+                    dir_path = fname
+                    return dir_path
+                else:
+                    return
+        else:
+            q = QMessageBox(self)
+            q.information(self, 'information', '다운로드 받은 이미지를 저장할 폴더를 선택하세요.', QMessageBox.Ok)
+            fname = str(QFileDialog.getExistingDirectory(self, "이미지를 저장할 폴더"))
+            if fname:
+                with open(save_path, 'w') as f:
+                    json.dump({'default_dir' : fname}, f)
+                dir_path = fname
+                return dir_path
+            else:
+                return
 
     # execute when download is finished
     @pyqtSlot(list)
@@ -326,8 +327,9 @@ class DownloadImage(QWidget):
                         pic_item.path = path
                         pic_item.setData(3, 1, picture.scaled(self.scale_num, self.scale_num))
                     else:
-                        # if picture is not valid delete it
-                        os.unlink(path)
+                        # if picture is not valid and it exists delete it
+                        if os.path.exists(path):
+                            os.unlink(path)
 
                 # because the children are updated the main image changes
                 if item.childCount() > 0:
@@ -435,7 +437,11 @@ class MainWindow(QMainWindow):
 
         # Set menu
         mainMenu = self.menuBar()
-        fileMenu = mainMenu.addMenu('File')
+        font = mainMenu.font()
+        font.setPointSize(10)
+        mainMenu.setFont(font)
+
+        fileMenu = mainMenu.addMenu('파일')
 
         # TODO opening txt file and saving it
         # open_Button = QAction('불러오기', self)
@@ -479,7 +485,7 @@ def my_excepthook(type, value, tback):
     # log the exception here
     # then call the default handlerq
     traceback_text = ''.join(traceback.format_tb(tback))
-    # send_error_to_form(traceback_text + str(type) + str(value))
+    send_error_to_form(traceback_text + str(type) + str(value))
     sys.__excepthook__(type, value, tback)
     exit(1)
 

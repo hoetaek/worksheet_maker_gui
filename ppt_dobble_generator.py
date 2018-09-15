@@ -105,7 +105,7 @@ class PptCardMaker():
         self.words = [word[0] for word in self.words_pics]
         self.pics = [pic[1] for pic in self.words_pics]
 
-    def make_card_with_picture(self):
+    def make_card_with_picture(self, path):
         prs = Presentation('template_for_dobble_cards.pptx')
         # prs.slide_width = 11887200
         # prs.slide_height = 6686550
@@ -120,24 +120,10 @@ class PptCardMaker():
                 pic.crop_bottom = 0
                 pic.crop_top = 0
 
-        file_path = os.path.join(self.desktop, 'dobble_{}cards_picture.pptx'.format(self.num))
+        file_path = os.path.join(path, 'dobble_{}cards_picture.pptx'.format(self.num))
+        file_path = os.path.abspath(file_path)
         prs.save(file_path)
-        return [file_path]
-
-    def make_card_with_word(self):
-        prs = Presentation('template_for_dobble_cards.pptx')
-        for i in range((len(self.pics)-1)//self.num+1):
-            card_layout = prs.slide_layouts[self.num-3]
-            slide = prs.slides.add_slide(card_layout)
-
-            for j, shape in enumerate(slide.placeholders):
-                text_frame = shape.text_frame
-                text_frame.text = self.words[self.num * i + j]
-                text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
-        file_path = os.path.join(self.desktop, 'dobble_{}cards_word.pptx'.format(self.num))
-        prs.save(file_path)
-        return [file_path]
-
+        return file_path
 
 
 class ConvertPptToPng():

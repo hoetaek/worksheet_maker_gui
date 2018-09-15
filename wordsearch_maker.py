@@ -315,6 +315,8 @@ class DownloadImage(DownloadImage):
             puzzle_worker.signal.recursionerrormsg.connect(self.recurerrormsg)
             puzzle_worker.signal.valueerrormsg.connect(self.valerrormsg)
             self.threadpool.start(puzzle_worker)
+        else:
+            self.enable_buttons()
 
     def get_save_hwp_dir(self):
         file_path = os.path.join(os.getcwd(), 'dir_path.json')
