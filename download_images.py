@@ -83,12 +83,11 @@ class download_image():
             google_files = os.listdir(google_dir)
             google_files.sort(key=lambda x: os.path.getmtime(google_dir + '\\' + x))
             google_files.reverse()
-            # Put the text image at the back of google_files list
             google_files.insert(1, google_files.pop(0))
             if word in self.words:
-                self.images[word] = [os.path.join(google_dir, google_file) for google_file in google_files]
+                self.images[word] = [os.path.abspath(google_dir + "\\" + google_file) for google_file in google_files]
             else:
-                self.old_images[word] = [os.path.join(google_dir, google_file) for google_file in google_files]
+                self.old_images[word] = [os.path.abspath(google_dir + "\\" + google_file) for google_file in google_files]
 
         return [self.images, self.old_images]
 

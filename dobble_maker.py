@@ -166,7 +166,7 @@ class DownloadImage(DownloadImage):
                     self.c.press_set_keyword_bt.emit()
                     self.enable_buttons()
                     q = QMessageBox(self)
-                    q.information(self, 'information', '선택하신 이미지가 존재하지 않습니다. 다시 다운로드 눌러주세요.', QMessageBox.Ok)
+                    q.information(self, 'information', '선택하신 이미지가 존재하지 않습니다. 사진을 다시 업데이트합니다..', QMessageBox.Ok)
                     return
             word_image.append([word, pic])
             iterator += 1

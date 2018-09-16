@@ -337,7 +337,7 @@ class DownloadImage(QWidget):
                     init_pic = QPixmap(item.child(0).path)
                     item.setData(3, 1, init_pic.scaled(self.scale_num, self.scale_num))
                     # set path variable so the image can be used
-                    item.path = pic_path[0]
+                    item.path = item.child(0).path
 
                     # make a button that can add additional pictures
                     add_image_bt = QPushButton("이미지 변경")
