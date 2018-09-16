@@ -18,10 +18,10 @@ class Settings(QWidget):
     def init_UI(self):
         grid = QGridLayout()
 
-        title = QLabel("1. 카드 한 장에 들어가는 사진의 개수를 정하세요.")
+        title = QLabel("1. 카드 한 장에 들어가는 그림의 개수를 정하세요.")
         grid.addWidget(title)
 
-        label_set_pic_num = QLabel('사진 개수 :')
+        label_set_pic_num = QLabel('그림 개수 :')
         self.pic_num = QSpinBox()
         self.pic_num.setMinimum(3)
         self.pic_num.setMaximum(9)
@@ -188,6 +188,8 @@ class DownloadImage(DownloadImage):
             convert_worker = ConvertWorker(ConvertPptToPng, ppt_picture)
             convert_worker.signal.convert_complete.connect(self.finish_makedobblePpt)
             self.threadpool.start(convert_worker)
+            q = QMessageBox(self)
+            q.information(self, 'information', '도블 카드 피피티를 완성했습니다. 도블 카드를 사진으로 추출중입니다. 조금만 기다려주세요~^^', QMessageBox.Ok)
         else:
             self.enable_buttons()
 
@@ -227,6 +229,8 @@ class DownloadImage(DownloadImage):
     @pyqtSlot()
     def finish_makedobblePpt(self):
         self.enable_buttons()
+        q = QMessageBox(self)
+        q.information(self, 'information', '도블 카드를 완성했습니다. 파일은 {}에 저장했습니다. 이용해주셔서 감사합니다^ㅇ^'.format(self.path), QMessageBox.Ok)
 
 class ConvertWorker(QRunnable):
     def __init__(self, fn, *args, **kwargs):

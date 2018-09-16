@@ -262,6 +262,8 @@ class DownloadImage(QWidget):
 
             # Execute
             self.threadpool.start(download_worker)
+            q = QMessageBox(self)
+            q.information(self, 'information', '다운로드 및 이미지를 불러오는 중입니다. 조금만 기다려주세요~^^', QMessageBox.Ok)
         else:
             self.enable_buttons()
 

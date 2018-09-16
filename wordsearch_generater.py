@@ -15,10 +15,11 @@ from bs4 import BeautifulSoup
 import re
 import os
 from pathlib import Path
+from random import shuffle
 
 
 class MakeWordSearch():
-    def __init__(self, word_image, width, height, diff, option, pic_on, korean, chosung, path):
+    def __init__(self, word_image, width, height, diff, option, pic_on, korean, chosung_scramable, path):
         self.desktop = path
         self.word_image = word_image
         self.width = width
@@ -27,7 +28,7 @@ class MakeWordSearch():
         self.option = option
         self.pic_on = pic_on
         self.korean = korean
-        self.chosung = chosung
+        self.chosung_scramable = chosung_scramable
 
     def show_me_the_way(self, right, up):
         start_x_code = ''
@@ -324,6 +325,8 @@ class MakeWordSearch():
                 tcVAlign.set(qn('w:val'), "center")
                 tcPr.append(tcVAlign)
 
+        # 힌트 테이블 만들기
+        # 사진이 들어가는 경우
         if self.pic_on:
             word_num = len(words)
             if word_num <= 15:
@@ -363,13 +366,22 @@ class MakeWordSearch():
                     if index < len(words):
                         if i % 2 == 1:
                             cell.text = words[index]
-                            if self.chosung:
+                            # 초성 또는 scramble이 켜져 있는 경우
+                            if self.chosung_scramable:
                                 word = words[index]
-                                cho_word = ''
-                                for chr in word:
-                                    chosung = hgtk.letter.decompose(chr)[0]
-                                    cho_word += chosung
-                                cell.text = cho_word
+                                if self.korean:
+                                    cho_word = ''
+                                    for chr in word:
+                                        chosung_scramable = hgtk.letter.decompose(chr)[0]
+                                        cho_word += chosung_scramable
+                                    cell.text = cho_word
+                                else:
+                                    # 사진 있고 영어고 scramble인 경우
+                                    spelling = [i for i in word]
+                                    shuffle(spelling)
+                                    scrambled_word = ''.join(spelling)
+                                    cell.text = scrambled_word
+
                         for paragraph in cell.paragraphs:
                             if i % 2 == 0:
                                 if self.word_image[index][1] == "None":
@@ -395,7 +407,10 @@ class MakeWordSearch():
                     tcVAlign = OxmlElement('w:vAlign')
                     tcVAlign.set(qn('w:val'), "center")
                     tcPr.append(tcVAlign)
+
+        # 사진이 들어가지 않는 경우
         else:
+            # 사진이 안 들어가고 영어인 경우
             if not self.korean:
                 hint_table = document.add_table(rows=1, cols=1, style='Table Grid')
                 hint_table.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -413,9 +428,14 @@ class MakeWordSearch():
                 for word in words:
                     print("사전에 찾는중... " + word)
                     req = requests.get('http://endic.naver.com/small_search.nhn?query=' + word)
+                    # 국어사전은 'http://ko.dict.naver.com/small_search.nhn?query='
                     html = req.text
                     soup = BeautifulSoup(html, 'html.parser')
                     meanings = soup.select('span.fnt_k05')
+                    if self.chosung_scramable:
+                        spelling = [i for i in word]
+                        shuffle(spelling)
+                        word = ''.join(spelling)
                     if meanings:
                         text = meanings[0].text
                         text = re.sub(parenthesis, '', text)
@@ -433,7 +453,8 @@ class MakeWordSearch():
                 tcPr.append(tcVAlign)
 
             else:
-                if self.chosung:
+                # 사진이 안 들어가고 한글인 경우
+                if self.chosung_scramable:
                     hint_table = document.add_table(rows=1, cols=1, style='Table Grid')
                     hint_table.alignment = WD_TABLE_ALIGNMENT.CENTER
                     hint_table_row = hint_table.rows[0]
@@ -448,8 +469,8 @@ class MakeWordSearch():
                     for word in words:
                         cho_word = ''
                         for chr in word:
-                            chosung = hgtk.letter.decompose(chr)[0]
-                            cho_word += chosung
+                            chosung_scramable = hgtk.letter.decompose(chr)[0]
+                            cho_word += chosung_scramable
                         hint += cho_word + ', '
                     hint_table_cell.width = Inches(100)
                     for paragraph in hint_table_cell.paragraphs:

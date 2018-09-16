@@ -212,7 +212,7 @@ class DownloadImage(DownloadImage):
         # initialize language mode
         self.korean = False
         # initialize language mode
-        self.chosung = False
+        self.chosung_scramable = False
 
     def init_UI(self):
         # Title for widget
@@ -226,17 +226,16 @@ class DownloadImage(DownloadImage):
         self.c.korean.connect(self.korean_on)
 
 
-        self.chosung_checkBox = QCheckBox("초성", self)
-        self.chosung_checkBox.setToolTip("단어가 초성으로 제시됩니다.")
-        self.chosung_checkBox.close()
-        self.chosung_checkBox.stateChanged.connect(self.chosung_on)
+        self.chosung_scramable_checkBox = QCheckBox("scramble word", self)
+        self.chosung_scramable_checkBox.setToolTip("단어의 철자가 뒤섞여서 제시됩니다.")
+        self.chosung_scramable_checkBox.stateChanged.connect(self.chosung_scramable_on)
 
         self.make_puzzle_bt = QPushButton("Word Search\n퍼즐 만들기")
         self.make_puzzle_bt.clicked.connect(self.make_puzzle)
         self.make_puzzle_bt.setToolTip("단축키 : Ctrl + D")
         self.make_puzzle_bt.setShortcut('Ctrl+D')
 
-        self.vbox.addWidget(self.chosung_checkBox)
+        self.vbox.addWidget(self.chosung_scramable_checkBox)
         self.vbox.addWidget(self.make_puzzle_bt)
 
     # define puzzle settings
@@ -247,21 +246,23 @@ class DownloadImage(DownloadImage):
     @pyqtSlot(bool)
     def korean_on(self, bool):
         self.korean = bool
-        if bool == True:
-            self.chosung_checkBox.show()
-            self.make_puzzle_bt.setText('낱말 퍼즐 만들기')
+        if bool is True:
+            self.chosung_scramable_checkBox.setText('초성')
+            self.chosung_scramable_checkBox.setToolTip("단어의 초성으로 제시됩니다.")
+            self.make_puzzle_bt.setText('낱말 퍼즐\n 만들기')
         else:
-            self.chosung_checkBox.close()
+            self.chosung_scramable_checkBox.setText('scramble word')
+            self.chosung_scramable_checkBox.setToolTip("단어의 철자가 뒤섞여서 제시됩니다.")
             self.make_puzzle_bt.setText('Word Search\n퍼즐 만들기')
         self.make_puzzle_bt.setToolTip("단축키 : Ctrl + D")
         self.make_puzzle_bt.setShortcut('Ctrl+D')
 
     @pyqtSlot()
-    def chosung_on(self):
-        if self.chosung_checkBox.isChecked() == True:
-            self.chosung = True
+    def chosung_scramable_on(self):
+        if self.chosung_scramable_checkBox.isChecked() is True:
+            self.chosung_scramable = True
         else:
-            self.chosung = False
+            self.chosung_scramable = False
 
     def enable_buttons(self):
         self.download_bt.setEnabled(True)
@@ -286,7 +287,7 @@ class DownloadImage(DownloadImage):
             iterator = QTreeWidgetItemIterator(self.tree, QTreeWidgetItemIterator.HasChildren)
         else:
             iterator = QTreeWidgetItemIterator(self.tree, QTreeWidgetItemIterator.All)
-            if iterator.value() == None:
+            if iterator.value() is None:
                 self.c.press_set_keyword_bt.emit()
                 q = QMessageBox(self)
                 q.information(self, 'information', '검색어 키워드가 존재하지 않아요. 그래서 검색어 키워드 버튼을 대신 눌렀습니다~.', QMessageBox.Ok)
@@ -304,13 +305,18 @@ class DownloadImage(DownloadImage):
                     q = QMessageBox(self)
                     q.information(self, 'information', '선택하신 이미지가 존재하지 않습니다. 다시 다운로드 눌러주세요.', QMessageBox.Ok)
                     return
+            if word.strip().find(' ') != -1:
+                if self.korean:
+                    word = '가'.join(word.split())
+                else:
+                    word = 'a'.join(word.split())
             word_image.append([word, pic])
             iterator += 1
 
         self.path = self.get_save_hwp_dir()
         if self.path:
             puzzle_worker = PuzzleWorker(wordsearch_generater.MakeWordSearch, word_image, self.width, self.height, self.diff,
-                                                             self.option, self.picture_on, self.korean, self.chosung, self.path)
+                                                             self.option, self.picture_on, self.korean, self.chosung_scramable, self.path)
             puzzle_worker.signal.puzzle_complete.connect(self.puzzle_finish)
             puzzle_worker.signal.recursionerrormsg.connect(self.recurerrormsg)
             puzzle_worker.signal.valueerrormsg.connect(self.valerrormsg)
