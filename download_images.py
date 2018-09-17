@@ -83,7 +83,11 @@ class download_image():
             google_files = os.listdir(google_dir)
             google_files.sort(key=lambda x: os.path.getmtime(google_dir + '\\' + x))
             google_files.reverse()
+            for google_file in google_files:
+                if google_file.endswith('.svg'):
+                    os.unlink(os.path.abspath(google_dir + "\\" + google_file))
             google_files.insert(1, google_files.pop(0))
+
             if word in self.words:
                 self.images[word] = [os.path.abspath(google_dir + "\\" + google_file) for google_file in google_files]
             else:

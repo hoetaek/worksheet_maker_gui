@@ -1,12 +1,14 @@
 # -*- mode: python -*-
-
+import sys
+from os import path
+site_packages = next(p for p in sys.path if 'site-packages' in p)
 block_cipher = None
 
 
 a = Analysis(['dobble_maker.py'],
              pathex=['C:\\Users\\hoetaekpro\\PycharmProjects\\worksheet_maker_gui'],
              binaries=[],
-             datas=[('template_for_dobble_cards.pptx', '.'), ('arial.ttf', '.'), ('H2GTRE.TTF', '.')],
+             datas=[(path.join(site_packages,"comtypes","gen"), "comtypes/gen"), ('template_for_dobble_cards.pptx', '.'), ('arial.ttf', '.'), ('H2GTRE.TTF', '.')],
              hiddenimports=['PyQt5', 'PyQt5.sip'],
              hookspath=[],
              runtime_hooks=[],
