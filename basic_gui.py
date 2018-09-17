@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QProgressBar, Q
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QObject, pyqtSignal, Qt, QEvent, QThreadPool, pyqtSlot, QRunnable
 from shutil import copy
+from send2trash import send2trash
 import json
 import download_images
 import qdarkstyle
@@ -180,7 +181,7 @@ class DownloadImage(QWidget):
                         item.parent().removeChild(item)
                         del item
                         if os.path.exists(path):
-                            os.unlink(path)
+                            send2trash(path)
         return super(DownloadImage, self).eventFilter(source, event)
 
     # When you press a tree item(mouse click) the main image changes
@@ -331,7 +332,7 @@ class DownloadImage(QWidget):
                     else:
                         # if picture is not valid and it exists delete it
                         if os.path.exists(path):
-                            os.unlink(path)
+                            send2trash(path)
 
                 # because the children are updated the main image changes
                 if item.childCount() > 0:
