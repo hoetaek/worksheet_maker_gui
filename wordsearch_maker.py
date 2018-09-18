@@ -439,6 +439,45 @@ class MainWindow(MainWindow):
     def addhelpmenu(self):
         self.help_menu = self.mainMenu.addMenu("도움말")
 
+        self.puzzle_option_menu = self.help_menu.addMenu("퍼즐 옵션")
+        self.shape_help = QAction('단어 모양은 무슨 뜻인가요?')
+        # self.shape_help.triggered.connect(self.)
+        self.puzzle_option_menu.addAction(self.shape_help)
+
+        self.direction_help = QAction('단어 방향은 무슨 뜻인가요?')
+        # self.direction_help.triggered.connect(self.)
+        self.puzzle_option_menu.addAction(self.direction_help)
+
+        self.option_help = QAction('옵션에서 글자를 겹치게 한다는 것은 무슨 뜻인가요?')
+        # self.option_help.triggered.connect(self.)
+        self.puzzle_option_menu.addAction(self.option_help)
+
+        self.enter_words_menu = self.help_menu.addMenu("단어 입력")
+        self.enterword_help = QAction('단어는 어떻게 입력하나요?')
+        # self.enterword_help.triggered.connect(self.)
+        self.enter_words_menu.addAction(self.enterword_help)
+
+        self.prefix_help = QAction('실제 사진이 아니라 케릭터 사진을 원하면 어떻게 하나요?')
+        # self.prefix_help.triggered.connect(self.)
+        self.enter_words_menu.addAction(self.prefix_help)
+
+        self.download_images_menu = self.help_menu.addMenu("이미지")
+        self.keyword_help = QAction('원하는 이미지가 안 나올 때는 어떻게 하나요?')
+        # self.keyword_help.triggered.connect(self.grade_class_dialog)
+        self.download_images_menu.addAction(self.keyword_help)
+
+        self.searchnum_help = QAction('이미지 검색 개수를 어떻게 바꾸나요?')
+        # self.searchnum_help.triggered.connect(self.grade_class_dialog)
+        self.download_images_menu.addAction(self.searchnum_help)
+
+        self.changepic_help = QAction('원하는 이미지로 어떻게 변경하나요?')
+        # self.changepic_help.triggered.connect(self.)
+        self.download_images_menu.addAction(self.changepic_help)
+
+        self.scramble_help = QAction('scramble word를 체크하면 어떻게 되나요?')
+        # self.scramble_help.triggered.connect(self.)
+        self.help_menu.addAction(self.scramble_help)
+
     def grade_class_dialog(self):
         self.grade_class_input = QWidget()
         hbox_grade = QHBoxLayout()
