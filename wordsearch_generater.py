@@ -16,7 +16,7 @@ import re
 import os
 from pathlib import Path
 from random import shuffle
-
+import json
 
 class MakeWordSearch():
     def __init__(self, word_image, width, height, diff, option, pic_on, korean, chosung_scramable, uppercase, path):
@@ -294,8 +294,12 @@ class MakeWordSearch():
             heading = "낱말 찾기"
         head = document.add_heading(heading, 0)
         head.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-        para_belong = document.add_paragraph('__학년 __반 이름: _______')
+        if os.path.exists('hwp_settings.json'):
+            with open('hwp_settings.json') as f:
+                data = json.load(f)
+                para_belong = document.add_paragraph('{}학년 {}반 이름: _______'.format(data['grade'], data['class']))
+        else:
+            para_belong = document.add_paragraph('__학년 __반 이름: _______')
         para_belong.alignment = WD_ALIGN_PARAGRAPH.RIGHT
 
         puzzle_table = document.add_table(rows=self.height, cols=self.width, style='Table Grid')

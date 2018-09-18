@@ -439,12 +439,12 @@ class MainWindow(QMainWindow):
         self.centralWidget().setLayout(self.vbox)
 
         # Set menu
-        mainMenu = self.menuBar()
-        font = mainMenu.font()
+        self.mainMenu = self.menuBar()
+        font = self.mainMenu.font()
         font.setPointSize(10)
-        mainMenu.setFont(font)
+        self.mainMenu.setFont(font)
 
-        fileMenu = mainMenu.addMenu('파일')
+        self.fileMenu = self.mainMenu.addMenu('파일')
 
         # TODO opening txt file and saving it
         # open_Button = QAction('불러오기', self)
@@ -453,12 +453,12 @@ class MainWindow(QMainWindow):
 
         reset_path_Button = QAction('저장 경로 초기화하기', self)
         reset_path_Button.triggered.connect(self.reset_path)
-        fileMenu.addAction(reset_path_Button)
+        self.fileMenu.addAction(reset_path_Button)
 
         exit_Button = QAction('나가기', self)
         exit_Button.setShortcut('Ctrl+Q')
         exit_Button.triggered.connect(self.close)
-        fileMenu.addAction(exit_Button)
+        self.fileMenu.addAction(exit_Button)
 
         # Set the title
         self.setWindowTitle('Example generator')

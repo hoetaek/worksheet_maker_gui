@@ -423,7 +423,58 @@ class MainWindow(MainWindow):
         self.vbox.setStretch(0, 1)
         self.vbox.setStretch(1, 1)
         self.vbox.setStretch(2, 7)
+        self.addmainmenu()
 
+    def addmainmenu(self):
+        self.settings_menu = self.mainMenu.addMenu("설정")
+        self.set_grad_class_Button = QAction('학년 반 설정하기', self)
+        self.set_grad_class_Button.triggered.connect(self.grade_class_dialog)
+        self.settings_menu.addAction(self.set_grad_class_Button)
+
+        self.reset_grade_class_Button = QAction('학년 반 초기화하기', self)
+        self.reset_grade_class_Button.triggered.connect(self.reset_grade_class)
+        self.settings_menu.addAction(self.reset_grade_class_Button)
+
+    def grade_class_dialog(self):
+        self.grade_class_input = QWidget()
+        hbox_grade = QHBoxLayout()
+        grade_label = QLabel("학년")
+        self.grade_spin = QSpinBox()
+        self.grade_spin.setMinimum(1)
+        self.grade_spin.setMaximum(6)
+        hbox_grade.addWidget(grade_label)
+        hbox_grade.addWidget(self.grade_spin)
+        hbox_class = QHBoxLayout()
+        class_label = QLabel("반")
+        self.class_spin = QSpinBox()
+        self.class_spin.setMinimum(1)
+        hbox_class.addWidget(class_label)
+        hbox_class.addWidget(self.class_spin)
+
+        ok_button = QPushButton("확인")
+        ok_button.clicked.connect(self.set_grade_class)
+
+        vbox_display = QVBoxLayout()
+        vbox_display.addLayout(hbox_grade)
+        vbox_display.addLayout(hbox_class)
+        vbox_display.addWidget(ok_button)
+
+        self.grade_class_input.setLayout(vbox_display)
+        self.grade_class_input.show()
+
+    def set_grade_class(self):
+        self.grade = self.grade_spin.value()
+        self.class_ = self.class_spin.value()
+        data = dict()
+        data['grade'] = self.grade
+        data['class'] = self.class_
+        with open('hwp_settings.json', 'w') as f:
+            json.dump(data, f)
+        self.grade_class_input.close()
+
+    def reset_grade_class(self):
+        if os.path.exists('hwp_settings.json'):
+            os.unlink('hwp_settings.json')
 
 if __name__ == '__main__':
 
