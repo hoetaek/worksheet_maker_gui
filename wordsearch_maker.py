@@ -423,9 +423,10 @@ class MainWindow(MainWindow):
         self.vbox.setStretch(0, 1)
         self.vbox.setStretch(1, 1)
         self.vbox.setStretch(2, 7)
-        self.addmainmenu()
+        self.addsettingmenu()
+        self.addhelpmenu()
 
-    def addmainmenu(self):
+    def addsettingmenu(self):
         self.settings_menu = self.mainMenu.addMenu("설정")
         self.set_grad_class_Button = QAction('학년 반 설정하기', self)
         self.set_grad_class_Button.triggered.connect(self.grade_class_dialog)
@@ -434,6 +435,9 @@ class MainWindow(MainWindow):
         self.reset_grade_class_Button = QAction('학년 반 초기화하기', self)
         self.reset_grade_class_Button.triggered.connect(self.reset_grade_class)
         self.settings_menu.addAction(self.reset_grade_class_Button)
+
+    def addhelpmenu(self):
+        self.help_menu = self.mainMenu.addMenu("도움말")
 
     def grade_class_dialog(self):
         self.grade_class_input = QWidget()
