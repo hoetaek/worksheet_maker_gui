@@ -19,7 +19,7 @@ from random import shuffle
 
 
 class MakeWordSearch():
-    def __init__(self, word_image, width, height, diff, option, pic_on, korean, chosung_scramable, path):
+    def __init__(self, word_image, width, height, diff, option, pic_on, korean, chosung_scramable, uppercase, path):
         self.desktop = path
         self.word_image = word_image
         self.width = width
@@ -29,6 +29,7 @@ class MakeWordSearch():
         self.pic_on = pic_on
         self.korean = korean
         self.chosung_scramable = chosung_scramable
+        self.uppercase = uppercase
 
     def show_me_the_way(self, right, up):
         start_x_code = ''
@@ -313,7 +314,10 @@ class MakeWordSearch():
             for j, cell in enumerate(row.cells):
                 #####가로 길이 정하기!
                 cell.width = Inches(5)
-                cell.text = puzzle[i][j]
+                if self.uppercase and not self.korean:
+                    cell.text = puzzle[i][j].upper()
+                else:
+                    cell.text = puzzle[i][j]
                 for paragraph in cell.paragraphs:
                     #####가운데 정렬!!
                     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -365,7 +369,6 @@ class MakeWordSearch():
                     #단어 수 만큼 반복하기
                     if index < len(words):
                         if i % 2 == 1:
-                            cell.text = words[index]
                             # 초성 또는 scramble이 켜져 있는 경우
                             if self.chosung_scramable:
                                 word = words[index]
@@ -380,7 +383,15 @@ class MakeWordSearch():
                                     spelling = [i for i in word]
                                     shuffle(spelling)
                                     scrambled_word = ''.join(spelling)
-                                    cell.text = scrambled_word
+                                    if self.uppercase:
+                                        cell.text = scrambled_word.upper()
+                                    else:
+                                        cell.text = scrambled_word
+                            else:
+                                if self.uppercase and not self.korean:
+                                    cell.text = words[index].upper()
+                                else:
+                                    cell.text = words[index]
 
                         for paragraph in cell.paragraphs:
                             if i % 2 == 0:
@@ -432,6 +443,8 @@ class MakeWordSearch():
                     html = req.text
                     soup = BeautifulSoup(html, 'html.parser')
                     meanings = soup.select('span.fnt_k05')
+                    if self.uppercase:
+                        word = word.upper()
                     if self.chosung_scramable:
                         spelling = [i for i in word]
                         shuffle(spelling)

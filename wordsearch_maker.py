@@ -211,8 +211,10 @@ class DownloadImage(DownloadImage):
         self.picture_on = False
         # initialize language mode
         self.korean = False
-        # initialize language mode
+        # initialize chosung or scramble mode
         self.chosung_scramable = False
+        # initialize uppercase mode
+        self.uppercase = False
 
     def init_UI(self):
         # Title for widget
@@ -225,6 +227,8 @@ class DownloadImage(DownloadImage):
         # see if its korean or english/ default is english
         self.c.korean.connect(self.korean_on)
 
+        self.uppercase_checkbox = QCheckBox("대문자", self)
+        self.uppercase_checkbox.stateChanged.connect(self.uppercase_checkbox_on)
 
         self.chosung_scramable_checkBox = QCheckBox("scramble word", self)
         self.chosung_scramable_checkBox.setToolTip("단어의 철자가 뒤섞여서 제시됩니다.")
@@ -235,6 +239,7 @@ class DownloadImage(DownloadImage):
         self.make_puzzle_bt.setToolTip("단축키 : Ctrl + D")
         self.make_puzzle_bt.setShortcut('Ctrl+D')
 
+        self.vbox.addWidget(self.uppercase_checkbox)
         self.vbox.addWidget(self.chosung_scramable_checkBox)
         self.vbox.addWidget(self.make_puzzle_bt)
 
@@ -250,12 +255,21 @@ class DownloadImage(DownloadImage):
             self.chosung_scramable_checkBox.setText('초성')
             self.chosung_scramable_checkBox.setToolTip("단어의 초성으로 제시됩니다.")
             self.make_puzzle_bt.setText('낱말 퍼즐\n 만들기')
+            self.uppercase_checkbox.close()
         else:
             self.chosung_scramable_checkBox.setText('scramble word')
             self.chosung_scramable_checkBox.setToolTip("단어의 철자가 뒤섞여서 제시됩니다.")
             self.make_puzzle_bt.setText('Word Search\n퍼즐 만들기')
+            self.uppercase_checkbox.show()
         self.make_puzzle_bt.setToolTip("단축키 : Ctrl + D")
         self.make_puzzle_bt.setShortcut('Ctrl+D')
+
+    @pyqtSlot()
+    def uppercase_checkbox_on(self):
+        if self.uppercase_checkbox.isChecked() is True:
+            self.uppercase = True
+        else:
+            self.uppercase = False
 
     @pyqtSlot()
     def chosung_scramable_on(self):
@@ -316,7 +330,7 @@ class DownloadImage(DownloadImage):
         self.path = self.get_save_hwp_dir()
         if self.path:
             puzzle_worker = PuzzleWorker(wordsearch_generater.MakeWordSearch, word_image, self.width, self.height, self.diff,
-                                                             self.option, self.picture_on, self.korean, self.chosung_scramable, self.path)
+                                                             self.option, self.picture_on, self.korean, self.chosung_scramable, self.uppercase, self.path)
             puzzle_worker.signal.puzzle_complete.connect(self.puzzle_finish)
             puzzle_worker.signal.recursionerrormsg.connect(self.recurerrormsg)
             puzzle_worker.signal.valueerrormsg.connect(self.valerrormsg)
