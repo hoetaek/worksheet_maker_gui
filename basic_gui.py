@@ -148,6 +148,8 @@ class DownloadImage(QWidget):
         self.pr_bar = QProgressBar()
         # add progressbar to layout
         self.grid.addWidget(self.pr_bar, 2, 0, 1, 2)
+        # hide progressbar
+        self.pr_bar.close()
 
         # adjust the size of the column layout
         self.grid.setColumnStretch(0, 13)
@@ -258,6 +260,7 @@ class DownloadImage(QWidget):
             search_num.append(self.tree.topLevelItem(it_idx).text(2))
         self.dir_path = self.get_save_dir()
         if self.dir_path:
+            self.pr_bar.show()
             download_worker = DownloadWorker(download_images.download_image, words, keywords, search_num, self.pr_bar, self.dir_path, self.text_image)
             download_worker.signal.download_complete.connect(self.finish_download)
 
@@ -360,6 +363,9 @@ class DownloadImage(QWidget):
             except KeyError:
                 # if word doesn't exist in the given image path leave it be
                 pass
+
+        # hide progress bar
+        self.pr_bar.close()
 
         # this variable is set to True to indicate that now it's not the first time you click the 'Download Button'
         self.picture_on = True

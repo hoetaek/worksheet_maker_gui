@@ -1,8 +1,5 @@
 import os
 from pptx import Presentation
-from pptx.enum.text import MSO_AUTO_SIZE
-from random import randint
-import sys
 import comtypes.client
 
 class GenerateDobbleIndex():
@@ -97,11 +94,6 @@ class PptCardMaker():
     def __init__(self, words_pics, num):
         self.words_pics = words_pics
         self.num = num
-        try:
-            self.desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'desktop')
-            os.listdir(self.desktop)
-        except:
-            self.desktop = '.'
         self.words = [word[0] for word in self.words_pics]
         self.pics = [pic[1] for pic in self.words_pics]
 
@@ -120,7 +112,7 @@ class PptCardMaker():
                 pic.crop_bottom = 0
                 pic.crop_top = 0
 
-        file_path = os.path.join(path, 'dobble_{}cards_picture.pptx'.format(self.num))
+        file_path = os.path.join(path, 'dobble_{}cards.pptx'.format(self.num))
         file_path = os.path.abspath(file_path)
         prs.save(file_path)
         return file_path
