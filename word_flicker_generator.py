@@ -1,5 +1,6 @@
 from pptx import Presentation
 from PIL import ImageFont
+from PIL import Image
 import os
 
 class PptWordFlickerMaker():
@@ -26,7 +27,10 @@ class PptWordFlickerMaker():
 
                 for shape in slide.shapes:
                     if str(shape.placeholder_format.type) == 'PICTURE (18)':
+                        # im = Image.open('whatever.png')
+                        # width, height = im.size
                         picture = shape.insert_picture(pic)
+                        # add_picture(image_file, left, top, width=None, height=No)
                         picture.crop_left = 0
                         picture.crop_right = 0
                         picture.crop_bottom = 0
