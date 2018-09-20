@@ -22,7 +22,6 @@ class PptWordFlickerMaker():
                 for shape in slide.shapes:
                     if str(shape.placeholder_format.type) == 'BODY (2)':
                         text_frame = shape.text_frame
-                        # text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
 
                         p = text_frame.paragraphs[0]
                         run = p.add_run()

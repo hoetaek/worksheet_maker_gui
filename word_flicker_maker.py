@@ -1,5 +1,5 @@
 from basic_gui import *
-from PyQt5.QtWidgets import (QRadioButton, QGroupBox, QCheckBox, QHBoxLayout, QTreeWidgetItemIterator)
+from PyQt5.QtWidgets import (QRadioButton, QGroupBox, QCheckBox, QHBoxLayout, QTreeWidgetItemIterator, QAbstractItemView)
 from PyQt5.QtGui import QIcon
 from word_flicker_generator import PptWordFlickerMaker
 
@@ -80,8 +80,9 @@ class ChooseSlide(QWidget):
     def Init_UI(self):
         # TreeWidget 1
         self.tree_master_slide = QTreeWidget(self)
+        self.tree_master_slide.setSelectionBehavior(QAbstractItemView.SelectColumns)
         self.tree_master_slide.setColumnCount(1)
-        self.tree_master_slide.setHeaderLabels(['슬라이드를 고르세요.'])
+        self.tree_master_slide.setHeaderLabels(['슬라이드를 고르세요.', 'second'])
 
         # TreeWidget 1
         self.tree_slide_order = QTreeWidget(self)
