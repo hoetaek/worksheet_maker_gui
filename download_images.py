@@ -7,7 +7,7 @@ import threading
 
 
 class download_image():
-    def __init__(self, words, keywords, search_num, pr_bar, dir_path, text_image):
+    def __init__(self, words, keywords, search_num, pr_bar, dir_path, text_image=False):
         self.desktop = dir_path
         self.input_words = words
         self.input_keywords = keywords
