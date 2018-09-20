@@ -261,7 +261,7 @@ class DownloadImage(QWidget):
         self.dir_path = self.get_save_dir()
         if self.dir_path:
             self.pr_bar.show()
-            download_worker = DownloadWorker(download_images.download_image, words, keywords, search_num, self.pr_bar, self.dir_path, self.text_image)
+            download_worker = DownloadWorker(download_images.download_image, words, keywords, search_num, self.pr_bar, self.dir_path, text_image=self.text_image)
             download_worker.signal.download_complete.connect(self.finish_download)
 
             # Execute

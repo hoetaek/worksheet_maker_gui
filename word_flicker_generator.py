@@ -1,6 +1,8 @@
 from pptx import Presentation
 from PIL import ImageFont
 import os
+from pptx.enum.text import MSO_AUTO_SIZE
+from pptx.util import Length, Cm
 
 class PptWordFlickerMaker():
     def __init__(self, words_pics, num_slide):
@@ -18,11 +20,13 @@ class PptWordFlickerMaker():
                 slide = prs.slides.add_slide(card_layout)
                 for shape in slide.shapes:
                     if str(shape.placeholder_format.type) == 'BODY (2)':
-                        shape.text = word
-                        # font = ImageFont.truetype('times.ttf', 12)
-                        # size = font.getsize('Hello world')
-                        # print(size)
-                        shape.left = (prs.slide_width - shape.width) // 2
+                        text_frame = shape.text_frame
+                        # text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+
+                        p = text_frame.paragraphs[0]
+                        run = p.add_run()
+                        run.text = word
+
 
                 for shape in slide.shapes:
                     if str(shape.placeholder_format.type) == 'PICTURE (18)':
@@ -39,5 +43,7 @@ class PptWordFlickerMaker():
         return file_path
 
 if __name__=='__main__':
-    ppt = PptWordFlickerMaker([['hello', 'python_.png']], [0, 1, 2, 3])
+    ppt = PptWordFlickerMaker([['brush', 'C:\\Users\\user\\Desktop\\구글이미지\\brush\\6. bad-breath-brush.jpg'], ['exercise', 'C:\\Users\\user\\Desktop\\구글이미지\\exercise\\7. well_howtostartrunning_promo-largehorizontaljumbo.jpg'],
+                                ['healthy', 'C:\\Users\\user\\Desktop\\구글이미지\\healthy\\3. workout-composition-with-healthy-food_23-2147692092.jpg'], ['often', 'C:\\Users\\user\\Desktop\\구글이미지\\often\\5. often.jpg'], ['tooth', 'C:\\Users\\user\\Desktop\\구글이미지\\tooth\\3. istocktooth.jpg'], ['teeth', 'C:\\Users\\user\\Desktop\\구글이미지\\teeth\\7. 011316_3dteeth_thumb_large.jpg'], ['twice', 'C:/Users/user/Desktop/구글이미지/x2/x2.png'],
+                                ['three times', 'C:\\Users\\user\\Desktop\\구글이미지\\threetimes\\x3.png'], ['breakfast', 'C:\\Users\\user\\Desktop\\구글이미지\\breakfast\\5. 7562ab71-9093-41e3-9534-6509501370ad--2018-0309_wholeflour-breakfast-cookie_3x2_rocky-luten_033.jpg'], ['every week', 'C:\\Users\\user\\Desktop\\구글이미지\\everyweek\\8. small-scale-sabbaticals.jpg']], [0, 2, 3])
     ppt.make_word_flicker_slide('.')

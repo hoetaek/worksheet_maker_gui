@@ -238,8 +238,8 @@ class DownloadImage(DownloadImage):
         self.make_puzzle_bt.clicked.connect(self.make_puzzle)
         self.make_puzzle_bt.setToolTip("단축키 : Ctrl + D")
         self.make_puzzle_bt.setShortcut('Ctrl+D')
-
         self.vbox.addWidget(self.uppercase_checkbox)
+
         self.vbox.addWidget(self.chosung_scramable_checkBox)
         self.vbox.addWidget(self.make_puzzle_bt)
 
@@ -305,7 +305,7 @@ class DownloadImage(DownloadImage):
                 self.c.press_set_keyword_bt.emit()
                 q = QMessageBox(self)
                 q.information(self, 'information', '검색어 키워드가 존재하지 않아요. 그래서 검색어 키워드 버튼을 대신 눌렀습니다~.', QMessageBox.Ok)
-                self.makePpt_bt.setEnabled(True)
+                self.enable_buttons()
                 return
         while iterator.value():
             item = iterator.value()
