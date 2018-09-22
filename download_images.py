@@ -1,4 +1,4 @@
-import shelve
+import json
 import os
 from google_images_download import google_images_download
 from text2image import text2png
@@ -34,17 +34,21 @@ class download_image():
             pass
         else:
             os.mkdir(os.path.join(self.desktop, '구글이미지'))
-        google_dir = os.path.join(self.desktop, '구글이미지')
-
-        self.keyword_list = shelve.open(os.path.join(google_dir, "keyword_list"), writeback=True)
+        self.google_dir = os.path.join(self.desktop, '구글이미지')
+        self.keyword_list_path = os.path.join(self.google_dir, "keyword_list.json")
+        if os.path.exists(self.keyword_list_path):
+            with open(self.keyword_list_path) as f:
+                self.keyword_list = json.load(f)
+        else:
+            self.keyword_list = dict()
         for keyword, word, image_num in zip(self.input_keywords, self.input_words, self.input_search_num):
             image_num = str(image_num)
-            try:
+            if word in self.keyword_list.keys():
                 searched = self.keyword_list[word]
-            except KeyError:
+            else:
                 self.keyword_list[word] = []
                 searched = []
-            if (keyword not in searched) or (image_num not in searched) or (not os.path.exists(google_dir + '\\' + word)) or (not os.listdir(google_dir + '\\' + word)):
+            if (keyword not in searched) or (image_num not in searched) or (not os.path.exists(self.google_dir + '\\' + word)) or (not os.listdir(self.google_dir + '\\' + word)):
                 self.words.append(word)
                 self.keywords.append(keyword)
                 self.search_num.append(image_num)
@@ -62,7 +66,8 @@ class download_image():
             self.pr_bar.setValue(100)
         for keyword, word, image_num in zip(self.keywords, self.words, self.search_num):
             try_num += 1
-            self.keyword_list[word].extend([keyword, image_num])
+            self.keyword_list[word].extend([val for val in [keyword, image_num] if val not in self.keyword_list[word]])
+            self.keyword_list[word].sort()
             print('구글에서 이미지를 다운로드 중입니다.')
             print('잠시만 기다려주세요...')
             p = threading.Thread(target=self.thread_download_image, args=(word, keyword, image_num))
@@ -75,23 +80,23 @@ class download_image():
             thread.join()
             self.pr_bar.setValue(progress)
             progress += 1
-        self.keyword_list.sync()
-        self.keyword_list.close()
+        with open(self.keyword_list_path, 'w') as f:
+            json.dump(self.keyword_list, f)
 
         for word in self.input_words:
-            google_dir = os.path.join(self.desktop, '구글이미지', word)
-            google_files = os.listdir(google_dir)
-            google_files.sort(key=lambda x: os.path.getmtime(google_dir + '\\' + x))
+            self.google_image_dir = os.path.join(self.desktop, '구글이미지', word)
+            google_files = os.listdir(self.google_image_dir)
+            google_files.sort(key=lambda x: os.path.getmtime(self.google_image_dir + '\\' + x))
             google_files.reverse()
             for google_file in google_files:
                 if google_file.endswith('.svg'):
-                    os.unlink(os.path.abspath(google_dir + "\\" + google_file))
+                    os.unlink(os.path.abspath(self.google_image_dir + "\\" + google_file))
             google_files.insert(1, google_files.pop(0))
 
             if word in self.words:
-                self.images[word] = [os.path.abspath(google_dir + "\\" + google_file) for google_file in google_files]
+                self.images[word] = [os.path.abspath(self.google_image_dir + "\\" + google_file) for google_file in google_files]
             else:
-                self.old_images[word] = [os.path.abspath(google_dir + "\\" + google_file) for google_file in google_files]
+                self.old_images[word] = [os.path.abspath(self.google_image_dir + "\\" + google_file) for google_file in google_files]
 
         return [self.images, self.old_images]
 

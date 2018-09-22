@@ -2,9 +2,9 @@ import sys
 import os
 import re
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QProgressBar, QLabel,
-                             QTreeWidget, QTreeWidgetItem, QLineEdit, QStatusBar,
+                             QTreeWidget, QTreeWidgetItem, QLineEdit,
                              QPlainTextEdit, QSpinBox, QGridLayout, QVBoxLayout, QAction,
-                             QPushButton, QDesktopWidget, QMessageBox, QFileDialog)
+                             QPushButton, QDesktopWidget, QMessageBox, QFileDialog, QAbstractItemView)
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QObject, pyqtSignal, Qt, QEvent, QThreadPool, pyqtSlot, QRunnable
 from shutil import copy
@@ -37,7 +37,7 @@ class EnterWords(QWidget):
         # Text box to input words
         self.input_words = QPlainTextEdit()
         # self.input_words.resize()
-        self.input_words.setPlaceholderText("단어들을 3가지 이상 입력한 후 *검색 키워드 설정* 버튼을 누르세요.\nex) 토끼, 거북이, 사자 or banana, peach, grape \n설명을 보고 싶으면 버튼, 라디오 버튼 등 위에 마우스를 올리세요.")
+        self.input_words.setPlaceholderText("단어들을 3가지 이상 입력한 후 *검색 키워드 설정* 버튼을 누르세요.\nex) 토끼, 거북이, 사자 or banana, peach, grape")
         self.grid.addWidget(self.input_words, 1, 0, 4, 1)
 
         # line edit box to set the suffix words
@@ -48,7 +48,7 @@ class EnterWords(QWidget):
         self.grid.addWidget(self.line_suffix, 3, 1)
 
         # make button
-        self.set_keyword_bt = QPushButton('검색 키워드 설정')
+        self.set_keyword_bt = QPushButton('검색 키워드\n설정')
         self.set_keyword_bt.setToolTip('단축키 : Ctrl + G')
         self.set_keyword_bt.setShortcut("Ctrl+G")
         # settings for Set Keyword Button
@@ -104,7 +104,8 @@ class DownloadImage(QWidget):
         # size of the images
         self.scale_num = MainWindow.y//10
         self.text_image = False
-
+        # shows the progress of image download
+        self.pr_bar = QProgressBar()
 
     def init_UI(self):
         # get the data from Enterwords
@@ -112,6 +113,8 @@ class DownloadImage(QWidget):
 
         # tree widget to show word, keyword, search_num and downloaded images
         self.tree = QTreeWidget()
+        # edit is made more easier
+        self.tree.setEditTriggers(QAbstractItemView.SelectedClicked | QAbstractItemView.DoubleClicked)
         # to make UX make add keyboard events
         self.tree.installEventFilter(self)
         # add tree widget to layout
@@ -129,7 +132,7 @@ class DownloadImage(QWidget):
         self.every_search_num.setValue(3)
         self.every_search_num.valueChanged.connect(self.change_every_search)
 
-        self.download_bt = QPushButton("이미지 다운로드")
+        self.download_bt = QPushButton("이미지\n다운로드")
         self.download_bt.setShortcut('Ctrl+F')
         self.download_bt.setToolTip('단축키 : Ctrl + F')
         self.download_bt.clicked.connect(self.start_download)
@@ -143,13 +146,6 @@ class DownloadImage(QWidget):
         self.vbox.addStretch(1)
         # add vbox to the layout
         self.grid.addLayout(self.vbox, 1, 1)
-
-        # shows the progress of image download
-        self.pr_bar = QProgressBar()
-        # add progressbar to layout
-        self.grid.addWidget(self.pr_bar, 2, 0, 1, 2)
-        # hide progressbar
-        self.pr_bar.close()
 
         # adjust the size of the column layout
         self.grid.setColumnStretch(0, 13)
@@ -247,9 +243,6 @@ class DownloadImage(QWidget):
             q.information(self, 'information', '검색어 키워드가 존재하지 않아요. 그래서 검색어 키워드 버튼을 대신 눌렀습니다~.', QMessageBox.Ok)
             return
 
-        # initiate progress bar
-        self.pr_bar.setValue(0)
-
         # the data to be passed to downloader
         words = []
         keywords = []
@@ -260,7 +253,12 @@ class DownloadImage(QWidget):
             search_num.append(self.tree.topLevelItem(it_idx).text(2))
         self.dir_path = self.get_save_dir()
         if self.dir_path:
+            # add progressbar to layout
+            self.grid.addWidget(self.pr_bar, 2, 0, 1, 2)
             self.pr_bar.show()
+            # initiate progress bar
+            self.pr_bar.setValue(0)
+
             download_worker = DownloadWorker(download_images.download_image, words, keywords, search_num, self.pr_bar, self.dir_path, text_image=self.text_image)
             download_worker.signal.download_complete.connect(self.finish_download)
 
@@ -494,7 +492,7 @@ def my_excepthook(type, value, tback):
     # log the exception here
     # then call the default handlerq
     traceback_text = ''.join(traceback.format_tb(tback))
-    send_error_to_form(traceback_text + str(type) + str(value))
+    # send_error_to_form(traceback_text + str(type) + str(value))
     sys.__excepthook__(type, value, tback)
     exit(1)
 

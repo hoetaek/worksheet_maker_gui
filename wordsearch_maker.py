@@ -369,7 +369,7 @@ class DownloadImage(DownloadImage):
                 dir_path = fname
                 return dir_path
             else:
-                return None
+                return
 
     @pyqtSlot()
     def puzzle_finish(self):

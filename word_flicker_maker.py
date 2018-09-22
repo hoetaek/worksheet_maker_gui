@@ -6,18 +6,35 @@ from word_flicker_generator import PptWordFlickerMaker
 class Communication(Communication):
     super(Communication)
     flicker_complete = pyqtSignal()
+    close_flicker_window = pyqtSignal(str)
+
+class EnterWords(EnterWords):
+    def init_UI(self):
+        # Title for widget
+        title = QLabel("1. 피피티에 들어갈 단어들을 입력하세요.")
+        self.grid.addWidget(title, 0, 0)
+        super(EnterWords, self).init_UI()
 
 class DownloadImage(DownloadImage):
     def init_UI(self):
         # Title for widget
-        title = QLabel("3. 이미지를 선택하세요.")
+        title = QLabel("2. 이미지를 선택하세요.")
         self.grid.addWidget(title, 0, 0)
         super(DownloadImage, self).init_UI()
-        self.make_flicker_bt = QPushButton("단어 깜빡이\n만들기")
-        self.make_flicker_bt.clicked.connect(self.make_flicker)
-        self.vbox.addWidget(self.make_flicker_bt)
+        self.choose_slide_bt = QPushButton("\n다음\n")
+        self.choose_slide_bt.clicked.connect(self.choose_slide)
+        self.vbox.addWidget(self.choose_slide_bt)
 
-    def make_flicker(self):
+    def enable_buttons(self):
+        super(DownloadImage, self).enable_buttons()
+        self.choose_slide_bt.setEnabled(True)
+
+    def disable_buttons(self):
+        super(DownloadImage, self).disable_buttons()
+        self.choose_slide_bt.setEnabled(False)
+
+    @pyqtSlot()
+    def choose_slide(self):
         word_image = []
         if self.tree.topLevelItemCount() == 0:
             self.start_download()
@@ -35,6 +52,13 @@ class DownloadImage(DownloadImage):
                 q.information(self, 'information', '검색어 키워드가 존재하지 않아요. 그래서 검색어 키워드 버튼을 대신 눌렀습니다~.', QMessageBox.Ok)
                 self.enable_buttons()
                 return
+            else:
+                self.start_download()
+                q = QMessageBox(self)
+                q.information(self, 'information', '사진이 존재하지 않습니다. 이미지 다운로드를 눌렀습니다.', QMessageBox.Ok)
+                self.enable_buttons()
+                return
+
         while iterator.value():
             item = iterator.value()
             word = item.data(0, 0)
@@ -50,69 +74,89 @@ class DownloadImage(DownloadImage):
             word_image.append([word, pic])
             iterator += 1
 
-        flicker_worker = FlickerWorker(PptWordFlickerMaker, word_image, [0, 2, 3])
-        flicker_worker.signal.flicker_complete.connect(self.flicker_finish)
-        self.threadpool.start(flicker_worker)
-
-    def flicker_finish(self):
-        print('ppt complete')
+        self.slide_widget = ChooseSlide(self.c, word_image)
         self.enable_buttons()
 
 class FlickerWorker(QRunnable):
-    def __init__(self, fn, *args, **kwargs):
+    def __init__(self, fn, c, *args, **kwargs):
         super(FlickerWorker, self).__init__()
         self.fn = fn
         self.args = args
         self.kwargs = kwargs
-        self.signal = Communication()
+        self.signal = c
 
     @pyqtSlot()
     def run(self):
-        self.fn(*self.args, **self.kwargs).make_word_flicker_slide('.')
+        self.fn(*self.args, **self.kwargs).make_word_flicker_slide()
         self.signal.flicker_complete.emit()
 
 class ChooseSlide(QWidget):
-    def __init__(self, c):
+    def __init__(self, c, word_image):
         super().__init__()
         self.c = c
+        self.threadpool = QThreadPool()
+        self.word_image = word_image
         self.Init_UI()
 
     def Init_UI(self):
         # TreeWidget 1
         self.tree_master_slide = QTreeWidget(self)
-        self.tree_master_slide.setSelectionBehavior(QAbstractItemView.SelectColumns)
         self.tree_master_slide.setColumnCount(1)
-        self.tree_master_slide.setHeaderLabels(['슬라이드를 고르세요.', 'second'])
+        self.tree_master_slide.setHeaderLabels(['슬라이드를 고르세요.'])
+        self.tree_master_slide.header().setDefaultAlignment(Qt.AlignHCenter)
 
         # TreeWidget 1
         self.tree_slide_order = QTreeWidget(self)
         self.tree_slide_order.setColumnCount(1)
         self.tree_slide_order.setHeaderLabels(['슬라이드 순서'])
+        self.tree_slide_order.header().setDefaultAlignment(Qt.AlignHCenter)
 
         # Buttons
         self.pb_move_left = QPushButton("<-")
         self.pb_move_right = QPushButton("->")
 
-        bt_layout = QHBoxLayout()
+        bt_layout = QVBoxLayout()
         bt_layout.addStretch(1)
         bt_layout.addWidget(self.pb_move_left)
         bt_layout.addWidget(self.pb_move_right)
         bt_layout.addStretch(1)
 
+        tree_layout = QHBoxLayout()
+        tree_layout.addWidget(self.tree_master_slide)
+        tree_layout.addLayout(bt_layout)
+        tree_layout.addWidget(self.tree_slide_order)
+
+        make_flicker_bt = QPushButton("단어 깜빡이\n만들기")
+        make_flicker_bt.clicked.connect(self.make_flicker)
+        hbox = QHBoxLayout()
+        hbox.addStretch(1)
+        hbox.addWidget(make_flicker_bt)
+
         main_layout = QVBoxLayout()
-        main_layout.addWidget(self.tree_master_slide)
-        main_layout.addLayout(bt_layout)
-        main_layout.addWidget(self.tree_slide_order)
+        main_layout.addLayout(tree_layout)
+        main_layout.addLayout(hbox)
 
         self.setLayout(main_layout)
-
+        self.resize(MainWindow.y//90*48, MainWindow.y//3*2)
+        self.setWindowTitle("슬라이드 선택 창")
+        self.show()
         # 데이터 초기화
         data = [os.path.join('flicker_example', file) for file in os.listdir('flicker_example')]
-        print(data)
         parent = QTreeWidget.invisibleRootItem(self.tree_master_slide)
-        for d in data:
+        for i, d in enumerate(data):
             item = self.make_tree_item(d)
+            item.num = i
             parent.addChild(item)
+
+        # move items according to setting
+        self.flicker_settings_path = 'flicker_settings.json'
+        if os.path.exists(self.flicker_settings_path):
+            with open(self.flicker_settings_path) as f:
+                self.flicker_settings = json.load(f)
+            for i, n in enumerate(self.flicker_settings['slide_num']):
+                item = self.tree_master_slide.takeTopLevelItem(n-i)
+                root = QTreeWidget.invisibleRootItem(self.tree_slide_order)
+                root.addChild(item)
 
         # 시그널 설정
         self.pb_move_right.clicked.connect(self.move_item)
@@ -123,11 +167,12 @@ class ChooseSlide(QWidget):
         picture = QPixmap(picture)
         item = QTreeWidgetItem()
         # 슬라이드 비율 유지
-        item.setData(0, 1, picture.scaled(MainWindow.y//10, MainWindow.y//10))
+        item.setData(0, 1, picture.scaled(MainWindow.y//90*16, MainWindow.y//10))
         return item
 
     # 아이템 이동
     # sender를 이용하여 어느 위젯이 보낸 신호인지 알 수 있습니다.
+    @pyqtSlot()
     def move_item(self):
         sender = self.sender()
         if self.pb_move_right == sender:
@@ -142,6 +187,61 @@ class ChooseSlide(QWidget):
         root = QTreeWidget.invisibleRootItem(target_tw)
         root.addChild(item)
 
+    @pyqtSlot()
+    def make_flicker(self):
+        slide_num = [self.tree_slide_order.topLevelItem(i).num for i in range(self.tree_slide_order.topLevelItemCount())]
+        if slide_num:
+            self.path = self.get_save_flicker_dir()
+            if self.path:
+                flicker_setting = dict()
+                flicker_setting['slide_num'] = slide_num
+                with open(self.flicker_settings_path, 'w') as f:
+                    json.dump(flicker_setting, f)
+                flicker_worker = FlickerWorker(PptWordFlickerMaker, self.c, self.word_image, slide_num, self.path)
+                flicker_worker.signal.flicker_complete.connect(self.flicker_finish)
+                self.threadpool.start(flicker_worker)
+        else:
+            q = QMessageBox(self)
+            q.warning(self, 'Warning', '슬라이드를 선택해주세요.', QMessageBox.Ok)
+
+    def get_save_flicker_dir(self):
+        file_path = os.path.join(os.getcwd(), 'dir_path.json')
+        is_dir_path = os.path.exists(file_path)
+        if is_dir_path:
+            with open(file_path) as f:
+                data = json.load(f)
+            if 'flicker_dir' in data.keys():
+                dir_path = data['flicker_dir']
+                return dir_path
+            else:
+                q = QMessageBox(self)
+                q.information(self, 'information', '단어 깜빡이를 저장할 폴더를 선택하세요.', QMessageBox.Ok)
+                fname = str(QFileDialog.getExistingDirectory(self, "단어 깜빡이를 저장할 폴더"))
+                if fname:
+                    data['flicker_dir'] = fname
+                    with open(file_path, 'w') as f:
+                        json.dump(data, f)
+                    dir_path = fname
+                    return dir_path
+                else:
+                    return
+        else:
+            q = QMessageBox(self)
+            q.information(self, 'information', '단어 깜빡이를 저장할 폴더를 선택하세요.', QMessageBox.Ok)
+            fname = str(QFileDialog.getExistingDirectory(self, "단어 깜빡이를 저장할 폴더"))
+            if fname:
+                with open(file_path, 'w') as f:
+                    json.dump({'flicker_dir': fname}, f)
+                dir_path = fname
+                return dir_path
+            else:
+                return
+
+    @pyqtSlot()
+    def flicker_finish(self):
+        q = QMessageBox(self)
+        q.information(self, 'information', '단어 깜빡이가 {}에 저장되었습니다'.format(self.path), QMessageBox.Ok)
+        self.close()
 
 class MainWindow(MainWindow):
     def __init__(self):
@@ -154,7 +254,6 @@ class MainWindow(MainWindow):
         c = Communication()
         self.vbox.addWidget(EnterWords(c))
         self.vbox.addWidget(DownloadImage(c))
-        self.vbox.addWidget(ChooseSlide(c))
         self.vbox.setStretch(0, 1)
         self.vbox.setStretch(1, 7)
 

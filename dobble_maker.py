@@ -114,8 +114,6 @@ class DownloadImage(DownloadImage):
         title = QLabel("3. 이미지를 선택하세요.")
         self.grid.addWidget(title, 0, 0)
         super(DownloadImage, self).init_UI()
-        # Download the images right away
-        self.c.set_keyword.connect(self.start_download)
         self.c.pic_num_changed.connect(self.get_pic_num)
         self.makePpt_bt = QPushButton('도블 만들기')
         self.makePpt_bt.pressed.connect(self.start_makedobblePpt)
@@ -145,7 +143,6 @@ class DownloadImage(DownloadImage):
             return
 
         self.disable_buttons()
-        # TODO picture_on will always be true since i'm not going to put words, but only pictures
         if self.picture_on:
             iterator = QTreeWidgetItemIterator(self.tree, QTreeWidgetItemIterator.HasChildren)
         else:
@@ -154,6 +151,12 @@ class DownloadImage(DownloadImage):
                 q = QMessageBox(self)
                 q.information(self, 'information', '검색어 키워드가 존재하지 않아요. 그래서 검색어 키워드 버튼을 대신 눌렀습니다~.', QMessageBox.Ok)
                 self.c.press_set_keyword_bt.emit()
+                self.enable_buttons()
+                return
+            else:
+                self.start_download()
+                q = QMessageBox(self)
+                q.information(self, 'information', '사진이 존재하지 않습니다. 이미지 다운로드를 눌렀습니다.', QMessageBox.Ok)
                 self.enable_buttons()
                 return
         while iterator.value():
