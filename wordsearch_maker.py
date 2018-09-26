@@ -494,6 +494,12 @@ class MainWindow(MainWindow):
         hbox_class.addWidget(class_label)
         hbox_class.addWidget(self.class_spin)
 
+        if os.path.exists('hwp_settings.json'):
+            with open('hwp_settings.json') as f:
+                data = json.load(f)
+                self.grade_spin.setValue(data['grade'])
+                self.class_spin.setValue(data['class'])
+
         ok_button = QPushButton("확인")
         ok_button.clicked.connect(self.set_grade_class)
 
