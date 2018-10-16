@@ -6,7 +6,6 @@ from word_flicker_generator import PptWordFlickerMaker
 class Communication(Communication):
     super(Communication)
     flicker_complete = pyqtSignal()
-    close_flicker_window = pyqtSignal(str)
 
 class EnterWords(EnterWords):
     def init_UI(self):
