@@ -2,12 +2,15 @@ from basic_gui import *
 from PyQt5.QtWidgets import QHBoxLayout, QTreeWidgetItemIterator
 from PyQt5.QtGui import QIcon
 from ppt_dobble_generator import *
+from word_flicker_maker import ChooseSlide, FlickerWorker
+from card_generator import *
 
 class Communication(Communication):
     super(Communication)
     pic_num_changed = pyqtSignal(int)
     word_changed = pyqtSignal(list)
     convert_complete = pyqtSignal()
+    flicker_complete = pyqtSignal()
 
 class Settings(QWidget):
     def __init__(self, c):
@@ -135,8 +138,7 @@ class DownloadImage(DownloadImage):
     def get_pic_num(self, pic_num):
         self.pic_num = pic_num
 
-    @pyqtSlot()
-    def start_makedobblePpt(self):
+    def get_word_image(self):
         word_image = []
         if self.tree.topLevelItemCount() == 0:
             self.start_download()
@@ -175,6 +177,11 @@ class DownloadImage(DownloadImage):
             iterator += 1
 
         # word and image path is stored in list word_image
+        return word_image
+
+    @pyqtSlot()
+    def start_makedobblePpt(self):
+        word_image = self.get_word_image()
 
         # the index of the word_image we should retrieve in order to generate dobble
         dobble = GenerateDobbleIndex(self.pic_num)
@@ -186,8 +193,8 @@ class DownloadImage(DownloadImage):
         self.path = self.get_save_dobble_dir()
         if self.path:
             # put the images into the ppt
-            ppt_card_maker = PptCardMaker(card_list, self.pic_num)
-            ppt_picture = ppt_card_maker.make_card_with_picture(self.path)
+            ppt_choose_card_width = PptCardMaker(card_list, self.pic_num)
+            ppt_picture = ppt_choose_card_width.make_card_with_picture(self.path)
             convert_worker = ConvertWorker(ConvertPptToPng, ppt_picture)
             convert_worker.signal.convert_complete.connect(self.finish_makedobblePpt)
             self.threadpool.start(convert_worker)
@@ -255,14 +262,72 @@ class MainWindow(MainWindow):
     def init_UI(self):
         super(MainWindow, self).init_UI()
         self.setWindowTitle('Dobble card generator')
-        c = Communication()
-        self.vbox.addWidget(Settings(c))
-        self.vbox.addWidget(EnterWords(c))
-        self.vbox.addWidget(DownloadImage(c))
+        self.c = Communication()
+        self.vbox.addWidget(Settings(self.c))
+        self.vbox.addWidget(EnterWords(self.c))
+        self.download_widget = DownloadImage(self.c)
+        self.vbox.addWidget(self.download_widget)
         self.vbox.setStretch(0, 1)
         self.vbox.setStretch(1, 1)
         self.vbox.setStretch(2, 7)
+        self.addpluginmenu()
+        
+    def addpluginmenu(self):
+        self.plugin_menu = self.mainMenu.addMenu("확장")
 
+        self.make_flicker_Button = QAction('단어 깜빡이 만들기', self)
+        self.make_flicker_Button.triggered.connect(self.make_flicker)
+        self.plugin_menu.addAction(self.make_flicker_Button)
+
+        self.make_card_Button = QAction('카드 만들기', self)
+        self.make_card_Button.triggered.connect(self.make_card)
+        self.plugin_menu.addAction(self.make_card_Button)
+        self.plugin_menu.addAction(self.make_card_Button)
+
+    def make_flicker(self):
+        word_image = self.download_widget.get_word_image()
+        self.download_widget.enable_buttons()
+        if word_image:
+            self.flicker_widget = ChooseSlide(self.c, word_image)
+
+    def make_card(self):
+        self.choose_card_width = QWidget()
+        hbox_card_width = QHBoxLayout()
+        card_width_label = QLabel("1줄당 카드의 개수: ")
+        self.card_width_spin = QSpinBox()
+        self.card_width_spin.setValue(3)
+        self.card_width_spin.setMinimum(1)
+        hbox_card_width.addWidget(card_width_label)
+        hbox_card_width.addWidget(self.card_width_spin)
+
+        ok_button = QPushButton("확인")
+        ok_button.clicked.connect(self.card_maker)
+
+        vbox_display = QVBoxLayout()
+        vbox_display.addLayout(hbox_card_width)
+        vbox_display.addWidget(ok_button)
+
+        self.choose_card_width.setLayout(vbox_display)
+        self.choose_card_width.show()
+
+    def card_maker(self):
+        q = QMessageBox(QMessageBox.Information, "카드 이미지 폴더 선택", '카드 이미지들이 저장되어 있는 폴더를 선택하세요.')
+        q.setStandardButtons(QMessageBox.Ok)
+        q.exec_()
+        path = self.download_widget.get_save_dobble_dir()
+        image_dir = str(QFileDialog.getExistingDirectory(self, "도블 카드 이미지가 담긴 폴더", path))
+        if image_dir:
+            width = self.card_width_spin.value()
+            wordcardworksheet = WordCardWorksheet(image_dir, width, path).make_worksheet()
+            if wordcardworksheet != 'error':
+                q = QMessageBox(QMessageBox.Information, "카드 만들기 완료", '카드가 완성되었습니다. {}에 저장되어 있습니다.'.format(path))
+                q.setStandardButtons(QMessageBox.Ok)
+                q.exec_()
+            else:
+                q = QMessageBox(QMessageBox.Warning, "에러 발생", '에러가 발생하였습니다. 올바른 폴더를 선택해주세요.'.format(path))
+                q.setStandardButtons(QMessageBox.Ok)
+                q.exec_()
+        self.choose_card_width.close()
 
 if __name__ == '__main__':
 

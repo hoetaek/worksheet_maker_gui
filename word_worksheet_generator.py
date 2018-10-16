@@ -92,4 +92,8 @@ class WordCardWorksheet:
 
 
 if __name__=='__main__':
-    WordCardWorksheet([['python', 'python_.png'], ['python', 'python_.png']], 4, '.').make_worksheet()
+    word_image = []
+    dir_name = r'C:\Users\hoetaekpro\Desktop\dobble_6cards_picture'
+    for i, j in enumerate(os.listdir(dir_name)):
+        word_image.append([str(i), os.path.abspath(dir_name + '\\' + j)])
+    WordCardWorksheet(word_image, 3, r'C:\Users\hoetaekpro\Desktop').make_worksheet()
