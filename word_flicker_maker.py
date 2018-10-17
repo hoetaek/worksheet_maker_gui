@@ -251,7 +251,8 @@ class MainWindow(MainWindow):
         self.setWindowTitle('Word flicker generator')
         # Set icon for application
         c = Communication()
-        self.vbox.addWidget(EnterWords(c))
+        self.enterwords_widget = EnterWords(c)
+        self.vbox.addWidget(self.enterwords_widget)
         self.vbox.addWidget(DownloadImage(c))
         self.vbox.setStretch(0, 1)
         self.vbox.setStretch(1, 7)

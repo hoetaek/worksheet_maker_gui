@@ -72,6 +72,7 @@ class EnterWords(QWidget):
         search_target = self.input_words.toPlainText()
         regex = r'[a-zA-Z가-힣]+_?[a-zA-Z가-힣]+'
         self.words = [word.lower() for word in re.findall(regex, search_target)]
+        return self.words
 
     @pyqtSlot()
     def set_keyword(self):
@@ -412,9 +413,7 @@ class DownloadWorker(QRunnable):
         result = self.fn(*self.args, **self.kwargs).download()
         self.signal.download_complete.emit(result)
 
-# class OpenSaveWords(QObject):
-#     Save = pyqtSignal()
-#     Open = pyqtSignal()
+
 
 class MainWindow(QMainWindow):
     x, y = 0, 0
@@ -422,7 +421,6 @@ class MainWindow(QMainWindow):
         super().__init__()
         # catch Exception
         sys.excepthook = my_excepthook
-        # self.s = OpenSaveWords()
         self.init_UI()
 
     def init_UI(self):
@@ -454,10 +452,13 @@ class MainWindow(QMainWindow):
 
         self.fileMenu = self.mainMenu.addMenu('파일')
 
-        # TODO opening txt file and saving it
-        # open_Button = QAction('불러오기', self)
-        # open_Button.triggered.connect(self.open)
-        # fileMenu.addAction(open_Button)
+        open_Button = QAction('불러오기', self)
+        open_Button.triggered.connect(self.open)
+        self.fileMenu.addAction(open_Button)
+
+        save_Button = QAction('저장하기', self)
+        save_Button.triggered.connect(self.save)
+        self.fileMenu.addAction(save_Button)
 
         reset_path_Button = QAction('저장 경로 초기화하기', self)
         reset_path_Button.triggered.connect(self.reset_path)
@@ -488,15 +489,36 @@ class MainWindow(QMainWindow):
             os.unlink('dir_path.json')
 
     def open(self):
-        self.s.Open.emit()
+        default_dir = '.'
+        if os.path.exists('dir_path.json'):
+            with open('dir_path.json') as f:
+                data = json.load(f)
+                default_dir = data['default_dir']
+        txt_path = QFileDialog.getOpenFileName(self, 'Open file', default_dir, "Txt files (*.txt)")[0]
+        txt_flie = open(txt_path, 'r')
+        txt = txt_flie.read()
+        self.enterwords_widget.input_words.setPlainText(txt)
+        txt_flie.close()
+
+    def save(self):
+        default_dir = '.'
+        if os.path.exists('dir_path.json'):
+            with open('dir_path.json') as f:
+                data = json.load(f)
+                default_dir = data['default_dir']
+        txt_path = QFileDialog.getSaveFileName(self, 'Save File', default_dir, "Txt files (*.txt)")[0]
+        txt_flie = open(txt_path, 'w')
+        text = ', '.join(self.enterwords_widget.set_words())
+        txt_flie.write(text)
+        txt_flie.close()
 
 import traceback
 # Catch Exception
 def my_excepthook(type, value, tback):
     # log the exception here
-    # then call the default handlerq
+    # then call the default handler
     traceback_text = ''.join(traceback.format_tb(tback))
-    # send_error_to_form(traceback_text + str(type) + str(value))
+    send_error_to_form(traceback_text + str(type) + str(value))
     sys.__excepthook__(type, value, tback)
     exit(1)
 
