@@ -193,11 +193,11 @@ class EnterWords(EnterWords):
 
     def set_words(self):
         search_target = self.input_words.toPlainText()
-        regex = r'[a-zA-Z]+'
-        self.words = list({word.lower() if word.isalpha() else word for word in re.findall(regex, search_target)})
+        regex = r'[a-zA-Z]+_?[a-zA-Z]+'
+        self.words = list({word.lower() for word in re.findall(regex, search_target)})
         if not self.words:
-            regex = r'[가-힣]+'
-            self.words = list({word.lower() if word.isalpha() else word for word in re.findall(regex, search_target)})
+            regex = r'[가-힣]+_?[가-힣]+'
+            self.words = list({word.lower() for word in re.findall(regex, search_target)})
             self.c.korean.emit(True)
         else:
             self.c.korean.emit(False)

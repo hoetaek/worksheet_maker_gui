@@ -67,14 +67,15 @@ class EnterWords(QWidget):
 
     def set_words(self):
         search_target = self.input_words.toPlainText()
-        regex = r'[a-zA-Z가-힣]+'
-        self.words = [word.lower() if word.isalpha() else word for word in re.findall(regex, search_target)]
+        regex = r'[a-zA-Z가-힣]+_?[a-zA-Z가-힣]+'
+        self.words = [word.lower() for word in re.findall(regex, search_target)]
 
     @pyqtSlot()
     def set_keyword(self):
         self.set_words()
         self.input_words.setPlainText(', '.join(self.words))
-        self.keywords = [word + ' ' + self.line_suffix.text() for word in self.words]
+        self.keywords = [word.replace('_', ' ') + ' ' + self.line_suffix.text() for word in self.words]
+        self.words = [word.replace('_', ' ') for word in self.words]
         self.c.set_keyword.emit([self.words, self.keywords])
 
     @pyqtSlot()
