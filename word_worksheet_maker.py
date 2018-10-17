@@ -1,5 +1,5 @@
 from basic_gui import *
-from PyQt5.QtWidgets import QHBoxLayout, QTreeWidgetItemIterator
+from PyQt5.QtWidgets import QHBoxLayout, QTreeWidgetItemIterator, QCheckBox
 from word_worksheet_generator import WordCardWorksheet
 
 class Communication(Communication):
@@ -40,12 +40,16 @@ class DownloadImage(DownloadImage):
         self.width_spin.setValue(5)
         self.width_spin.setMinimum(1)
 
+        self.syllable_checkBox = QCheckBox("음절로 쪼개기", self)
+        self.syllable_checkBox.setToolTip("단어가 syllable 단위로 제시됩니다.")
+
         self.make_WS_bt = QPushButton('단어 활동지\n만들기')
         self.make_WS_bt.pressed.connect(self.start_makedWS)
         self.make_WS_bt.setToolTip("단축키 : Ctrl + D")
         self.make_WS_bt.setShortcut('Ctrl+D')
         self.vbox.addWidget(self.label_width)
         self.vbox.addWidget(self.width_spin)
+        self.vbox.addWidget(self.syllable_checkBox)
         self.vbox.addWidget(self.make_WS_bt)
 
     def start_makedWS(self):
@@ -89,7 +93,7 @@ class DownloadImage(DownloadImage):
 
         self.path = self.get_save_word_wordsheet_dir()
         if self.path:
-            worksheet_worker = WorksheetWorker(WordCardWorksheet, word_image, self.width_spin.value(), self.path)
+            worksheet_worker = WorksheetWorker(WordCardWorksheet, word_image, self.width_spin.value(), self.path, syllable=self.syllable_checkBox.isChecked())
             worksheet_worker.signal.WS_complete.connect(self.finish_makedobblePpt)
             self.threadpool.start(worksheet_worker)
 

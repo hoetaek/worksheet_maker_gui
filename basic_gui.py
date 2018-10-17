@@ -37,7 +37,10 @@ class EnterWords(QWidget):
         # Text box to input words
         self.input_words = QPlainTextEdit()
         # self.input_words.resize()
-        self.input_words.setPlaceholderText("단어들을 3가지 이상 입력한 후 *검색 키워드 설정* 버튼을 누르세요.\nex) 토끼, 거북이, 사자 or banana, peach, grape")
+        self.input_words.setPlaceholderText("단어들을 3가지 이상 입력한 후 *검색 키워드 설정* 버튼을 누르세요."
+                                            "\n띄어쓰기를 하고 싶은 경우 띄어쓰기 대신에 '_'를 입력하세요."
+                                            "\n잘 모르겠으면 아랫줄 그대로 입력해보세요 :)"
+                                            "\nex) 토끼, 거북이, 사자 \nor banana, peach, police_officer")
         self.grid.addWidget(self.input_words, 1, 0, 4, 1)
 
         # line edit box to set the suffix words

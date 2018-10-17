@@ -17,7 +17,7 @@ class ConvertDoc2Pdf:
         return outputFileName
 
     def pdf_to_png(self, file):
-        PDFTOPPMPATH = r"poppler-0.67.0\bin\pdftoppm.exe"
+        PDFTOPPMPATH = r"poppler-0.67.0\bin\pdfimages.exe"
         PDFFILE = file
 
         subprocess.Popen('"%s" -png %s %s' % (PDFTOPPMPATH, PDFFILE, PDFFILE[:-4]))
@@ -32,6 +32,6 @@ class ConvertDoc2Pdf:
         self.pdf_to_png(pdf)
 
 if __name__ == '__main__':
-    path = os.path.abspath('puzzle.docx')
+    path = os.path.abspath('도블 카드 모음.docx')
     convert = ConvertDoc2Pdf(path)
     convert.convert()

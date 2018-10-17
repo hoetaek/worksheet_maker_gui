@@ -6,13 +6,15 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 import os
 import json
+from syllable import get_syllable_divided
 
 class WordCardWorksheet:
-    def __init__(self, word_image, word_width, path):
+    def __init__(self, word_image, word_width, path, syllable=False):
         self.word_image = word_image
         self.words = [word[0] for word in word_image]
         self.word_width = word_width
         self.path = path
+        self.syllable = syllable
 
     def make_worksheet(self):
         print('학습지 만드는 중입니다.')
@@ -65,6 +67,8 @@ class WordCardWorksheet:
                 if index < word_num:
                     if i % 2 == 1:
                         cell.text = self.words[index]
+                        if self.syllable:
+                            cell.text = get_syllable_divided(self.words[index])
                     for paragraph in cell.paragraphs:
                         if i % 2 == 0:
                             if self.word_image[index][1] == "None":
