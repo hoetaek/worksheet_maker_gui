@@ -1,5 +1,5 @@
 from basic_gui import *
-from PyQt5.QtWidgets import QHBoxLayout, QTreeWidgetItemIterator
+from PyQt5.QtWidgets import QHBoxLayout, QTreeWidgetItemIterator, QDoubleSpinBox
 from PyQt5.QtGui import QIcon
 from ppt_dobble_generator import *
 from word_flicker_maker import ChooseSlide, FlickerWorker
@@ -11,6 +11,31 @@ class Communication(Communication):
     word_changed = pyqtSignal(list)
     convert_complete = pyqtSignal()
     flicker_complete = pyqtSignal()
+
+# Spinbox that accepts numbers that are n-1 : a prime number
+class SpinBox(QSpinBox):
+    def __init__(self, parent=None):
+        super(SpinBox, self).__init__(parent=parent)
+        self.before_value = self.value()
+        self.valueChanged.connect(self.onValueChanged)
+
+    def onValueChanged(self, i):
+        differ = i - self.before_value
+        num = i - 1
+        if not self.is_prime(num):
+            while not self.is_prime(num):
+                if differ > 0:
+                    num += 1
+                else:
+                    num -= 1
+            self.setValue(num + 1)
+            self.before_value = num + 1
+        else:
+            self.setValue(num + 1)
+            self.before_value = num + 1
+
+    def is_prime(self, n):
+        return all([(n % j) for j in range(2, int(n ** 0.5) + 1)]) or n == 4
 
 class Settings(QWidget):
     def __init__(self, c):
@@ -25,9 +50,8 @@ class Settings(QWidget):
         grid.addWidget(title)
 
         label_set_pic_num = QLabel('그림 개수 :')
-        self.pic_num = QSpinBox()
+        self.pic_num = SpinBox()
         self.pic_num.setMinimum(3)
-        self.pic_num.setMaximum(9)
         self.pic_num.setValue(3)
         self.pic_num.valueChanged.connect(self.change_word_num)
 
@@ -292,6 +316,38 @@ class MainWindow(MainWindow):
 
     def make_card(self):
         self.choose_card_width = QWidget()
+
+        margin_label = QLabel("종이의 여백 길이")
+
+        hbox_margin = QHBoxLayout()
+        left_margin_label = QLabel("왼쪽: ")
+        self.left_margin_spin = QDoubleSpinBox()
+        self.left_margin_spin.setSuffix('cm')
+        self.left_margin_spin.setDecimals(1)
+        self.left_margin_spin.setSingleStep(0.1)
+        self.left_margin_spin.setValue(0.5)
+        self.left_margin_spin.setMinimum(0.1)
+        self.left_margin_spin.setMaximum(10)
+        right_margin_label = QLabel("오른쪽: ")
+        self.right_margin_spin = QDoubleSpinBox()
+        self.right_margin_spin.setSuffix('cm')
+        self.right_margin_spin.setDecimals(1)
+        self.right_margin_spin.setSingleStep(0.1)
+        self.right_margin_spin.setValue(0.5)
+        self.right_margin_spin.setMinimum(0.1)
+        self.right_margin_spin.setMaximum(10)
+
+        if os.path.exists('hwp_margin_settings.json'):
+            with open('hwp_margin_settings.json') as f:
+                data = json.load(f)
+                self.left_margin_spin.setValue(data['left_margin'])
+                self.right_margin_spin.setValue(data['right_margin'])
+
+        hbox_margin.addWidget(left_margin_label)
+        hbox_margin.addWidget(self.left_margin_spin)
+        hbox_margin.addWidget(right_margin_label)
+        hbox_margin.addWidget(self.right_margin_spin)
+
         hbox_card_width = QHBoxLayout()
         card_width_label = QLabel("1줄당 카드의 개수: ")
         self.card_width_spin = QSpinBox()
@@ -304,13 +360,24 @@ class MainWindow(MainWindow):
         ok_button.clicked.connect(self.card_maker)
 
         vbox_display = QVBoxLayout()
+        vbox_display.addWidget(margin_label)
+        vbox_display.addLayout(hbox_margin)
         vbox_display.addLayout(hbox_card_width)
         vbox_display.addWidget(ok_button)
 
         self.choose_card_width.setLayout(vbox_display)
+        self.choose_card_width.setWindowTitle("카드 만들기 설정창")
         self.choose_card_width.show()
 
+    def set_margin_size(self):
+        data = dict()
+        data['left_margin'] = self.left_margin_spin.value()
+        data['right_margin'] = self.right_margin_spin.value()
+        with open('hwp_margin_settings.json', 'w') as f:
+            json.dump(data, f)
+
     def card_maker(self):
+        self.set_margin_size()
         q = QMessageBox(QMessageBox.Information, "카드 이미지 폴더 선택", '카드 이미지들이 저장되어 있는 폴더를 선택하세요.')
         q.setStandardButtons(QMessageBox.Ok)
         q.exec_()

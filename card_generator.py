@@ -5,6 +5,7 @@ from docx.shared import Cm, Inches, RGBColor, Mm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 import os
+import json
 
 class WordCardWorksheet:
     def __init__(self, card_image, word_width, path):
@@ -18,11 +19,18 @@ class WordCardWorksheet:
         document = Document()
         #changing the page margins
         sections = document.sections
+        left_margin = 0.3
+        right_margin = 0.3
+        if os.path.exists('hwp_margin_settings.json'):
+            with open('hwp_margin_settings.json') as f:
+                data = json.load(f)
+                left_margin = data['left_margin']
+                right_margin = data['right_margin']
         for section in sections:
             section.top_margin = Cm(0.8)
             section.bottom_margin = Cm(0.8)
-            section.left_margin = Cm(0.2)
-            section.right_margin = Cm(0.2)
+            section.left_margin = Cm(left_margin)
+            section.right_margin = Cm(right_margin)
 
         word_num = len(self.card_image)
         size = self.word_width
