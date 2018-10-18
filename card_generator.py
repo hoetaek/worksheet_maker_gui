@@ -27,8 +27,8 @@ class WordCardWorksheet:
                 left_margin = data['left_margin']
                 right_margin = data['right_margin']
         for section in sections:
-            section.top_margin = Cm(0.8)
-            section.bottom_margin = Cm(0.8)
+            section.top_margin = Cm(0.3)
+            section.bottom_margin = Cm(0.3)
             section.left_margin = Cm(left_margin)
             section.right_margin = Cm(right_margin)
 

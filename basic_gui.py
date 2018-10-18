@@ -134,7 +134,7 @@ class DownloadImage(QWidget):
         label_search = QLabel('전체 검색 개수')
         self.every_search_num = QSpinBox()
         self.every_search_num.setMinimum(1)
-        self.every_search_num.setValue(3)
+        self.every_search_num.setValue(5)
         self.every_search_num.valueChanged.connect(self.change_every_search)
 
         self.download_bt = QPushButton("이미지\n다운로드")

@@ -2,6 +2,7 @@ import os
 from pptx import Presentation
 import comtypes.client
 from random import shuffle
+from copy import copy
 
 class GenerateDobbleIndex():
     def __init__(self, num_of_pic):
@@ -19,7 +20,9 @@ class GenerateDobbleIndex():
                     select_pic = [pic]
                     for j in range(self.num_of_pic-1):
                         select_pic.append(card_list.pop(0))
-                    cards.append(select_pic)
+                    initial_pic = copy(select_pic)
+                    shuffle(initial_pic)
+                    cards.append(initial_pic)
                     if i > 0:
                         key_pic.append(select_pic[1:])
                 fixed_pic = key_pic.pop(0)

@@ -52,7 +52,8 @@ class Settings(QWidget):
         label_set_pic_num = QLabel('그림 개수 :')
         self.pic_num = SpinBox()
         self.pic_num.setMinimum(3)
-        self.pic_num.setValue(3)
+        self.pic_num.setMaximum(8)
+        self.pic_num.setValue(6)
         self.pic_num.valueChanged.connect(self.change_word_num)
 
         hbox = QHBoxLayout()
@@ -62,7 +63,7 @@ class Settings(QWidget):
 
         grid.addLayout(hbox, 1, 0, 1, 2)
 
-        self.label_word_num = QLabel('총 {}개의 단어를 입력해주세요.'.format(7))
+        self.label_word_num = QLabel('총 {}개의 단어를 입력해주세요.'.format(31))
         grid.addWidget(self.label_word_num, 2, 0)
 
         self.setLayout(grid)
@@ -78,8 +79,8 @@ class Settings(QWidget):
 
 class EnterWords(EnterWords):
     def __init__(self, c):
-        self.word_num = 7
-        self.pic_num = 3
+        self.word_num = 31
+        self.pic_num = 6
         super(EnterWords, self).__init__(c)
 
     def init_UI(self):
@@ -87,7 +88,7 @@ class EnterWords(EnterWords):
 
         hbox = QHBoxLayout()
         title = QLabel('2, 단어를 입력세요.')
-        self.label_remaining = QLabel("필요한 단어 : {}개".format(7))
+        self.label_remaining = QLabel("필요한 단어 : {}개".format(31))
         hbox_label_remaining = QHBoxLayout()
         hbox_label_remaining.addWidget(self.label_remaining)
         hbox_label_remaining.setAlignment(Qt.AlignRight)
@@ -103,7 +104,8 @@ class EnterWords(EnterWords):
     def set_keyword(self):
         self.set_words()
         self.input_words.setPlainText(', '.join(self.words))
-        self.keywords = [word + ' ' + self.line_suffix.text() for word in self.words]
+        self.keywords = [word.replace('_', ' ') + ' ' + self.line_suffix.text() for word in self.words]
+        self.words = [word.replace('_', ' ') for word in self.words]
         if len(self.words) < self.word_num:
             q = QMessageBox(QMessageBox.Warning, "에러 메시지", '단어가 {}개 부족합니다.\n같은 단어도 반복 입력 가능합니다.'.format(self.word_num - len(self.words)))
             q.setStandardButtons(QMessageBox.Ok)
@@ -132,7 +134,7 @@ class EnterWords(EnterWords):
 class DownloadImage(DownloadImage):
     def __init__(self, c):
         super(DownloadImage, self).__init__(c)
-        self.pic_num = 3
+        self.pic_num = 6
         self.picture_on = False
         self.text_image = True
 
