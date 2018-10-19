@@ -144,6 +144,7 @@ class DownloadImage(DownloadImage):
         self.grid.addWidget(title, 0, 0)
         super(DownloadImage, self).init_UI()
         self.c.pic_num_changed.connect(self.get_pic_num)
+        self.every_search_num.setMinimum(0)
         self.makePpt_bt = QPushButton('도블 만들기')
         self.makePpt_bt.pressed.connect(self.start_makedobblePpt)
         self.makePpt_bt.setToolTip("단축키 : Ctrl + D")
