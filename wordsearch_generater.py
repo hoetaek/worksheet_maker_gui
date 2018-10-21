@@ -366,6 +366,7 @@ class MakeWordSearch():
                     trPr.append(trHeight)
 
                 for j, cell in enumerate(row.cells):
+                    # TODO font size : 15, font bold
                     index = i//2*size + j
                     #####가로 길이 정하기!
                     cell.width = Inches(10)

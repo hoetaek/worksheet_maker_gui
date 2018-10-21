@@ -7,6 +7,8 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import os
+import re
+from syllable import get_syllable_divided
 
 class PptWordFlickerMaker():
     def __init__(self, words_pics, num_slide, path):
@@ -20,8 +22,8 @@ class PptWordFlickerMaker():
         prs = Presentation('template_for_word_flicker.pptx')
         for num in self.num_slide:
             if num != 0 or num != 1:
-                prs.slides.add_slide(prs.slide_layouts[5])
-                prs.slides.add_slide(prs.slide_layouts[6])
+                prs.slides.add_slide(prs.slide_layouts[-2])
+                prs.slides.add_slide(prs.slide_layouts[-1])
             card_layout = prs.slide_layouts[num]
             for word, pic in zip(self.words, self.pics):
 
@@ -62,6 +64,24 @@ class PptWordFlickerMaker():
                             text = re.sub(parenthesis, '', text)
                             text = re.sub(bracket, '', text)
                             run.text = text
+                        elif num == 5:
+                            syllable_divided = ' '.join(get_syllable_divided(w) for w in word.split())
+                            if shape.placeholder_format.idx == 10:
+                                p = text_frame.paragraphs[0]
+                                run = p.add_run()
+                                run.text = word
+                            elif shape.placeholder_format.idx == 11:
+                                p = text_frame.paragraphs[0]
+                                run = p.add_run()
+                                run.text = syllable_divided
+                            elif shape.placeholder_format.idx == 12:
+                                p = text_frame.paragraphs[0]
+                                run = p.add_run()
+                                syllable_num = len(re.split(r'[ -]', syllable_divided))
+                                if syllable_num == 1:
+                                    run.text = str(syllable_num) + ' syllable'
+                                else:
+                                    run.text = str(syllable_num) + ' syllables'
                         else:
                             p = text_frame.paragraphs[0]
                             run = p.add_run()

@@ -66,6 +66,7 @@ class WordCardWorksheet:
                 #단어 수 만큼 반복하기
                 if index < word_num:
                     if i % 2 == 1:
+                        # TODO font size : 15, font bold
                         cell.text = self.words[index]
                         if self.syllable:
                             cell.text = get_syllable_divided(self.words[index])

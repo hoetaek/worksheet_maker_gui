@@ -125,11 +125,11 @@ class ChooseSlide(QWidget):
         tree_layout.addLayout(bt_layout)
         tree_layout.addWidget(self.tree_slide_order)
 
-        make_flicker_bt = QPushButton("단어 깜빡이\n만들기")
-        make_flicker_bt.clicked.connect(self.make_flicker)
+        self.make_flicker_bt = QPushButton("단어 깜빡이\n만들기")
+        self.make_flicker_bt.clicked.connect(self.make_flicker)
         hbox = QHBoxLayout()
         hbox.addStretch(1)
-        hbox.addWidget(make_flicker_bt)
+        hbox.addWidget(self.make_flicker_bt)
 
         main_layout = QVBoxLayout()
         main_layout.addLayout(tree_layout)
@@ -153,6 +153,7 @@ class ChooseSlide(QWidget):
             with open(self.flicker_settings_path) as f:
                 self.flicker_settings = json.load(f)
             for i, n in enumerate(self.flicker_settings['slide_num']):
+                # TODO guess the syllable
                 item = self.tree_master_slide.takeTopLevelItem(n-i)
                 root = QTreeWidget.invisibleRootItem(self.tree_slide_order)
                 root.addChild(item)
@@ -192,6 +193,7 @@ class ChooseSlide(QWidget):
         if slide_num:
             self.path = self.get_save_flicker_dir()
             if self.path:
+                self.make_flicker_bt.setEnabled(False)
                 flicker_setting = dict()
                 flicker_setting['slide_num'] = slide_num
                 with open(self.flicker_settings_path, 'w') as f:
@@ -238,6 +240,7 @@ class ChooseSlide(QWidget):
 
     @pyqtSlot()
     def flicker_finish(self):
+        self.make_flicker_bt.setEnabled(True)
         q = QMessageBox(self)
         q.information(self, 'information', '단어 깜빡이가 {}에 저장되었습니다'.format(self.path), QMessageBox.Ok)
         self.close()
