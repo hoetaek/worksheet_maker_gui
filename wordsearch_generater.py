@@ -366,7 +366,6 @@ class MakeWordSearch():
                     trPr.append(trHeight)
 
                 for j, cell in enumerate(row.cells):
-                    # TODO font size : 15, font bold
                     index = i//2*size + j
 
                     #단어 수 만큼 반복하기

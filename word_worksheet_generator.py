@@ -67,13 +67,12 @@ class WordCardWorksheet:
                 if index < word_num:
                     for paragraph in cell.paragraphs:
                         if i % 2 == 1:
-                            # TODO font size : 15, font bold
                             run = paragraph.add_run(self.words[index])
+                            if self.syllable:
+                                run = paragraph.add_run(get_syllable_divided(self.words[index]))
                             font = run.font
                             font.name = 'Arial'
                             font.size = Pt(15)
-                            if self.syllable:
-                                cell.text = get_syllable_divided(self.words[index])
                         if i % 2 == 0:
                             if self.word_image[index][1] == "None":
                                 cell.text = "사진 없음"
