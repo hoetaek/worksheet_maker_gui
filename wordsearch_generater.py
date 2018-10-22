@@ -368,8 +368,6 @@ class MakeWordSearch():
                 for j, cell in enumerate(row.cells):
                     # TODO font size : 15, font bold
                     index = i//2*size + j
-                    #####가로 길이 정하기!
-                    cell.width = Inches(10)
 
                     #단어 수 만큼 반복하기
                     if index < len(words):
@@ -405,11 +403,8 @@ class MakeWordSearch():
                                 else:
                                     try:
                                         run = paragraph.add_run()
-                                        if size > 8:
-                                            run.add_picture(self.word_image[index][1], width=Mm(15), height=Mm(15))
-                                        else:
-                                            run.add_picture(self.word_image[index][1], width=Mm(40 - size * 3.2),
-                                                            height=Mm(40 - size * 3.2))
+                                        run.add_picture(self.word_image[index][1], width=cell.width *95/100,
+                                                        height=cell.width)
                                     except:
                                         paragraph.add_run("에러 발생. 다른 사진 선택해주세요.")
 
