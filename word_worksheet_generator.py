@@ -1,7 +1,7 @@
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx import Document
-from docx.shared import Cm, Inches, RGBColor, Mm
+from docx.shared import Cm, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 import os
@@ -65,12 +65,15 @@ class WordCardWorksheet:
                 index = i//2*size + j
                 #단어 수 만큼 반복하기
                 if index < word_num:
-                    if i % 2 == 1:
-                        # TODO font size : 15, font bold
-                        cell.text = self.words[index]
-                        if self.syllable:
-                            cell.text = get_syllable_divided(self.words[index])
                     for paragraph in cell.paragraphs:
+                        if i % 2 == 1:
+                            # TODO font size : 15, font bold
+                            run = paragraph.add_run(self.words[index])
+                            font = run.font
+                            font.name = 'Arial'
+                            font.size = Pt(15)
+                            if self.syllable:
+                                cell.text = get_syllable_divided(self.words[index])
                         if i % 2 == 0:
                             if self.word_image[index][1] == "None":
                                 cell.text = "사진 없음"

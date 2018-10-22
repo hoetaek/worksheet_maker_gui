@@ -153,7 +153,6 @@ class ChooseSlide(QWidget):
             with open(self.flicker_settings_path) as f:
                 self.flicker_settings = json.load(f)
             for i, n in enumerate(self.flicker_settings['slide_num']):
-                # TODO guess the syllable
                 item = self.tree_master_slide.takeTopLevelItem(n-i)
                 root = QTreeWidget.invisibleRootItem(self.tree_slide_order)
                 root.addChild(item)

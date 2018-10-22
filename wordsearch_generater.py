@@ -5,7 +5,7 @@ import copy
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx import Document
-from docx.shared import Cm, Inches, RGBColor, Mm
+from docx.shared import Cm, Inches, RGBColor, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.dml.color import ColorFormat
@@ -371,42 +371,42 @@ class MakeWordSearch():
 
                     #단어 수 만큼 반복하기
                     if index < len(words):
-                        if i % 2 == 1:
-                            # 초성 또는 scramble이 켜져 있는 경우
-                            if self.chosung_scramable:
-                                word = words[index]
-                                if self.korean:
-                                    cho_word = ''
-                                    for chr in word:
-                                        chosung_scramable = hgtk.letter.decompose(chr)[0]
-                                        cho_word += chosung_scramable
-                                    cell.text = cho_word
-                                else:
-                                    # 사진 있고 영어고 scramble인 경우
-                                    spelling = [i for i in word]
-                                    shuffle(spelling)
-                                    scrambled_word = ''.join(spelling)
-                                    if self.uppercase:
-                                        cell.text = scrambled_word.upper()
-                                    else:
-                                        cell.text = scrambled_word
-                            else:
-                                if self.uppercase and not self.korean:
-                                    cell.text = words[index].upper()
-                                else:
-                                    cell.text = words[index]
-
                         for paragraph in cell.paragraphs:
-                            if i % 2 == 0:
-                                if self.word_image[index][1] == "None":
-                                    cell.text = "사진 없음"
+                            if i % 2 == 1:
+                                # 초성 또는 scramble이 켜져 있는 경우
+                                if self.chosung_scramable:
+                                    word = words[index]
+                                    if self.korean:
+                                        cho_word = ''
+                                        for chr in word:
+                                            chosung_scramable = hgtk.letter.decompose(chr)[0]
+                                            cho_word += chosung_scramable
+                                        run = paragraph.add_run(cho_word)
+                                    else:
+                                        # 사진 있고 영어고 scramble인 경우
+                                        spelling = [i for i in word]
+                                        shuffle(spelling)
+                                        scrambled_word = ''.join(spelling)
+                                        if self.uppercase:
+                                            run = paragraph.add_run(scrambled_word.upper())
+                                        else:
+                                            run = paragraph.add_run(scrambled_word)
                                 else:
-                                    try:
-                                        run = paragraph.add_run()
-                                        run.add_picture(self.word_image[index][1], width=cell.width *95/100,
-                                                        height=cell.width)
-                                    except:
-                                        paragraph.add_run("에러 발생. 다른 사진 선택해주세요.")
+                                    if self.uppercase and not self.korean:
+                                        run = paragraph.add_run(words[index].upper())
+                                    else:
+                                        run = paragraph.add_run(words[index])
+                                font = run.font
+                                font.name = 'Arial'
+                                font.size = Pt(15)
+
+                            elif i % 2 == 0:
+                                try:
+                                    run = paragraph.add_run()
+                                    run.add_picture(self.word_image[index][1], width=cell.width *95/100,
+                                                    height=cell.width)
+                                except:
+                                    paragraph.add_run("에러 발생. 다른 사진 선택해주세요.")
 
 
                             #####가운데 정렬!!
