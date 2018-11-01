@@ -7,6 +7,7 @@ class Picture2Table:
     def __init__(self, template, pics):
         self.template = Document(template)
         self.pics = pics
+        self.get_cell_size()
 
     def get_cell_size(self):
         self.tabel = self.template.tables[0]
@@ -44,5 +45,4 @@ if __name__=='__main__':
     import os
     pics = [os.path.join('flicker_example', f) for f in os.listdir('flicker_example')]
     pic2table = Picture2Table('template_24.docx', pics)
-    pic2table.get_cell_size()
     pic2table.put_pic_to_cell()
