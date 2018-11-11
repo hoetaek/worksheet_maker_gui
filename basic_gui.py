@@ -495,10 +495,11 @@ class MainWindow(QMainWindow):
                 data = json.load(f)
                 default_dir = data['default_dir']
         txt_path = QFileDialog.getOpenFileName(self, 'Open file', default_dir, "Txt files (*.txt)")[0]
-        txt_flie = open(txt_path, 'r')
-        txt = txt_flie.read()
-        self.enterwords_widget.input_words.setPlainText(txt)
-        txt_flie.close()
+        if txt_path:
+            txt_flie = open(txt_path, 'r')
+            txt = txt_flie.read()
+            self.enterwords_widget.input_words.setPlainText(txt)
+            txt_flie.close()
 
     def save(self):
         default_dir = '.'
@@ -507,10 +508,11 @@ class MainWindow(QMainWindow):
                 data = json.load(f)
                 default_dir = data['default_dir']
         txt_path = QFileDialog.getSaveFileName(self, 'Save File', default_dir, "Txt files (*.txt)")[0]
-        txt_flie = open(txt_path, 'w')
-        text = ', '.join(self.enterwords_widget.set_words())
-        txt_flie.write(text)
-        txt_flie.close()
+        if txt_path:
+            txt_flie = open(txt_path, 'w')
+            text = ', '.join(self.enterwords_widget.set_words())
+            txt_flie.write(text)
+            txt_flie.close()
 
 import traceback
 # Catch Exception
