@@ -109,8 +109,26 @@ class MakeWordSearch():
                 self.puzzle_origin[eval(word_set[3])][eval(word_set[2])] = letter
         else:
             exec(self.difficulty)
+
     #세로 순방향으로 만듦
     def row(self, word):
+        right = 0
+        up = -1
+        word_set = self.show_me_the_way(right, up)  # 0:start_x_code, 1:start_y_code, 2:direction_x_code, 3:direction_y_code
+        startpoint = [eval(word_set[0]), eval(word_set[1])]
+
+        place_num = []
+        for i in range(len(word)):
+            place_num.append([eval(word_set[2]), eval(word_set[3])])
+
+        if self.word_exist(word, place_num):
+            for i, letter in enumerate(word):
+                self.puzzle_origin[eval(word_set[3])][eval(word_set[2])] = letter
+        else:
+            exec(self.difficulty)
+
+    #세로 역방향으로 만듦
+    def row_rev(self, word):
         right = 0
         up = 1
         word_set = self.show_me_the_way(right, up)  # 0:start_x_code, 1:start_y_code, 2:direction_x_code, 3:direction_y_code
@@ -120,22 +138,6 @@ class MakeWordSearch():
         for i in range(len(word)):
             place_num.append([eval(word_set[2]), eval(word_set[3])])
 
-
-        if self.word_exist(word, place_num):
-            for i, letter in enumerate(word):
-                self.puzzle_origin[eval(word_set[3])][eval(word_set[2])] = letter
-        else:
-            exec(self.difficulty)
-    #세로 역방향으로 만듦
-    def row_rev(self, word):
-        right = 0
-        up = -1
-        word_set = self.show_me_the_way(right, up)  # 0:start_x_code, 1:start_y_code, 2:direction_x_code, 3:direction_y_code
-        startpoint = [eval(word_set[0]), eval(word_set[1])]
-
-        place_num = []
-        for i in range(len(word)):
-            place_num.append([eval(word_set[2]), eval(word_set[3])])
 
         if self.word_exist(word, place_num):
             for i, letter in enumerate(word):
@@ -219,7 +221,7 @@ class MakeWordSearch():
         difficulty = self.diff
         option = self.option
         if difficulty == 1:
-            self.difficulty = 'random.choice([self.col, self.row_rev])(word)'
+            self.difficulty = 'random.choice([self.col, self.row])(word)'
         elif difficulty == 2:
             self.difficulty = "random.choice([self.col, self.col_rev, self.row, self.row_rev])(word)"
         elif difficulty == 3:
