@@ -27,7 +27,7 @@ class WordCardWorksheet:
             section.bottom_margin = Cm(0.8)
             section.left_margin = Cm(1.3)
             section.right_margin = Cm(1.3)
-        head = document.add_heading('Words Worksheet', 0)
+        head = document.add_heading('단어 활동지', 0)
         head.alignment = WD_ALIGN_PARAGRAPH.CENTER
         if os.path.exists('hwp_settings.json'):
             with open('hwp_settings.json') as f:
