@@ -202,4 +202,4 @@ if __name__ == "__main__":
     form = Form()
     form.show()
     app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
-    exit(app.exec_())
+    sys.exit(app.exec_())
