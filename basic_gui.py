@@ -464,10 +464,10 @@ class MainWindow(QMainWindow):
         reset_path_Button.triggered.connect(self.reset_path)
         self.fileMenu.addAction(reset_path_Button)
 
-        exit_Button = QAction('나가기', self)
-        exit_Button.setShortcut('Ctrl+Q')
-        exit_Button.triggered.connect(self.close)
-        self.fileMenu.addAction(exit_Button)
+        self.exit_Button = QAction('나가기', self)
+        self.exit_Button.setShortcut('Ctrl+Q')
+        self.exit_Button.triggered.connect(self.close)
+        self.fileMenu.addAction(self.exit_Button)
 
         # Set the title
         self.setWindowTitle('Example generator')
