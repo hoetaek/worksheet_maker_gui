@@ -1,40 +1,82 @@
 import wordsearch_maker, word_flicker_maker, word_worksheet_maker, dobble_maker
-from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QHBoxLayout, QVBoxLayout, QStackedWidget, QListView, QPushButton, QTextEdit, QLabel
-from PyQt5.QtGui import QStandardItem, QStandardItemModel, QFontMetrics
+from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QHBoxLayout, QVBoxLayout, QStackedWidget, QListView, QPushButton, QLabel
+from PyQt5.QtGui import QStandardItem, QStandardItemModel, QFontMetrics, QPixmap
 from PyQt5.QtCore import Qt, QModelIndex, pyqtSlot
 import qdarkstyle
 import sys
 
+class WordSearchmwindow(wordsearch_maker.MainWindow):
+    def init_UI(self):
+        super(WordSearchmwindow, self).init_UI()
+        self.exit_Button.triggered.connect(self.choose_program)
+
+    def choose_program(self):
+        self.close()
+        global form
+        form.show()
+
+class WordFlickermwindow(word_flicker_maker.MainWindow):
+    def init_UI(self):
+        super(WordFlickermwindow, self).init_UI()
+        self.exit_Button.triggered.connect(self.choose_program)
+
+    def choose_program(self):
+        self.close()
+        global form
+        form.show()
+
+class WordWorksheetmwindow(word_worksheet_maker.MainWindow):
+    def init_UI(self):
+        super(WordWorksheetmwindow, self).init_UI()
+        self.exit_Button.triggered.connect(self.choose_program)
+
+    def choose_program(self):
+        self.close()
+        global form
+        form.show()
+
+class Dobblemwindow(dobble_maker.MainWindow):
+    def init_UI(self):
+        super(Dobblemwindow, self).init_UI()
+        self.exit_Button.triggered.connect(self.choose_program)
+
+    def choose_program(self):
+        self.close()
+        global form
+        form.show()
 
 class WordSearch(QWidget):
     def __init__(self):
         super(WordSearch, self).__init__()
-        self.box = QHBoxLayout()
-        self.box.addWidget(QPushButton("Test_1"))
-        self.box.addWidget(QPushButton("Test_2"))
-        self.box.addWidget(QPushButton("Test_3"))
-        self.setLayout(self.box)
+        self.hbox = QHBoxLayout()
+        label = QLabel()
+        pic = QPixmap("learn_material_maker_example/wordsearch_example.jpg")
+        pic.scaledToWidth(20)
+        label.setPixmap(pic)
+        self.hbox.addWidget(label)
+
+        self.setLayout(self.hbox)
 
 class WordFlicker(QWidget):
     def __init__(self):
         super(WordFlicker, self).__init__()
-        self.box = QHBoxLayout()
-        self.box.addWidget(QTextEdit())
-        self.setLayout(self.box)
+        self.hbox = QHBoxLayout()
+
+        self.setLayout(self.hbox)
 
 class WordWorksheet(QWidget):
     def __init__(self):
         super(WordWorksheet, self).__init__()
-        self.box = QHBoxLayout()
-        self.box.addWidget(QLabel("Test Label"))
-        self.setLayout(self.box)
+        self.hbox = QHBoxLayout()
+
+        self.setLayout(self.hbox)
 
 class Dobble(QWidget):
     def __init__(self):
         super(Dobble, self).__init__()
-        self.box = QHBoxLayout()
-        self.box.addWidget(QLabel("Test "))
-        self.setLayout(self.box)
+        self.hbox = QHBoxLayout()
+
+        self.setLayout(self.hbox)
 
 class Form(QMainWindow):
     def __init__(self):
@@ -99,13 +141,13 @@ class Form(QMainWindow):
     def open_program(self):
         self.close()
         if self.program_index == 0:
-            self.ex = wordsearch_maker.MainWindow()
+            self.ex = WordSearchmwindow()
         elif self.program_index == 1:
-            self.ex = word_flicker_maker.MainWindow()
+            self.ex = WordFlickermwindow()
         elif self.program_index == 2:
-            self.ex = word_worksheet_maker.MainWindow()
+            self.ex = WordWorksheetmwindow()
         elif self.program_index == 3:
-            self.ex = dobble_maker.MainWindow()
+            self.ex = Dobblemwindow()
 
 import traceback
 # Catch Exception
