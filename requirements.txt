@@ -11,14 +11,14 @@ lxml==4.2.4
 macholib==1.11
 pefile==2018.8.8
 Pillow==5.2.0
-PyInstaller==3.3.1
+PyInstaller==3.4
 pypiwin32==223
-PyQt5==5.11.2
+PyQt5==5.11.3
 PyQt5-sip==4.19.12
 python-docx==0.8.7
 python-pptx==0.6.13
 pywin32==223
-QDarkStyle==2.5.4
+QDarkStyle==2.6.5
 requests==2.19.1
 selenium==3.14.0
 Send2Trash==1.5.0
