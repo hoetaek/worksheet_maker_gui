@@ -424,6 +424,7 @@ class MainWindow(QMainWindow):
         # catch Exception
         sys.excepthook = my_excepthook
         self.init_UI()
+        self.threadpool = QThreadPool()
 
     def init_UI(self):
         # Moves the mainwidget to the center
@@ -461,6 +462,10 @@ class MainWindow(QMainWindow):
         save_Button = QAction('저장하기', self)
         save_Button.triggered.connect(self.save)
         self.fileMenu.addAction(save_Button)
+
+        explorer_Button = QAction('저장 폴더 열기', self)
+        explorer_Button.triggered.connect(self.explorer)
+        self.fileMenu.addAction(explorer_Button)
 
         reset_path_Button = QAction('저장 경로 초기화하기', self)
         reset_path_Button.triggered.connect(self.reset_path)
@@ -515,6 +520,26 @@ class MainWindow(QMainWindow):
             text = ', '.join(self.enterwords_widget.set_words())
             txt_flie.write(text)
             txt_flie.close()
+
+    def explorer(self):
+        default_dir = '.'
+        if os.path.exists('dir_path.json'):
+            with open('dir_path.json') as f:
+                data = json.load(f)
+                default_dir = data['default_dir']
+                explorer_worker = ExplorerWorker(default_dir)
+                # Execute
+                self.threadpool.start(explorer_worker)
+
+# thread to open explorer
+class ExplorerWorker(QRunnable):
+    def __init__(self, *args):
+        super(ExplorerWorker, self).__init__()
+        self.arg = args[0]
+
+    @pyqtSlot()
+    def run(self):
+        os.system('explorer ' + self.arg)
 
 import traceback
 # Catch Exception
