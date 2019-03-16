@@ -455,15 +455,15 @@ class MainWindow(QMainWindow):
 
         self.fileMenu = self.mainMenu.addMenu('파일')
 
-        open_Button = QAction('불러오기', self)
+        open_Button = QAction('단어 목록 불러오기', self)
         open_Button.triggered.connect(self.open)
         self.fileMenu.addAction(open_Button)
 
-        save_Button = QAction('저장하기', self)
+        save_Button = QAction('단어 목록 저장하기', self)
         save_Button.triggered.connect(self.save)
         self.fileMenu.addAction(save_Button)
 
-        explorer_Button = QAction('저장 폴더 열기', self)
+        explorer_Button = QAction('이미지들 저장 폴더 열기', self)
         explorer_Button.triggered.connect(self.explorer)
         self.fileMenu.addAction(explorer_Button)
 
@@ -526,7 +526,7 @@ class MainWindow(QMainWindow):
         if os.path.exists('dir_path.json'):
             with open('dir_path.json') as f:
                 data = json.load(f)
-                default_dir = data['default_dir']
+                default_dir = os.path.realpath(data['default_dir'])
                 explorer_worker = ExplorerWorker(default_dir)
                 # Execute
                 self.threadpool.start(explorer_worker)
