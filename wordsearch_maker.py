@@ -201,6 +201,7 @@ class EnterWords(EnterWords):
             self.c.korean.emit(True)
         else:
             self.c.korean.emit(False)
+        return self.words
 
 class DownloadImage(DownloadImage):
     def __init__(self, c):

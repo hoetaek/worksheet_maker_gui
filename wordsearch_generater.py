@@ -558,6 +558,5 @@ class MakeWordSearch():
                 tcVAlign.set(qn('w:val'), "center")
                 tcPr.append(tcVAlign)
 
-        answ_doc.save(str(self.desktop) + '\{}_정답.hwp'.format(filename))
-        document.save(str(self.desktop) +'\{}.hwp'.format(filename))
-        print("바탕화면에 puzzle.docx와 puzzle.hwp 로 저장")
+        answ_doc.save(str(self.desktop) + '\{}_정답.docx'.format(filename))
+        document.save(str(self.desktop) +'\{}.docx'.format(filename))
