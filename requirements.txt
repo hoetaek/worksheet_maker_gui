@@ -10,7 +10,7 @@ idna==2.7
 lxml==4.2.4
 macholib==1.11
 pefile==2018.8.8
-Pillow==5.2.0
+Pillow==6.2.0
 PyInstaller==3.4
 pypiwin32==223
 PyQt5==5.11.3
