@@ -30,7 +30,7 @@ Pillow==6.2.0
 pip-review==1.1.0
 py-wallpaper==0.0.1
 pycryptodome==3.10.1
-PyInstaller==3.4
+PyInstaller==3.6
 pylint==2.6.0
 pyparsing==2.4.7
 pypiwin32==223
