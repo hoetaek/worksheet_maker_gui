@@ -54,7 +54,7 @@ toml==0.10.2
 typed-ast==1.4.2
 typing-extensions==3.7.4.3
 tzlocal==2.1
-urllib3==1.24.2
+urllib3==1.26.5
 virtualenv==20.4.0
 virtualenvwrapper-win==1.2.6
 wget==3.2
