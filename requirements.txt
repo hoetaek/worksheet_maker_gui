@@ -19,7 +19,7 @@ idna==2.7
 importlib-metadata==3.4.0
 isort==5.7.0
 lazy-object-proxy==1.4.3
-lxml==4.6.2
+lxml==4.6.5
 macholib==1.11
 mccabe==0.6.1
 notion==0.0.28
