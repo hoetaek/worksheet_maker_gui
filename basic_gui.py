@@ -489,7 +489,7 @@ class MainWindow(QMainWindow):
         # Move the window to the center
         qr.moveCenter(cp)
         # Set the window size according to the size of screen
-        self.resize(MainWindow.x/8*4, MainWindow.y//5*4)
+        self.resize(int(MainWindow.x/8*4), int(MainWindow.y//5*4))
 
     def reset_path(self):
         if os.path.exists('dir_path.json'):

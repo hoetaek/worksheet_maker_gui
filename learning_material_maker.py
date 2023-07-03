@@ -157,7 +157,7 @@ class Form(QMainWindow):
         # Move the window to the center
         qr.moveCenter(cp)
         # Set the window size according to the size of screen
-        self.resize(Form.x/8*4, Form.y//5)
+        self.resize(int(Form.x/8*4), int(Form.y//5))
 
     @pyqtSlot(QModelIndex)
     def slot_clicked_item(self, QModelIndex):

@@ -4,7 +4,7 @@ block_cipher = None
 
 
 a = Analysis(['word_flicker_maker.py'],
-             pathex=['C:\\Users\\hoetaekpro\\PycharmProjects\\worksheet_maker_gui'],
+             pathex=['C:\\Users\\pc\\dev\\worksheet_maker_gui'],
              binaries=[],
              datas=[('flicker_example', 'flicker_example'), ('template_for_word_flicker.pptx', '.')],
              hiddenimports=['PyQt5', 'PyQt5.sip'],

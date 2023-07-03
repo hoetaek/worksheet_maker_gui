@@ -1,6 +1,6 @@
 import json
 import os
-from google_images_download import google_images_download
+from bing_image_downloader import downloader
 from text2image import text2png
 import time
 import threading
@@ -19,8 +19,7 @@ class download_image():
 
 
     def thread_download_image(self, word, keyword, image_num):
-        self.response.download({"keywords": keyword, 'limit': image_num, "output_directory": os.path.join(self.desktop, '구글이미지'),
-                       'image_directory': word})
+        self.response.download(keyword, word, limit=int(image_num), output_dir=os.path.join(self.desktop, '구글이미지'))
         if self.text_image:
             text2png(word, os.path.join(os.path.join(self.desktop, '구글이미지', word), word + '.png'))
         return
@@ -55,7 +54,7 @@ class download_image():
 
     def download(self):
         self.settings()
-        self.response = google_images_download.googleimagesdownload()
+        self.response = downloader
         threads = []
         try_num = 0
         if len(self.keywords) > 0:
@@ -104,6 +103,5 @@ if __name__=='__main__':
     words = ['hello', 'world', ' stories', 'more than', 'ht']
     keywords = ['hello world', 'easy', 'stories as old as history', 'haha', 'bs']
     num = [3, 3, 3, 3, 3]
-    downloader = download_image(words, keywords, num)
-    word_list = downloader.download()
+    downloader.download("words")
 

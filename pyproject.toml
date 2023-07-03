@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "worksheet"
+version = "0.1.0"
+description = ""
+authors = ["hoetaek <rhoetaek@gmail.com"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.13"
+comtypes = "^1.2.0"
+python-pptx = "^0.6.21"
+pyqt5 = "^5.15.9"
+qdarkstyle = "^3.1"
+python-docx = "^0.8.11"
+requests = "^2.31.0"
+beautifulsoup4 = "^4.12.2"
+send2trash = "^1.8.2"
+bing-image-downloader = "^1.1.2"
+pyinstaller = "^5.13.0"
+hgtk = "^0.2.0"
+six = "^1.16.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
