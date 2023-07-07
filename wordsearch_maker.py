@@ -1,7 +1,14 @@
 from basic_gui import *
-from PyQt5.QtWidgets import (QRadioButton, QGroupBox, QCheckBox, QHBoxLayout, QTreeWidgetItemIterator)
+from PyQt5.QtWidgets import (
+    QRadioButton,
+    QGroupBox,
+    QCheckBox,
+    QHBoxLayout,
+    QTreeWidgetItemIterator,
+)
 from PyQt5.QtGui import QIcon
 import wordsearch_generater
+
 
 class Communication(Communication):
     super(Communication)
@@ -24,7 +31,7 @@ class Settings(QWidget):
         self.shape = 0
         self.direction = 1
         self.diff_val = 1
-        self.option = '겹치지 않도록'
+        self.option = "겹치지 않도록"
         self.option_val = 0
         self.init_UI()
 
@@ -33,16 +40,16 @@ class Settings(QWidget):
 
         # Group for size
         grp_size = QGroupBox("크기 조정")
-        self.label_puzzle_width = QLabel('가로 길이: ')
+        self.label_puzzle_width = QLabel("가로 길이: ")
         self.width_spin = QSpinBox()
         self.width_spin.setMinimum(5)
-        self.width_spin.setToolTip('마우스 스크롤 가능합니다.')
+        self.width_spin.setToolTip("마우스 스크롤 가능합니다.")
         self.width_spin.setValue(15)
 
-        self.label_puzzle_height = QLabel('세로 길이: ')
+        self.label_puzzle_height = QLabel("세로 길이: ")
         self.height_spin = QSpinBox()
         self.height_spin.setMinimum(5)
-        self.height_spin.setToolTip('마우스 스크롤 가능합니다.')
+        self.height_spin.setToolTip("마우스 스크롤 가능합니다.")
         self.height_spin.setValue(15)
         self.height_spin.valueChanged.connect(self.puzzle_height_change)
 
@@ -79,10 +86,14 @@ class Settings(QWidget):
         # Group for word shape
         grp_shape = QGroupBox("단어 모양")
         shape_1 = QRadioButton("가로세로")
-        shape_1.setToolTip("<p style='white-space:pre'>단어를 <font color='yellow'>가로세로로</font> 설정합니다.")
+        shape_1.setToolTip(
+            "<p style='white-space:pre'>단어를 <font color='yellow'>가로세로로</font> 설정합니다."
+        )
         shape_1.setChecked(True)
         shape_2 = QRadioButton("가로세로 + 대각선")
-        shape_2.setToolTip("<p style='white-space:pre'>단어를 <font color='yellow'>가로세로, 대각선으로</font> 설정합니다.")
+        shape_2.setToolTip(
+            "<p style='white-space:pre'>단어를 <font color='yellow'>가로세로, 대각선으로</font> 설정합니다."
+        )
 
         shape_1.clicked.connect(lambda: self.diff_checked(shape_1))
         shape_2.clicked.connect(lambda: self.diff_checked(shape_2))
@@ -98,10 +109,13 @@ class Settings(QWidget):
         grp_direction = QGroupBox("단어 방향")
         direction_1 = QRadioButton("정방향")
         direction_1.setChecked(True)
-        direction_1.setToolTip("<p style='white-space:pre'>글자 방향은 <font color='yellow'>정방향으로</font> 설정합니다.")
+        direction_1.setToolTip(
+            "<p style='white-space:pre'>글자 방향은 <font color='yellow'>정방향으로</font> 설정합니다."
+        )
         direction_2 = QRadioButton("정방향 + 역방향")
         direction_2.setToolTip(
-            "<p style='white-space:pre'>글자 방향은 <font color='yellow'>역방향으로</font> 설정합니다.")
+            "<p style='white-space:pre'>글자 방향은 <font color='yellow'>역방향으로</font> 설정합니다."
+        )
         direction_1.clicked.connect(lambda: self.diff_checked(direction_1))
         direction_2.clicked.connect(lambda: self.diff_checked(direction_2))
 
@@ -112,15 +126,20 @@ class Settings(QWidget):
 
         grp_direction.setLayout(grp_direction_layout)
 
-
         grp_option = QGroupBox("옵션")
         option_1 = QRadioButton("글자 겹치지 않게")
-        option_1.setToolTip("퍼즐이 쉬워집니다. <p style='white-space:pre'>채워지는 글자는 되도록 <font color='yellow'>겹치지 않도록</font> 설정합니다.")
+        option_1.setToolTip(
+            "퍼즐이 쉬워집니다. <p style='white-space:pre'>채워지는 글자는 되도록 <font color='yellow'>겹치지 않도록</font> 설정합니다."
+        )
         option_1.setChecked(True)
         option_2 = QRadioButton("글자 무작위로")
-        option_2.setToolTip("퍼즐 난이도는 보통입니다. <p style='white-space:pre'>채워지는 글자는 되도록 <font color='yellow'>무작위로</font> 설정합니다.")
+        option_2.setToolTip(
+            "퍼즐 난이도는 보통입니다. <p style='white-space:pre'>채워지는 글자는 되도록 <font color='yellow'>무작위로</font> 설정합니다."
+        )
         option_3 = QRadioButton("글자 겹치게")
-        option_3.setToolTip("<p style='white-space:pre'>퍼즐이 어려워집니다. <p style='white-space:pre'>채워지는 글자는 되도록 <font color='yellow'>겹치도록</font> 설정합니다.")
+        option_3.setToolTip(
+            "<p style='white-space:pre'>퍼즐이 어려워집니다. <p style='white-space:pre'>채워지는 글자는 되도록 <font color='yellow'>겹치도록</font> 설정합니다."
+        )
         option_1.clicked.connect(lambda: self.option_checked(option_1))
         option_2.clicked.connect(lambda: self.option_checked(option_2))
         option_3.clicked.connect(lambda: self.option_checked(option_3))
@@ -150,39 +169,48 @@ class Settings(QWidget):
     @pyqtSlot(int)
     def puzzle_width_change(self, value):
         self.puzzle_width = value
-        self.c.puzzle_setting.emit([self.puzzle_width, self.puzzle_height, self.diff_val, self.option_val])
+        self.c.puzzle_setting.emit(
+            [self.puzzle_width, self.puzzle_height, self.diff_val, self.option_val]
+        )
 
     @pyqtSlot(int)
     def puzzle_height_change(self, value):
         self.puzzle_height = value
-        self.c.puzzle_setting.emit([self.puzzle_width, self.puzzle_height, self.diff_val, self.option_val])
+        self.c.puzzle_setting.emit(
+            [self.puzzle_width, self.puzzle_height, self.diff_val, self.option_val]
+        )
 
     @pyqtSlot(QRadioButton)
     def diff_checked(self, diff):
         text = diff.text()
-        if text == '가로세로':
+        if text == "가로세로":
             self.shape = 0
-        elif text == '가로세로 + 대각선':
+        elif text == "가로세로 + 대각선":
             self.shape = 2
-        elif text == '정방향':
+        elif text == "정방향":
             self.direction = 1
-        elif text == '정방향 + 역방향':
+        elif text == "정방향 + 역방향":
             self.direction = 2
 
         self.diff_val = self.shape + self.direction
-        self.c.puzzle_setting.emit([self.puzzle_width, self.puzzle_height, self.diff_val, self.option_val])
+        self.c.puzzle_setting.emit(
+            [self.puzzle_width, self.puzzle_height, self.diff_val, self.option_val]
+        )
 
     @pyqtSlot(QRadioButton)
     def option_checked(self, option):
         text = option.text()
-        if text == '글자 겹치지 않게':
+        if text == "글자 겹치지 않게":
             self.option_val = 0
-        elif text == '글자 무작위로':
+        elif text == "글자 무작위로":
             self.option_val = 1
-        elif text == '글자 겹치게':
+        elif text == "글자 겹치게":
             self.option_val = 2
 
-        self.c.puzzle_setting.emit([self.puzzle_width, self.puzzle_height, self.diff_val, self.option_val])
+        self.c.puzzle_setting.emit(
+            [self.puzzle_width, self.puzzle_height, self.diff_val, self.option_val]
+        )
+
 
 class EnterWords(EnterWords):
     def init_UI(self):
@@ -193,15 +221,18 @@ class EnterWords(EnterWords):
 
     def set_words(self):
         search_target = self.input_words.toPlainText()
-        regex = r'[a-zA-Z]+_?[a-zA-Z]+'
+        regex = r"[a-zA-Z]+_?[a-zA-Z]+"
         self.words = list({word.lower() for word in re.findall(regex, search_target)})
         if not self.words:
-            regex = r'[가-힣]+_?[가-힣]+'
-            self.words = list({word.lower() for word in re.findall(regex, search_target)})
+            regex = r"[가-힣]+_?[가-힣]+"
+            self.words = list(
+                {word.lower() for word in re.findall(regex, search_target)}
+            )
             self.c.korean.emit(True)
         else:
             self.c.korean.emit(False)
         return self.words
+
 
 class DownloadImage(DownloadImage):
     def __init__(self, c):
@@ -238,7 +269,7 @@ class DownloadImage(DownloadImage):
         self.make_puzzle_bt = QPushButton("Word Search\n퍼즐 만들기")
         self.make_puzzle_bt.clicked.connect(self.make_puzzle)
         self.make_puzzle_bt.setToolTip("단축키 : Ctrl + D")
-        self.make_puzzle_bt.setShortcut('Ctrl+D')
+        self.make_puzzle_bt.setShortcut("Ctrl+D")
         self.vbox.addWidget(self.uppercase_checkbox)
 
         self.vbox.addWidget(self.chosung_scramable_checkBox)
@@ -247,23 +278,28 @@ class DownloadImage(DownloadImage):
     # define puzzle settings
     @pyqtSlot(list)
     def puzzle_setting(self, puzzle_setting):
-        self.width, self.height, self.diff, self.option = puzzle_setting[0], puzzle_setting[1], puzzle_setting[2], puzzle_setting[3]
+        self.width, self.height, self.diff, self.option = (
+            puzzle_setting[0],
+            puzzle_setting[1],
+            puzzle_setting[2],
+            puzzle_setting[3],
+        )
 
     @pyqtSlot(bool)
     def korean_on(self, bool):
         self.korean = bool
         if bool is True:
-            self.chosung_scramable_checkBox.setText('초성')
+            self.chosung_scramable_checkBox.setText("초성")
             self.chosung_scramable_checkBox.setToolTip("단어의 초성으로 제시됩니다.")
-            self.make_puzzle_bt.setText('낱말 퍼즐\n 만들기')
+            self.make_puzzle_bt.setText("낱말 퍼즐\n 만들기")
             self.uppercase_checkbox.close()
         else:
-            self.chosung_scramable_checkBox.setText('scramble word')
+            self.chosung_scramable_checkBox.setText("scramble word")
             self.chosung_scramable_checkBox.setToolTip("단어의 철자가 뒤섞여서 제시됩니다.")
-            self.make_puzzle_bt.setText('Word Search\n퍼즐 만들기')
+            self.make_puzzle_bt.setText("Word Search\n퍼즐 만들기")
             self.uppercase_checkbox.show()
         self.make_puzzle_bt.setToolTip("단축키 : Ctrl + D")
-        self.make_puzzle_bt.setShortcut('Ctrl+D')
+        self.make_puzzle_bt.setShortcut("Ctrl+D")
 
     @pyqtSlot()
     def uppercase_checkbox_on(self):
@@ -299,39 +335,62 @@ class DownloadImage(DownloadImage):
         self.disable_buttons()
 
         if self.picture_on:
-            iterator = QTreeWidgetItemIterator(self.tree, QTreeWidgetItemIterator.HasChildren)
+            iterator = QTreeWidgetItemIterator(
+                self.tree, QTreeWidgetItemIterator.HasChildren
+            )
         else:
             iterator = QTreeWidgetItemIterator(self.tree, QTreeWidgetItemIterator.All)
             if iterator.value() is None:
                 self.c.press_set_keyword_bt.emit()
                 q = QMessageBox(self)
-                q.information(self, 'information', '검색어 키워드가 존재하지 않아요. 그래서 검색어 키워드 버튼을 대신 눌렀습니다~.', QMessageBox.Ok)
+                q.information(
+                    self,
+                    "information",
+                    "검색어 키워드가 존재하지 않아요. 그래서 검색어 키워드 버튼을 대신 눌렀습니다~.",
+                    QMessageBox.Ok,
+                )
                 self.enable_buttons()
                 return
         while iterator.value():
             item = iterator.value()
             word = item.data(0, 0)
-            pic = ''
+            pic = ""
             if self.picture_on:
                 pic = item.path
                 if not os.path.exists(pic):
                     self.c.press_set_keyword_bt.emit()
                     self.enable_buttons()
                     q = QMessageBox(self)
-                    q.information(self, 'information', '선택하신 이미지가 존재하지 않습니다. 다시 다운로드 눌러주세요.', QMessageBox.Ok)
+                    q.information(
+                        self,
+                        "information",
+                        "선택하신 이미지가 존재하지 않습니다. 다시 다운로드 눌러주세요.",
+                        QMessageBox.Ok,
+                    )
                     return
-            if word.strip().find(' ') != -1:
+            if word.strip().find(" ") != -1:
                 if self.korean:
-                    word = '가'.join(word.split())
+                    word = "가".join(word.split())
                 else:
-                    word = 'a'.join(word.split())
+                    word = "a".join(word.split())
             word_image.append([word, pic])
             iterator += 1
 
         self.path = self.get_save_hwp_dir()
         if self.path:
-            puzzle_worker = PuzzleWorker(wordsearch_generater.MakeWordSearch, word_image, self.width, self.height, self.diff,
-                                                             self.option, self.picture_on, self.korean, self.chosung_scramable, self.uppercase, self.path)
+            puzzle_worker = PuzzleWorker(
+                wordsearch_generater.MakeWordSearch,
+                word_image,
+                self.width,
+                self.height,
+                self.diff,
+                self.option,
+                self.picture_on,
+                self.korean,
+                self.chosung_scramable,
+                self.uppercase,
+                self.path,
+            )
             puzzle_worker.signal.puzzle_complete.connect(self.puzzle_finish)
             puzzle_worker.signal.recursionerrormsg.connect(self.recurerrormsg)
             puzzle_worker.signal.valueerrormsg.connect(self.valerrormsg)
@@ -340,21 +399,21 @@ class DownloadImage(DownloadImage):
             self.enable_buttons()
 
     def get_save_hwp_dir(self):
-        file_path = os.path.join(os.getcwd(), 'dir_path.json')
+        file_path = os.path.join(os.getcwd(), "dir_path.json")
         is_dir_path = os.path.exists(file_path)
         if is_dir_path:
             with open(file_path) as f:
                 data = json.load(f)
-            if 'hwp_dir' in data.keys():
-                dir_path = data['hwp_dir']
+            if "hwp_dir" in data.keys():
+                dir_path = data["hwp_dir"]
                 return dir_path
             else:
                 q = QMessageBox(self)
-                q.information(self, 'information', '퍼즐을 저장할 폴더를 선택하세요.', QMessageBox.Ok)
+                q.information(self, "information", "퍼즐을 저장할 폴더를 선택하세요.", QMessageBox.Ok)
                 fname = str(QFileDialog.getExistingDirectory(self, "퍼즐을 저장할 폴더"))
                 if fname:
-                    data['hwp_dir'] = fname
-                    with open(file_path, 'w') as f:
+                    data["hwp_dir"] = fname
+                    with open(file_path, "w") as f:
                         json.dump(data, f)
                     dir_path = fname
                     return dir_path
@@ -362,11 +421,11 @@ class DownloadImage(DownloadImage):
                     return
         else:
             q = QMessageBox(self)
-            q.information(self, 'information', '퍼즐을 저장할 폴더를 선택하세요.', QMessageBox.Ok)
+            q.information(self, "information", "퍼즐을 저장할 폴더를 선택하세요.", QMessageBox.Ok)
             fname = str(QFileDialog.getExistingDirectory(self, "퍼즐을 저장할 폴더"))
             if fname:
-                with open(file_path, 'w') as f:
-                    json.dump({'hwp_dir': fname}, f)
+                with open(file_path, "w") as f:
+                    json.dump({"hwp_dir": fname}, f)
                 dir_path = fname
                 return dir_path
             else:
@@ -375,20 +434,23 @@ class DownloadImage(DownloadImage):
     @pyqtSlot()
     def puzzle_finish(self):
         q = QMessageBox(self)
-        q.information(self, 'information', '{}에 퍼즐 파일이 저장되었습니다.'.format(self.path), QMessageBox.Ok)
+        q.information(
+            self, "information", "{}에 퍼즐 파일이 저장되었습니다.".format(self.path), QMessageBox.Ok
+        )
         self.enable_buttons()
 
     @pyqtSlot()
     def recurerrormsg(self):
         q = QMessageBox(self)
-        q.warning(self, 'Warning', '단어의 개수에 비해서 퍼즐의 크기가 너무 작습니다.', QMessageBox.Ok)
+        q.warning(self, "Warning", "단어의 개수에 비해서 퍼즐의 크기가 너무 작습니다.", QMessageBox.Ok)
         self.enable_buttons()
 
     @pyqtSlot()
     def valerrormsg(self):
         q = QMessageBox(self)
-        q.warning(self, 'Warning', '퍼즐의 크기에 비해 단어가 너무 길어요.', QMessageBox.Ok)
+        q.warning(self, "Warning", "퍼즐의 크기에 비해 단어가 너무 길어요.", QMessageBox.Ok)
         self.enable_buttons()
+
 
 # thread to download pictures while not stopping the Gui
 class PuzzleWorker(QRunnable):
@@ -409,14 +471,15 @@ class PuzzleWorker(QRunnable):
         except ValueError:
             self.signal.valueerrormsg.emit()
 
+
 class MainWindow(MainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
 
     def init_UI(self):
         super(MainWindow, self).init_UI()
-        self.setWindowTitle('Word Puzzle generator')
-        self.setWindowIcon(QIcon('wordsearch.ico'))
+        self.setWindowTitle("Word Puzzle generator")
+        self.setWindowIcon(QIcon("wordsearch.ico"))
         c = Communication()
         self.vbox.addWidget(Settings(c))
         self.enterwords_widget = EnterWords(c)
@@ -430,11 +493,11 @@ class MainWindow(MainWindow):
 
     def addsettingmenu(self):
         self.settings_menu = self.mainMenu.addMenu("설정")
-        self.set_grad_class_Button = QAction('학년 반 설정하기', self)
+        self.set_grad_class_Button = QAction("학년 반 설정하기", self)
         self.set_grad_class_Button.triggered.connect(self.grade_class_dialog)
         self.settings_menu.addAction(self.set_grad_class_Button)
 
-        self.reset_grade_class_Button = QAction('학년 반 초기화하기', self)
+        self.reset_grade_class_Button = QAction("학년 반 초기화하기", self)
         self.reset_grade_class_Button.triggered.connect(self.reset_grade_class)
         self.settings_menu.addAction(self.reset_grade_class_Button)
 
@@ -442,41 +505,41 @@ class MainWindow(MainWindow):
         self.help_menu = self.mainMenu.addMenu("도움말")
 
         self.puzzle_option_menu = self.help_menu.addMenu("퍼즐 옵션")
-        self.shape_help = QAction('단어 모양은 무슨 뜻인가요?')
+        self.shape_help = QAction("단어 모양은 무슨 뜻인가요?")
         # self.shape_help.triggered.connect(self.)
         self.puzzle_option_menu.addAction(self.shape_help)
 
-        self.direction_help = QAction('단어 방향은 무슨 뜻인가요?')
+        self.direction_help = QAction("단어 방향은 무슨 뜻인가요?")
         # self.direction_help.triggered.connect(self.)
         self.puzzle_option_menu.addAction(self.direction_help)
 
-        self.option_help = QAction('옵션에서 글자를 겹치게 한다는 것은 무슨 뜻인가요?')
+        self.option_help = QAction("옵션에서 글자를 겹치게 한다는 것은 무슨 뜻인가요?")
         # self.option_help.triggered.connect(self.)
         self.puzzle_option_menu.addAction(self.option_help)
 
         self.enter_words_menu = self.help_menu.addMenu("단어 입력")
-        self.enterword_help = QAction('단어는 어떻게 입력하나요?')
+        self.enterword_help = QAction("단어는 어떻게 입력하나요?")
         # self.enterword_help.triggered.connect(self.)
         self.enter_words_menu.addAction(self.enterword_help)
 
-        self.prefix_help = QAction('실제 사진이 아니라 케릭터 사진을 원하면 어떻게 하나요?')
+        self.prefix_help = QAction("실제 사진이 아니라 케릭터 사진을 원하면 어떻게 하나요?")
         # self.prefix_help.triggered.connect(self.)
         self.enter_words_menu.addAction(self.prefix_help)
 
         self.download_images_menu = self.help_menu.addMenu("이미지")
-        self.keyword_help = QAction('원하는 이미지가 안 나올 때는 어떻게 하나요?')
+        self.keyword_help = QAction("원하는 이미지가 안 나올 때는 어떻게 하나요?")
         # self.keyword_help.triggered.connect(self.grade_class_dialog)
         self.download_images_menu.addAction(self.keyword_help)
 
-        self.searchnum_help = QAction('이미지 검색 개수를 어떻게 바꾸나요?')
+        self.searchnum_help = QAction("이미지 검색 개수를 어떻게 바꾸나요?")
         # self.searchnum_help.triggered.connect(self.grade_class_dialog)
         self.download_images_menu.addAction(self.searchnum_help)
 
-        self.changepic_help = QAction('원하는 이미지로 어떻게 변경하나요?')
+        self.changepic_help = QAction("원하는 이미지로 어떻게 변경하나요?")
         # self.changepic_help.triggered.connect(self.)
         self.download_images_menu.addAction(self.changepic_help)
 
-        self.scramble_help = QAction('scramble word를 체크하면 어떻게 되나요?')
+        self.scramble_help = QAction("scramble word를 체크하면 어떻게 되나요?")
         # self.scramble_help.triggered.connect(self.)
         self.help_menu.addAction(self.scramble_help)
 
@@ -496,11 +559,11 @@ class MainWindow(MainWindow):
         hbox_class.addWidget(class_label)
         hbox_class.addWidget(self.class_spin)
 
-        if os.path.exists('hwp_settings.json'):
-            with open('hwp_settings.json') as f:
+        if os.path.exists("hwp_settings.json"):
+            with open("hwp_settings.json") as f:
                 data = json.load(f)
-                self.grade_spin.setValue(data['grade'])
-                self.class_spin.setValue(data['class'])
+                self.grade_spin.setValue(data["grade"])
+                self.class_spin.setValue(data["class"])
 
         ok_button = QPushButton("확인")
         ok_button.clicked.connect(self.set_grade_class)
@@ -517,18 +580,18 @@ class MainWindow(MainWindow):
         self.grade = self.grade_spin.value()
         self.class_ = self.class_spin.value()
         data = dict()
-        data['grade'] = self.grade
-        data['class'] = self.class_
-        with open('hwp_settings.json', 'w') as f:
+        data["grade"] = self.grade
+        data["class"] = self.class_
+        with open("hwp_settings.json", "w") as f:
             json.dump(data, f)
         self.grade_class_input.close()
 
     def reset_grade_class(self):
-        if os.path.exists('hwp_settings.json'):
-            os.unlink('hwp_settings.json')
+        if os.path.exists("hwp_settings.json"):
+            os.unlink("hwp_settings.json")
 
-if __name__ == '__main__':
 
+if __name__ == "__main__":
     app = QApplication(sys.argv)
     ex = MainWindow()
     app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
