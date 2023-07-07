@@ -1,4 +1,4 @@
-import collections 
+import collections
 import collections.abc
 from pptx import Presentation
 from PIL import ImageFont
@@ -11,8 +11,10 @@ import re
 import os
 import re
 from syllable import get_syllable_divided
+from utils import search_eng_meaning
 
-class PptWordFlickerMaker():
+
+class PptWordFlickerMaker:
     def __init__(self, words_pics, num_slide, path):
         self.words_pics = words_pics
         self.num_slide = num_slide
@@ -21,17 +23,16 @@ class PptWordFlickerMaker():
         self.path = path
 
     def make_word_flicker_slide(self):
-        prs = Presentation('template_for_word_flicker.pptx')
+        prs = Presentation("template_for_word_flicker.pptx")
         for num in self.num_slide:
             if num != 0 or num != 1:
                 prs.slides.add_slide(prs.slide_layouts[-2])
                 prs.slides.add_slide(prs.slide_layouts[-1])
             card_layout = prs.slide_layouts[num]
             for word, pic in zip(self.words, self.pics):
-
                 slide = prs.slides.add_slide(card_layout)
                 for shape in slide.shapes:
-                    if str(shape.placeholder_format.type) == 'BODY (2)':
+                    if str(shape.placeholder_format.type) == "BODY (2)":
                         text_frame = shape.text_frame
                         if num == 1:
                             if shape.placeholder_format.idx == 10:
@@ -48,10 +49,12 @@ class PptWordFlickerMaker():
                             run = p.add_run()
 
                             text = search_eng_meaning(word)
-                            
+
                             run.text = text
                         elif num == 5:
-                            syllable_divided = ' '.join(get_syllable_divided(w) for w in word.split())
+                            syllable_divided = " ".join(
+                                get_syllable_divided(w) for w in word.split()
+                            )
                             if shape.placeholder_format.idx == 10:
                                 p = text_frame.paragraphs[0]
                                 run = p.add_run()
@@ -63,19 +66,18 @@ class PptWordFlickerMaker():
                             elif shape.placeholder_format.idx == 12:
                                 p = text_frame.paragraphs[0]
                                 run = p.add_run()
-                                syllable_num = len(re.split(r'[ -]', syllable_divided))
+                                syllable_num = len(re.split(r"[ -]", syllable_divided))
                                 if syllable_num == 1:
-                                    run.text = str(syllable_num) + ' syllable'
+                                    run.text = str(syllable_num) + " syllable"
                                 else:
-                                    run.text = str(syllable_num) + ' syllables'
+                                    run.text = str(syllable_num) + " syllables"
                         else:
                             p = text_frame.paragraphs[0]
                             run = p.add_run()
                             run.text = word
 
-
                 for shape in slide.shapes:
-                    if str(shape.placeholder_format.type) == 'PICTURE (18)':
+                    if str(shape.placeholder_format.type) == "PICTURE (18)":
                         # im = Image.open('whatever.png')
                         # width, height = im.size
                         picture = shape.insert_picture(pic)
@@ -85,28 +87,13 @@ class PptWordFlickerMaker():
                         picture.crop_bottom = 0
                         picture.crop_top = 0
 
-
-        file_path = os.path.join(self.path, '단어깜빡이.pptx')
+        file_path = os.path.join(self.path, "단어깜빡이.pptx")
         file_path = os.path.abspath(file_path)
         prs.save(file_path)
         return file_path
-    
-def search_eng_meaning(word):
-    req = requests.get('https://dic.daum.net/search.do?q=' + word)
-    html = req.text
-    soup = BeautifulSoup(html, 'html.parser')
-    
-    meanings = soup.select('li > span.txt_search')
-    text = meanings[0].text
-    parenthesis = re.compile(r'(\s)?\(.*\)(\s)?')
-    bracket = re.compile(r'(\s)?\[.*\](\s)?')
-    text = re.sub(parenthesis, '', text)
-    text = re.sub(bracket, '', text)
-
-    return text
 
 
-if __name__=='__main__':
+if __name__ == "__main__":
     # ppt = PptWordFlickerMaker([['brush', 'C:\\Users\\user\\Desktop\\구글이미지\\brush\\6. bad-breath-brush.jpg'], ['exercise', 'C:\\Users\\user\\Desktop\\구글이미지\\exercise\\7. well_howtostartrunning_promo-largehorizontaljumbo.jpg'],
     #                             ['healthy', 'C:\\Users\\user\\Desktop\\구글이미지\\healthy\\3. workout-composition-with-healthy-food_23-2147692092.jpg'], ['often', 'C:\\Users\\user\\Desktop\\구글이미지\\often\\5. often.jpg'], ['tooth', 'C:\\Users\\user\\Desktop\\구글이미지\\tooth\\3. istocktooth.jpg'], ['teeth', 'C:\\Users\\user\\Desktop\\구글이미지\\teeth\\7. 011316_3dteeth_thumb_large.jpg'], ['twice', 'C:/Users/user/Desktop/구글이미지/x2/x2.png'],
     #                             ['three times', 'C:\\Users\\user\\Desktop\\구글이미지\\threetimes\\x3.png'], ['breakfast', 'C:\\Users\\user\\Desktop\\구글이미지\\breakfast\\5. 7562ab71-9093-41e3-9534-6509501370ad--2018-0309_wholeflour-breakfast-cookie_3x2_rocky-luten_033.jpg'], ['every week', 'C:\\Users\\user\\Desktop\\구글이미지\\everyweek\\8. small-scale-sabbaticals.jpg']], [0, 2, 3], '.')
