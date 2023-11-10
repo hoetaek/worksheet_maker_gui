@@ -485,18 +485,24 @@ class MakeWordSearch:
                     # 국어사전은 'http://ko.dict.naver.com/small_search.nhn?query='
                     # html = req.text
                     # soup = BeautifulSoup(html, 'html.parser')
-                    meaning = search_eng_meaning(word)
+                    # if word in MakeWordSearch.dictionary:
+                    #     meaning = MakeWordSearch.dictionary[word]
+                    # else:
+                    #     meaning = search_eng_meaning(word)
+                    #     MakeWordSearch.dictionary[word] = meaning
                     if self.uppercase:
                         word = word.upper()
                     if self.chosung_scramable:
                         spelling = [i for i in word]
                         shuffle(spelling)
                         word = "".join(spelling)
-                    if meaning:
-                        text = re.sub(parenthesis, "", meaning)
-                        text = re.sub(bracket, "", text)
-                        print(text)
-                        hint += word + "({})".format(text) + ", "
+                    # if meaning:
+                    #     text = re.sub(parenthesis, "", meaning)
+                    #     text = re.sub(bracket, "", text)
+                    #     print(text)
+                    #     hint += word + "({})".format(text) + ", "
+                    # else:
+                    hint += word + ", "
                 hint_table_cell.width = Inches(100)
                 for paragraph in hint_table_cell.paragraphs:
                     paragraph.add_run(hint.strip(", "))
