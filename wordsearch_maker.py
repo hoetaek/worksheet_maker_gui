@@ -272,8 +272,12 @@ class DownloadImage(DownloadImage):
         self.make_puzzle_bt.setShortcut("Ctrl+D")
         self.vbox.addWidget(self.uppercase_checkbox)
 
+        self.make_puzzle_all_bt = QPushButton("한번에 만들기")
+        self.make_puzzle_all_bt.clicked.connect(self.make_all_puzzle)
+
         self.vbox.addWidget(self.chosung_scramable_checkBox)
         self.vbox.addWidget(self.make_puzzle_bt)
+        self.vbox.addWidget(self.make_puzzle_all_bt)
 
     # define puzzle settings
     @pyqtSlot(list)
@@ -318,22 +322,84 @@ class DownloadImage(DownloadImage):
     def enable_buttons(self):
         self.download_bt.setEnabled(True)
         self.make_puzzle_bt.setEnabled(True)
+        self.make_puzzle_all_bt.setEnabled(True)
         self.c.enable_set_keyword_bt.emit()
 
     def disable_buttons(self):
         self.download_bt.setEnabled(False)
         self.make_puzzle_bt.setEnabled(False)
+        self.make_puzzle_all_bt.setEnabled(False)
         self.c.disable_set_keyword_bt.emit()
 
     @pyqtSlot()
     def make_puzzle(self):
-        word_image = []
         if self.tree.topLevelItemCount() == 0:
             self.start_download()
             return
 
         self.disable_buttons()
 
+        word_image = self.get_word_img()
+
+        self.path = self.get_save_hwp_dir()
+        if self.path:
+            puzzle_worker = PuzzleWorker(
+                wordsearch_generater.MakeWordSearch,
+                'puzzle',
+                word_image,
+                self.width,
+                self.height,
+                self.diff,
+                self.option,
+                self.picture_on,
+                self.korean,
+                self.chosung_scramable,
+                self.uppercase,
+                self.path,
+            )
+            puzzle_worker.signal.puzzle_complete.connect(self.puzzle_finish)
+            puzzle_worker.signal.recursionerrormsg.connect(self.recurerrormsg)
+            puzzle_worker.signal.valueerrormsg.connect(self.valerrormsg)
+            self.threadpool.start(puzzle_worker)
+        else:
+            self.enable_buttons()
+
+    @pyqtSlot()
+    def make_all_puzzle(self):
+        if self.tree.topLevelItemCount() == 0:
+            self.start_download()
+            return
+
+        self.disable_buttons()
+
+        word_image = self.get_word_img()
+
+        self.path = self.get_save_hwp_dir()
+        if self.path:
+            for diff in range(1, 5):
+                puzzle_worker = PuzzleWorker(
+                    wordsearch_generater.MakeWordSearch,
+                    f'난이도{diff} puzzle',
+                    word_image,
+                    self.width + diff,
+                    self.height + diff,
+                    diff,
+                    self.option,
+                    self.picture_on,
+                    self.korean,
+                    self.chosung_scramable,
+                    self.uppercase,
+                    self.path,
+                )
+                puzzle_worker.signal.puzzle_complete.connect(self.puzzle_finish)
+                puzzle_worker.signal.recursionerrormsg.connect(self.recurerrormsg)
+                puzzle_worker.signal.valueerrormsg.connect(self.valerrormsg)
+                self.threadpool.start(puzzle_worker)
+        else:
+            self.enable_buttons()
+
+    def get_word_img(self):
+        word_image = []
         if self.picture_on:
             iterator = QTreeWidgetItemIterator(
                 self.tree, QTreeWidgetItemIterator.HasChildren
@@ -375,28 +441,7 @@ class DownloadImage(DownloadImage):
                     word = "a".join(word.split())
             word_image.append([word, pic])
             iterator += 1
-
-        self.path = self.get_save_hwp_dir()
-        if self.path:
-            puzzle_worker = PuzzleWorker(
-                wordsearch_generater.MakeWordSearch,
-                word_image,
-                self.width,
-                self.height,
-                self.diff,
-                self.option,
-                self.picture_on,
-                self.korean,
-                self.chosung_scramable,
-                self.uppercase,
-                self.path,
-            )
-            puzzle_worker.signal.puzzle_complete.connect(self.puzzle_finish)
-            puzzle_worker.signal.recursionerrormsg.connect(self.recurerrormsg)
-            puzzle_worker.signal.valueerrormsg.connect(self.valerrormsg)
-            self.threadpool.start(puzzle_worker)
-        else:
-            self.enable_buttons()
+        return word_image
 
     def get_save_hwp_dir(self):
         file_path = os.path.join(os.getcwd(), "dir_path.json")
@@ -454,9 +499,10 @@ class DownloadImage(DownloadImage):
 
 # thread to download pictures while not stopping the Gui
 class PuzzleWorker(QRunnable):
-    def __init__(self, fn, *args, **kwargs):
+    def __init__(self, fn, filename, *args, **kwargs):
         super(PuzzleWorker, self).__init__()
         self.fn = fn
+        self.filename = filename
         self.args = args
         self.kwargs = kwargs
         self.signal = Communication()
@@ -464,7 +510,8 @@ class PuzzleWorker(QRunnable):
     @pyqtSlot()
     def run(self):
         try:
-            self.fn(*self.args, **self.kwargs).make_puzzle()
+            self.filename
+            self.fn(*self.args, **self.kwargs).make_puzzle(self.filename)
             self.signal.puzzle_complete.emit()
         except RecursionError:
             self.signal.recursionerrormsg.emit()
