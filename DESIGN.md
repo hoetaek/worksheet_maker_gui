@@ -26,6 +26,8 @@ The visual baseline borrows Vercel's restraint: white canvas, near-black typogra
 - Download actions should produce real `.pptx`/`.docx` artifacts through the FastAPI backend, not JSON exports.
 
 **Laws of UX application:**
+Reference: Laws of UX by Jon Yablonski, CC BY-NC-ND 4.0.
+
 - Fitts's Law: primary navigation, download, print, search, and upload controls need generous hit targets and clear spacing. Header tabs should be at least 56px tall on desktop and remain easy to tap on mobile.
 - Jakob's Law: keep the app shaped like a familiar production tool. Use sticky top navigation, a left input panel, a right preview workspace, standard form controls, and predictable Korean labels.
 - Hick's Law: group choices by task. Keep the four main workflows in one persistent nav, keep puzzle settings in one controls row, and avoid mixing export actions into configuration areas.

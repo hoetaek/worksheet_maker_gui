@@ -418,7 +418,7 @@ select {
 .keyword-header,
 .keyword-row {
   display: grid;
-  grid-template-columns: minmax(80px, 0.8fr) minmax(120px, 1.2fr) minmax(120px, 1fr);
+  grid-template-columns: minmax(72px, 0.7fr) minmax(96px, 0.8fr) minmax(150px, 1.5fr);
   padding: 10px 12px;
 }
 
@@ -432,6 +432,7 @@ select {
 }
 
 .keyword-row {
+  align-items: start;
   border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: 14px;
@@ -759,9 +760,13 @@ select {
 
 .image-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
   align-items: center;
+}
+
+.image-controls input {
+  grid-column: 1 / -1;
 }
 
 .tiny-button,
@@ -769,7 +774,7 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 34px;
+  min-height: 38px;
   padding: 0 9px;
   border: 0;
   border-radius: 6px;
@@ -963,7 +968,7 @@ select {
   }
 
   .image-controls {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .sheet-meta,
