@@ -64,16 +64,16 @@ export function wordCountStatus(
   tone: 'neutral' | 'warning' | 'success';
 } {
   if (!requiredCount) {
-    return { label: `${count} words`, tone: count > 0 ? 'success' : 'neutral' };
+    return { label: `단어 ${count}개`, tone: count > 0 ? 'success' : 'neutral' };
   }
 
   if (count === requiredCount) {
-    return { label: `${count}/${requiredCount} ready`, tone: 'success' };
+    return { label: `${count}/${requiredCount} 준비됨`, tone: 'success' };
   }
 
   if (count < requiredCount) {
-    return { label: `${requiredCount - count} more needed`, tone: 'warning' };
+    return { label: `${requiredCount - count}개 더 필요`, tone: 'warning' };
   }
 
-  return { label: `${count - requiredCount} extra`, tone: 'warning' };
+  return { label: `${count - requiredCount}개 초과`, tone: 'warning' };
 }

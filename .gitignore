@@ -6,3 +6,6 @@ flicker_settings.json
 node_modules
 coverage
 *.tsbuildinfo
+.venv
+.ruff_cache
+.mypy_cache

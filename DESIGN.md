@@ -1,4 +1,42 @@
-# Design System Inspired by Vercel
+# Premium Learning Material Studio Design System
+
+## 0. Product-Specific Direction
+
+This project is not a marketing landing page. It is a premium Korean learning-material production studio for teachers. The interface should feel like a calm professional tool, while the generated worksheet previews should feel like polished printable artifacts.
+
+The visual baseline borrows Vercel's restraint: white canvas, near-black typography, shadow-as-border, tight controls, and precise spacing. But the product needs more warmth, larger readable Korean type, clearer navigation states, and output previews that feel like premium paper sheets rather than raw tables.
+
+**Primary goals:**
+- Make the navigation unmistakable: Korean labels, strong active state, readable hover state, and enough button width.
+- Make output previews feel premium: larger titles, paper-like white surfaces, subtle shadow depth, clear metadata blocks, and no old-fashioned underscore fields.
+- Keep the app utilitarian: no decorative blobs, no marketing hero, no card overload, no low-contrast controls.
+- Make image handling central: word/image rows, image search, upload affordances, and visual hint cards should be first-class UI.
+- Preserve the Vercel-inspired discipline: achromatic palette, `#171717` text, shadow borders, 6-8px radii, blue focus rings, and minimal accent usage.
+
+**Korean UI rules:**
+- All visible navigation and workflow controls must be Korean.
+- Use larger Korean headings than English defaults: tool headings 28px, output sheet titles 36px or larger.
+- Avoid placeholder-like printed fields such as `이름: _______`. Use structured student info blocks with labels for 학년, 반, 이름.
+- Buttons must remain readable in every state. Active dark buttons must stay dark on hover; inactive buttons must keep dark text on hover.
+
+**Output preview rules:**
+- Word search previews should render inside a sheet-like canvas with a separate board frame.
+- Puzzle cells should have stable square dimensions, high contrast letters, and subtle ring lines.
+- Worksheet and card previews should use image-led tiles with generous spacing.
+- Download actions should produce real `.pptx`/`.docx` artifacts through the FastAPI backend, not JSON exports.
+
+**Laws of UX application:**
+- Fitts's Law: primary navigation, download, print, search, and upload controls need generous hit targets and clear spacing. Header tabs should be at least 56px tall on desktop and remain easy to tap on mobile.
+- Jakob's Law: keep the app shaped like a familiar production tool. Use sticky top navigation, a left input panel, a right preview workspace, standard form controls, and predictable Korean labels.
+- Hick's Law: group choices by task. Keep the four main workflows in one persistent nav, keep puzzle settings in one controls row, and avoid mixing export actions into configuration areas.
+- Aesthetic-Usability Effect: generated previews should look like finished print material. Premium paper surfaces, larger titles, structured student info, and image-led hint cards are part of usability because they make the final artifact easier to trust.
+- Law of Proximity: related labels, fields, and controls must be visually grouped. Word/image controls live in each word row; output metadata stays inside the sheet header; export actions stay in the bottom action bar.
+- Tesler's Law: document generation complexity belongs in the FastAPI backend. The frontend should expose simple Korean controls while the backend handles `.pptx`/`.docx` generation and image fetching.
+- Doherty Threshold: image search and downloads should give immediate feedback through disabled/loading button states and short Korean toast messages.
+
+---
+
+# Legacy Visual Inspiration: Vercel
 
 ## 1. Visual Theme & Atmosphere
 

@@ -6,14 +6,17 @@
   "private": true,
   "scripts": {
     "dev": "vite --host 0.0.0.0",
+    "dev:api": "uv run uvicorn backend.main:app --reload --port 8000",
     "build": "npm run typecheck && vite build",
-    "check": "npm run format:check && npm run lint && npm test && npm run build",
+    "check": "npm run format:check && npm run lint && npm run test:python && npm test && npm run build",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{js,ts,json,html}\" README.md \"docs/**/*.md\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"*.{js,ts,json,html}\" README.md \"docs/**/*.md\"",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "preview": "vite preview --host 0.0.0.0",
+    "serve": "uv run uvicorn backend.main:app --host 0.0.0.0 --port 8000",
     "test": "vitest run",
+    "test:python": "uv run pytest && uv run ruff check backend tests && uv run mypy",
     "typecheck": "tsc -b"
   },
   "repository": {
@@ -44,7 +47,6 @@
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
-    "globals": "^16.5.0",
     "globals": "^17.6.0",
     "jsdom": "^29.1.1",
     "prettier": "^3.8.3",

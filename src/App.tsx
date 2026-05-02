@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import {
-  ArrowDownToLine,
   BookOpen,
   Check,
   Copy,
+  Download,
   FileText,
   Grid3X3,
   Images,
@@ -19,6 +19,13 @@ import {
   requiredDobbleWordCount,
   validPicturesPerCard,
 } from './lib/dobble';
+import {
+  downloadDobblePptx,
+  downloadFlickerPptx,
+  downloadWordSearchDocx,
+  downloadWorksheetDocx,
+} from './lib/downloads';
+import { searchBackendImages } from './lib/imageSearch';
 import { buildFlickerSequence, buildWorksheetCells, type FlickerTemplate } from './lib/materials';
 import { createWordSearch, type FillerMode, type WordSearchDifficulty } from './lib/wordSearch';
 import { buildKeywordRows, detectLanguage, parseWords, wordCountStatus } from './lib/words';
@@ -35,22 +42,47 @@ type Toast = {
 const TOOL_OPTIONS: Array<{
   id: ToolId;
   label: string;
+  description: string;
   icon: typeof Search;
   accent: 'develop' | 'preview' | 'ship' | 'neutral';
 }> = [
-  { id: 'word-search', label: 'Word Search', icon: Search, accent: 'develop' },
-  { id: 'worksheet', label: 'Worksheet', icon: FileText, accent: 'neutral' },
-  { id: 'flicker', label: 'Flicker', icon: Images, accent: 'preview' },
-  { id: 'dobble', label: 'Dobble', icon: Layers3, accent: 'ship' },
+  {
+    id: 'word-search',
+    label: '낱말 찾기',
+    description: '퍼즐 생성',
+    icon: Search,
+    accent: 'develop',
+  },
+  {
+    id: 'worksheet',
+    label: '단어 활동지',
+    description: '인쇄 자료',
+    icon: FileText,
+    accent: 'neutral',
+  },
+  {
+    id: 'flicker',
+    label: '단어 깜빡이',
+    description: 'PPT 슬라이드',
+    icon: Images,
+    accent: 'preview',
+  },
+  { id: 'dobble', label: '도블 카드', description: '게임 카드', icon: Layers3, accent: 'ship' },
 ];
 
 const SAMPLE_WORDS = '토끼, 거북이, 사자, banana, peach, police_officer';
 const FLICKER_TEMPLATES: Array<{ id: FlickerTemplate; label: string }> = [
-  { id: 'word', label: 'Word' },
-  { id: 'image', label: 'Image' },
-  { id: 'word-image', label: 'Both' },
-  { id: 'blank', label: 'Blank' },
+  { id: 'word', label: '단어' },
+  { id: 'image', label: '이미지' },
+  { id: 'word-image', label: '단어+이미지' },
+  { id: 'blank', label: '빈 슬라이드' },
 ];
+
+const LANGUAGE_LABELS = {
+  english: '영어',
+  korean: '한글',
+  mixed: '혼합',
+} as const;
 
 function App() {
   const [activeTool, setActiveTool] = useState<ToolId>('word-search');
@@ -62,6 +94,7 @@ function App() {
   const [klass, setKlass] = useState(1);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [imageLoadingWord, setImageLoadingWord] = useState<string | null>(null);
 
   const words = useMemo(() => parseWords(wordInput), [wordInput]);
   const keywordRows = useMemo(
@@ -85,18 +118,47 @@ function App() {
 
   async function copyWords() {
     await navigator.clipboard.writeText(words.join(', '));
-    notify('Word list copied');
+    notify('단어 목록을 복사했습니다.');
   }
 
-  function exportJson(payload: unknown, name: string) {
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = name;
-    anchor.click();
-    URL.revokeObjectURL(url);
-    notify('Export prepared');
+  function runDownload(action: () => Promise<void>) {
+    action()
+      .then(() => notify('파일 다운로드를 시작했습니다.'))
+      .catch((error: unknown) => {
+        notify(error instanceof Error ? error.message : '파일을 만들 수 없습니다.');
+      });
+  }
+
+  async function findImage(row: { word: string; keyword: string }) {
+    setImageLoadingWord(row.word);
+    try {
+      const [candidate] = await searchBackendImages(row.keyword, { limit: searchCount });
+      if (!candidate) {
+        notify('검색된 이미지가 없습니다.');
+        return;
+      }
+      updateImage(row.word, candidate.imageUrl);
+      notify(`${row.word} 이미지를 가져왔습니다.`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '이미지 검색에 실패했습니다.');
+    } finally {
+      setImageLoadingWord(null);
+    }
+  }
+
+  function uploadImage(word: string, file: File | null) {
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      if (typeof reader.result === 'string') {
+        updateImage(word, reader.result);
+        notify(`${word} 이미지를 추가했습니다.`);
+      }
+    });
+    reader.readAsDataURL(file);
   }
 
   return (
@@ -107,21 +169,21 @@ function App() {
             <Sparkles size={16} />
           </div>
           <div>
-            <p className="mono-label">Material Maker</p>
-            <h1>Learning material studio</h1>
+            <p className="mono-label">학습 자료 제작기</p>
+            <h1>학습 자료 제작 스튜디오</h1>
           </div>
         </div>
 
         <button
           className="icon-button mobile-menu"
           type="button"
-          aria-label="Toggle tools"
+          aria-label="도구 메뉴 열기"
           onClick={() => setMobileNavOpen((open) => !open)}
         >
           <Menu size={18} />
         </button>
 
-        <nav className={`tool-tabs ${mobileNavOpen ? 'is-open' : ''}`} aria-label="Tools">
+        <nav className={`tool-tabs ${mobileNavOpen ? 'is-open' : ''}`} aria-label="도구">
           {TOOL_OPTIONS.map((tool) => {
             const Icon = tool.icon;
             return (
@@ -130,13 +192,17 @@ function App() {
                 className={`tab-button accent-${tool.accent}`}
                 type="button"
                 data-active={activeTool === tool.id}
+                aria-current={activeTool === tool.id ? 'page' : undefined}
                 onClick={() => {
                   setActiveTool(tool.id);
                   setMobileNavOpen(false);
                 }}
               >
                 <Icon size={16} />
-                <span>{tool.label}</span>
+                <span className="tab-copy">
+                  <span>{tool.label}</span>
+                  <small>{tool.description}</small>
+                </span>
               </button>
             );
           })}
@@ -144,11 +210,11 @@ function App() {
       </header>
 
       <main className="workspace">
-        <section className="control-panel" aria-label="Controls">
+        <section className="control-panel" aria-label="입력 설정">
           <div className="panel-heading">
             <div>
-              <p className="mono-label">Input</p>
-              <h2>Words and images</h2>
+              <p className="mono-label">입력</p>
+              <h2>단어와 이미지</h2>
             </div>
             <Badge tone={wordCountStatus(words.length).tone}>
               {wordCountStatus(words.length).label}
@@ -156,7 +222,7 @@ function App() {
           </div>
 
           <label className="field-label" htmlFor="word-input">
-            Word list
+            단어 목록
           </label>
           <textarea
             id="word-input"
@@ -173,7 +239,7 @@ function App() {
               onClick={() => setWordInput(SAMPLE_WORDS)}
             >
               <Grid3X3 size={15} />
-              Sample
+              예시
             </button>
             <button
               className="secondary-button"
@@ -184,27 +250,27 @@ function App() {
               disabled={words.length === 0}
             >
               <Copy size={15} />
-              Copy
+              복사
             </button>
           </div>
 
           <div className="settings-grid">
             <label>
-              <span>Suffix</span>
+              <span>검색어 접미어</span>
               <input value={suffix} onChange={(event) => setSuffix(event.target.value)} />
             </label>
             <label>
-              <span>Search count</span>
+              <span>검색 개수</span>
               <input
                 type="number"
-                min={0}
-                max={25}
+                min={1}
+                max={12}
                 value={searchCount}
                 onChange={(event) => setSearchCount(Number(event.target.value))}
               />
             </label>
             <label>
-              <span>Grade</span>
+              <span>학년</span>
               <input
                 type="number"
                 min={1}
@@ -214,7 +280,7 @@ function App() {
               />
             </label>
             <label>
-              <span>Class</span>
+              <span>반</span>
               <input
                 type="number"
                 min={1}
@@ -224,25 +290,45 @@ function App() {
             </label>
           </div>
 
-          <div className="keyword-table" aria-label="Keyword rows">
+          <div className="keyword-table" aria-label="검색어 목록">
             <div className="keyword-header">
-              <span>Word</span>
-              <span>Keyword</span>
-              <span>Image URL</span>
+              <span>단어</span>
+              <span>검색어</span>
+              <span>이미지 URL</span>
             </div>
             {keywordRows.length === 0 ? (
-              <EmptyState text="Add words to begin." />
+              <EmptyState text="단어를 입력하면 검색어가 만들어집니다." />
             ) : (
               keywordRows.map((row) => (
                 <div className="keyword-row" key={row.word}>
                   <span className="word-token">{row.word}</span>
                   <span>{row.keyword}</span>
-                  <input
-                    aria-label={`${row.word} image URL`}
-                    value={imageMap[row.word] ?? ''}
-                    onChange={(event) => updateImage(row.word, event.target.value)}
-                    placeholder="https://..."
-                  />
+                  <div className="image-controls">
+                    <input
+                      aria-label={`${row.word} 이미지 URL`}
+                      value={imageMap[row.word] ?? ''}
+                      onChange={(event) => updateImage(row.word, event.target.value)}
+                      placeholder="이미지 URL"
+                    />
+                    <button
+                      className="tiny-button"
+                      type="button"
+                      onClick={() => {
+                        void findImage(row);
+                      }}
+                      disabled={imageLoadingWord === row.word}
+                    >
+                      {imageLoadingWord === row.word ? '검색 중' : '찾기'}
+                    </button>
+                    <label className="tiny-upload">
+                      업로드
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => uploadImage(row.word, event.target.files?.[0] ?? null)}
+                      />
+                    </label>
+                  </div>
                 </div>
               ))
             )}
@@ -261,7 +347,7 @@ function App() {
               grade={grade}
               klass={klass}
               imageMap={imageMap}
-              exportJson={exportJson}
+              runDownload={runDownload}
             />
           )}
 
@@ -271,16 +357,16 @@ function App() {
               grade={grade}
               klass={klass}
               imageMap={imageMap}
-              exportJson={exportJson}
+              runDownload={runDownload}
             />
           )}
 
           {activeTool === 'flicker' && (
-            <FlickerTool words={words} imageMap={imageMap} exportJson={exportJson} />
+            <FlickerTool words={words} imageMap={imageMap} runDownload={runDownload} />
           )}
 
           {activeTool === 'dobble' && (
-            <DobbleTool words={words} imageMap={imageMap} exportJson={exportJson} />
+            <DobbleTool words={words} imageMap={imageMap} runDownload={runDownload} />
           )}
         </section>
       </main>
@@ -297,7 +383,7 @@ function ToolHeader({
 }: {
   tool: (typeof TOOL_OPTIONS)[number];
   words: string[];
-  language: string;
+  language: keyof typeof LANGUAGE_LABELS;
 }) {
   const Icon = tool.icon;
 
@@ -306,11 +392,12 @@ function ToolHeader({
       <div className="tool-title">
         <Icon size={20} />
         <div>
-          <p className="mono-label">{language}</p>
+          <p className="mono-label">{LANGUAGE_LABELS[language]}</p>
           <h2>{tool.label}</h2>
+          <p className="tool-subtitle">{tool.description}</p>
         </div>
       </div>
-      <Badge tone={words.length > 0 ? 'success' : 'neutral'}>{words.length} words</Badge>
+      <Badge tone={words.length > 0 ? 'success' : 'neutral'}>단어 {words.length}개</Badge>
     </div>
   );
 }
@@ -320,13 +407,13 @@ function WordSearchTool({
   grade,
   klass,
   imageMap,
-  exportJson,
+  runDownload,
 }: {
   words: string[];
   grade: number;
   klass: number;
   imageMap: ImageMap;
-  exportJson: (payload: unknown, name: string) => void;
+  runDownload: (action: () => Promise<void>) => void;
 }) {
   const [width, setWidth] = useState(15);
   const [height, setHeight] = useState(15);
@@ -351,43 +438,44 @@ function WordSearchTool({
         seed: 20260502,
       });
     } catch (error) {
-      return error instanceof Error ? error : new Error('Puzzle generation failed.');
+      return error instanceof Error ? error : new Error('퍼즐을 만들 수 없습니다.');
     }
   }, [difficulty, fillerMode, height, uppercase, width, words]);
 
   const hasError = puzzle instanceof Error;
+  const generatedPuzzle = !hasError && puzzle ? puzzle : null;
   const currentGrid = !hasError && puzzle ? (showAnswer ? puzzle.answerGrid : puzzle.grid) : [];
 
   return (
     <>
       <div className="tool-controls">
-        <NumberField label="Width" value={width} min={5} max={28} onChange={setWidth} />
-        <NumberField label="Height" value={height} min={5} max={28} onChange={setHeight} />
+        <NumberField label="가로 칸" value={width} min={5} max={28} onChange={setWidth} />
+        <NumberField label="세로 칸" value={height} min={5} max={28} onChange={setHeight} />
         <label>
-          <span>Difficulty</span>
+          <span>난이도</span>
           <select
             value={difficulty}
             onChange={(event) => setDifficulty(Number(event.target.value) as WordSearchDifficulty)}
           >
-            <option value={1}>Straight</option>
-            <option value={2}>Reverse</option>
-            <option value={3}>Diagonal</option>
-            <option value={4}>All directions</option>
+            <option value={1}>가로세로</option>
+            <option value={2}>역방향 포함</option>
+            <option value={3}>대각선 포함</option>
+            <option value={4}>모든 방향</option>
           </select>
         </label>
         <label>
-          <span>Fill</span>
+          <span>채움 방식</span>
           <select
             value={fillerMode}
             onChange={(event) => setFillerMode(event.target.value as FillerMode)}
           >
-            <option value="easy">Low overlap</option>
-            <option value="balanced">Balanced</option>
-            <option value="overlap">High overlap</option>
+            <option value="easy">겹침 적게</option>
+            <option value="balanced">균형</option>
+            <option value="overlap">겹침 많게</option>
           </select>
         </label>
-        <Toggle label="Uppercase" checked={uppercase} onChange={setUppercase} />
-        <Toggle label="Answer" checked={showAnswer} onChange={setShowAnswer} />
+        <Toggle label="대문자" checked={uppercase} onChange={setUppercase} />
+        <Toggle label="정답 보기" checked={showAnswer} onChange={setShowAnswer} />
       </div>
 
       {hasError ? (
@@ -396,20 +484,31 @@ function WordSearchTool({
         <div className="preview-layout printable">
           <div className="puzzle-sheet">
             <div className="sheet-meta">
-              <h3>{/[가-힣]/.test(words.join('')) ? '낱말 찾기' : 'Word Puzzle'}</h3>
-              <span>
-                {grade}학년 {klass}반 이름: _______
-              </span>
-            </div>
-            <div
-              className="puzzle-grid"
-              style={{ gridTemplateColumns: `repeat(${Math.max(width, 1)}, minmax(0, 1fr))` }}
-            >
-              {currentGrid.flat().map((cell, index) => (
-                <span className={cell ? '' : 'answer-empty'} key={`${cell}-${index}`}>
-                  {cell || '·'}
+              <div>
+                <p className="mono-label">출력 미리보기</p>
+                <h3>{/[가-힣]/.test(words.join('')) ? '낱말 찾기' : '단어 찾기'}</h3>
+              </div>
+              <div className="sheet-stats">
+                <span>
+                  {width} x {height}
                 </span>
-              ))}
+                <span>단어 {words.length}개</span>
+              </div>
+            </div>
+            <div className="puzzle-board-wrap">
+              <StudentInfo grade={grade} klass={klass} />
+              <div
+                className="puzzle-grid"
+                style={{
+                  gridTemplateColumns: `repeat(${Math.max(width, 1)}, minmax(0, 1fr))`,
+                }}
+              >
+                {currentGrid.flat().map((cell, index) => (
+                  <span className={cell ? '' : 'answer-empty'} key={`${cell}-${index}`}>
+                    {cell || '·'}
+                  </span>
+                ))}
+              </div>
             </div>
             <WordImageHints words={words} imageMap={imageMap} uppercase={uppercase} />
           </div>
@@ -419,20 +518,17 @@ function WordSearchTool({
       <ActionBar
         onPrint={() => window.print()}
         onExport={() =>
-          exportJson(
-            {
-              type: 'word-search',
+          runDownload(() =>
+            downloadWordSearchDocx({
               words,
-              width,
-              height,
-              difficulty,
-              fillerMode,
-              uppercase,
-              puzzle,
-            },
-            'word-search.json',
+              imageMap,
+              puzzle: generatedPuzzle,
+              grade,
+              classNumber: klass,
+            }),
           )
         }
+        exportLabel="DOCX 다운로드"
       />
     </>
   );
@@ -443,13 +539,13 @@ function WorksheetTool({
   grade,
   klass,
   imageMap,
-  exportJson,
+  runDownload,
 }: {
   words: string[];
   grade: number;
   klass: number;
   imageMap: ImageMap;
-  exportJson: (payload: unknown, name: string) => void;
+  runDownload: (action: () => Promise<void>) => void;
 }) {
   const [columns, setColumns] = useState(5);
   const [syllables, setSyllables] = useState(false);
@@ -458,23 +554,21 @@ function WorksheetTool({
   return (
     <>
       <div className="tool-controls">
-        <NumberField label="Columns" value={columns} min={1} max={8} onChange={setColumns} />
-        <Toggle label="Syllables" checked={syllables} onChange={setSyllables} />
+        <NumberField label="한 줄 칸 수" value={columns} min={1} max={8} onChange={setColumns} />
+        <Toggle label="음절 표시" checked={syllables} onChange={setSyllables} />
       </div>
 
       <div className="worksheet-sheet printable">
         <div className="sheet-meta">
           <h3>단어 활동지</h3>
-          <span>
-            {grade}학년 {klass}반 이름: _______
-          </span>
+          <StudentInfo grade={grade} klass={klass} />
         </div>
         <div
           className="worksheet-grid"
           style={{ gridTemplateColumns: `repeat(${worksheet.columns}, minmax(96px, 1fr))` }}
         >
           {words.length === 0 ? (
-            <EmptyState text="Add words to preview the worksheet." />
+            <EmptyState text="단어를 입력하면 활동지를 미리 볼 수 있습니다." />
           ) : (
             worksheet.rows
               .flat()
@@ -493,8 +587,18 @@ function WorksheetTool({
       <ActionBar
         onPrint={() => window.print()}
         onExport={() =>
-          exportJson({ type: 'worksheet', columns, syllables, words, imageMap }, 'worksheet.json')
+          runDownload(() =>
+            downloadWorksheetDocx({
+              words,
+              imageMap,
+              columns,
+              syllables,
+              grade,
+              classNumber: klass,
+            }),
+          )
         }
+        exportLabel="DOCX 다운로드"
       />
     </>
   );
@@ -503,11 +607,11 @@ function WorksheetTool({
 function FlickerTool({
   words,
   imageMap,
-  exportJson,
+  runDownload,
 }: {
   words: string[];
   imageMap: ImageMap;
-  exportJson: (payload: unknown, name: string) => void;
+  runDownload: (action: () => Promise<void>) => void;
 }) {
   const [templates, setTemplates] = useState<FlickerTemplate[]>(['word', 'image', 'word-image']);
   const sequence = useMemo(() => buildFlickerSequence(templates, words), [templates, words]);
@@ -524,7 +628,7 @@ function FlickerTool({
 
   return (
     <>
-      <div className="template-picker" role="group" aria-label="Slide templates">
+      <div className="template-picker" role="group" aria-label="슬라이드 양식">
         {FLICKER_TEMPLATES.map((template) => (
           <button
             key={template.id}
@@ -540,11 +644,11 @@ function FlickerTool({
       </div>
 
       {templates.length === 0 ? (
-        <Callout tone="warning">Select at least one slide template.</Callout>
+        <Callout tone="warning">슬라이드 양식을 하나 이상 선택하세요.</Callout>
       ) : (
         <div className="flicker-strip printable">
           {sequence.length === 0 ? (
-            <EmptyState text="Add words to preview the flicker deck." />
+            <EmptyState text="단어를 입력하면 깜빡이 슬라이드를 미리 볼 수 있습니다." />
           ) : (
             sequence.map((slide, index) => (
               <div className="slide-preview" key={`${slide.word}-${slide.template}-${index}`}>
@@ -563,9 +667,8 @@ function FlickerTool({
 
       <ActionBar
         onPrint={() => window.print()}
-        onExport={() =>
-          exportJson({ type: 'flicker', templates, sequence, imageMap }, 'flicker-sequence.json')
-        }
+        onExport={() => runDownload(() => downloadFlickerPptx(words, imageMap, templates))}
+        exportLabel="PPTX 다운로드"
       />
     </>
   );
@@ -574,11 +677,11 @@ function FlickerTool({
 function DobbleTool({
   words,
   imageMap,
-  exportJson,
+  runDownload,
 }: {
   words: string[];
   imageMap: ImageMap;
-  exportJson: (payload: unknown, name: string) => void;
+  runDownload: (action: () => Promise<void>) => void;
 }) {
   const [picturesPerCard, setPicturesPerCard] = useState(6);
   const safePicturesPerCard = nearestValidPicturesPerCard(picturesPerCard);
@@ -594,7 +697,7 @@ function DobbleTool({
     <>
       <div className="tool-controls">
         <label>
-          <span>Pictures per card</span>
+          <span>카드당 그림 수</span>
           <select
             value={safePicturesPerCard}
             onChange={(event) => setPicturesPerCard(Number(event.target.value))}
@@ -611,14 +714,14 @@ function DobbleTool({
 
       {words.length !== requiredWords && (
         <Callout tone="warning">
-          Dobble needs exactly {requiredWords} words for {safePicturesPerCard} pictures per card.
+          그림 {safePicturesPerCard}개짜리 도블 카드는 단어 {requiredWords}개가 정확히 필요합니다.
         </Callout>
       )}
 
       <div className="dobble-grid printable">
         {indexes.map((card, index) => (
           <div className="dobble-card" key={index}>
-            <span className="mono-label">Card {index + 1}</span>
+            <span className="mono-label">카드 {index + 1}</span>
             <div className="dobble-symbols">
               {card.map((symbolIndex) => {
                 const word = symbols[symbolIndex];
@@ -637,15 +740,19 @@ function DobbleTool({
       <ActionBar
         onPrint={() => window.print()}
         onExport={() =>
-          exportJson(
-            {
-              type: 'dobble',
-              picturesPerCard: safePicturesPerCard,
-              cards: indexes.map((card) => card.map((index) => symbols[index])),
-            },
-            'dobble-cards.json',
+          runDownload(() =>
+            downloadDobblePptx(
+              indexes.map((card) =>
+                card.map((index) => ({
+                  word: symbols[index],
+                  image: imageMap[symbols[index]] || undefined,
+                })),
+              ),
+              safePicturesPerCard,
+            ),
           )
         }
+        exportLabel="PPTX 다운로드"
       />
     </>
   );
@@ -661,14 +768,20 @@ function WordImageHints({
   uppercase: boolean;
 }) {
   return (
-    <div className="hint-grid">
-      {words.map((word) => (
-        <div className="hint-item" key={word}>
-          <ImagePreview word={word} imageUrl={imageMap[word]} />
-          <span>{uppercase ? word.toUpperCase() : word}</span>
-        </div>
-      ))}
-    </div>
+    <section className="hint-section" aria-label="찾을 낱말">
+      <div className="hint-heading">
+        <strong>찾을 낱말</strong>
+        <span>이미지 힌트</span>
+      </div>
+      <div className="hint-grid">
+        {words.map((word) => (
+          <div className="hint-item" key={word}>
+            <ImagePreview word={word} imageUrl={imageMap[word]} />
+            <span>{uppercase ? word.toUpperCase() : word}</span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -678,7 +791,7 @@ function ImagePreview({ word, imageUrl }: { word: string; imageUrl?: string }) {
   }
 
   return (
-    <div className="image-placeholder" aria-label={`${word} placeholder`}>
+    <div className="image-placeholder" aria-label={`${word} 이미지 자리`}>
       <BookOpen size={18} />
     </div>
   );
@@ -697,6 +810,24 @@ function MaterialTile({
     <div className="material-tile">
       <ImagePreview word={word} imageUrl={imageUrl} />
       <strong>{syllables ? word.split('').join(' · ') : word}</strong>
+    </div>
+  );
+}
+
+function StudentInfo({ grade, klass }: { grade: number; klass: number }) {
+  return (
+    <div className="student-info" aria-label="학생 정보">
+      <span>
+        <small>학년</small>
+        {grade}
+      </span>
+      <span>
+        <small>반</small>
+        {klass}
+      </span>
+      <span className="student-name">
+        <small>이름</small>
+      </span>
     </div>
   );
 }
@@ -775,16 +906,24 @@ function EmptyState({ text }: { text: string }) {
   return <div className="empty-state">{text}</div>;
 }
 
-function ActionBar({ onPrint, onExport }: { onPrint: () => void; onExport: () => void }) {
+function ActionBar({
+  onPrint,
+  onExport,
+  exportLabel,
+}: {
+  onPrint: () => void;
+  onExport: () => void;
+  exportLabel: string;
+}) {
   return (
     <div className="action-bar">
       <button className="secondary-button" type="button" onClick={onPrint}>
         <Printer size={15} />
-        Print
+        인쇄
       </button>
       <button className="primary-button" type="button" onClick={onExport}>
-        <ArrowDownToLine size={15} />
-        Export
+        <Download size={15} />
+        {exportLabel}
       </button>
     </div>
   );
