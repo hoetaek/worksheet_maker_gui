@@ -5,5 +5,4 @@ node_modules
 *.docx
 *.pptx
 *.ico
-poetry.lock
 package-lock.json

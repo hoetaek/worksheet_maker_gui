@@ -23,16 +23,6 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = [
-  "basic_gui.py",
-  "card_maker.py",
-  "dobble_maker.py",
-  "label_maker.py",
-  "learning_material_maker.py",
-  "word_flicker_maker.py",
-  "word_worksheet_maker.py",
-  "wordsearch_maker.py",
-]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]

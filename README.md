@@ -39,6 +39,15 @@ uv run ruff check backend tests
 uv run mypy
 ```
 
+## Project Structure
+
+```text
+backend/     FastAPI API, image search, Office document generators
+src/         React app, UI tests, worksheet generation logic
+tests/       Backend API and document generation tests
+docs/        Migration and implementation notes
+```
+
 ## Production Serve
 
 ```bash
@@ -48,4 +57,4 @@ npm run serve
 
 The FastAPI app serves the built `dist/` assets when they exist.
 
-The original PyQt/Python files remain in the repository as legacy reference material only. New document generation lives in the FastAPI backend.
+Document generation lives in the FastAPI backend. The legacy PyQt implementation has been removed from the active codebase.

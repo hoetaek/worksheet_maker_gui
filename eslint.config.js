@@ -34,7 +34,6 @@ export default tseslint.config(
       '*.docx',
       '*.pptx',
       '*.ico',
-      'poetry.lock',
       'package-lock.json',
     ],
   },
