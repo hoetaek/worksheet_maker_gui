@@ -4,10 +4,13 @@ export type ImageCandidate = {
   imageUrl: string;
   thumbnailUrl: string;
   sourceUrl: string;
+  provider: ImageProvider;
   credit?: string | null;
   license?: string | null;
   licenseUrl?: string | null;
 };
+
+export type ImageProvider = 'auto' | 'openverse' | 'commons';
 
 type BackendImageCandidate = {
   id: string;
@@ -15,6 +18,7 @@ type BackendImageCandidate = {
   image_url: string;
   thumbnail_url: string;
   source_url: string;
+  provider: ImageProvider;
   credit?: string | null;
   license?: string | null;
   license_url?: string | null;
@@ -22,11 +26,13 @@ type BackendImageCandidate = {
 
 type BackendImageSearchResponse = {
   query: string;
+  provider: ImageProvider;
   results: BackendImageCandidate[];
 };
 
 export type ImageSearchOptions = {
   limit?: number;
+  provider?: ImageProvider;
   fetcher?: typeof fetch;
 };
 
@@ -53,7 +59,7 @@ export async function searchCommonsImages(
 ): Promise<ImageCandidate[]> {
   const response = await fetcher(buildCommonsImageSearchUrl(query, limit));
   if (!response.ok) {
-    throw new Error('이미지 검색에 실패했습니다.');
+    throw new Error('사진 검색에 실패했습니다.');
   }
 
   const payload = (await response.json()) as {
@@ -90,6 +96,7 @@ export async function searchCommonsImages(
           imageUrl: imageInfo.url,
           thumbnailUrl: imageInfo.thumburl ?? imageInfo.url,
           sourceUrl: imageInfo.descriptionurl,
+          provider: 'commons',
           credit: cleanHtml(imageInfo.extmetadata?.Artist?.value),
           license: cleanHtml(imageInfo.extmetadata?.LicenseShortName?.value),
           licenseUrl: imageInfo.extmetadata?.LicenseUrl?.value,
@@ -100,12 +107,12 @@ export async function searchCommonsImages(
 
 export async function searchBackendImages(
   query: string,
-  { fetcher = fetch, limit = 6 }: ImageSearchOptions = {},
+  { fetcher = fetch, limit = 6, provider = 'auto' }: ImageSearchOptions = {},
 ): Promise<ImageCandidate[]> {
-  const params = new URLSearchParams({ query, limit: String(limit) });
+  const params = new URLSearchParams({ query, limit: String(limit), provider });
   const response = await fetcher(`/api/images/search?${params.toString()}`);
   if (!response.ok) {
-    throw new Error('이미지 검색에 실패했습니다.');
+    throw new Error('사진 검색에 실패했습니다.');
   }
 
   const payload = (await response.json()) as BackendImageSearchResponse;
@@ -115,6 +122,7 @@ export async function searchBackendImages(
     imageUrl: candidate.image_url,
     thumbnailUrl: candidate.thumbnail_url,
     sourceUrl: candidate.source_url,
+    provider: candidate.provider,
     credit: candidate.credit,
     license: candidate.license,
     licenseUrl: candidate.license_url,

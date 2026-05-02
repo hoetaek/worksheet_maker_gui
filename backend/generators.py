@@ -18,6 +18,7 @@ from pptx.slide import Slide
 from pptx.util import Inches
 from pptx.util import Pt as PptPt
 
+from backend.image_search import IMAGE_REQUEST_HEADERS
 from backend.schemas import (
     DobbleRequest,
     FlickerRequest,
@@ -44,7 +45,7 @@ async def make_flicker_pptx(request: FlickerRequest) -> bytes:
                 if image:
                     add_image(slide, image, left=4.65, top=2.15, width=4.0, height=3.35)
                 else:
-                    add_placeholder(slide, "이미지 없음")
+                    add_placeholder(slide, "사진 없음")
 
             if template == "blank":
                 add_center_text(slide, "", top=2.45)
@@ -110,7 +111,7 @@ async def make_worksheet_docx(request: WorksheetRequest) -> bytes:
                 if image:
                     paragraph.add_run().add_picture(image, width=Cm(3.0))
                 else:
-                    paragraph.add_run("이미지 없음")
+                    paragraph.add_run("사진 없음")
             else:
                 text = split_syllables(item.word) if request.syllables else item.word
                 run = paragraph.add_run(text)
@@ -170,13 +171,20 @@ async def resolve_image(value: str | None) -> BytesIO | None:
         return BytesIO(b64decode(encoded))
 
     if value.startswith(("http://", "https://")):
-        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-            response = await client.get(value)
-            response.raise_for_status()
-            content_type = response.headers.get("content-type", "")
-            if not content_type.startswith("image/"):
-                return None
-            return BytesIO(response.content)
+        try:
+            async with httpx.AsyncClient(
+                timeout=15,
+                headers=IMAGE_REQUEST_HEADERS,
+                follow_redirects=True,
+            ) as client:
+                response = await client.get(value)
+                response.raise_for_status()
+                content_type = response.headers.get("content-type", "")
+                if not content_type.startswith("image/"):
+                    return None
+                return BytesIO(response.content)
+        except httpx.HTTPError:
+            return None
 
     return None
 

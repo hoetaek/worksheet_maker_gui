@@ -10,14 +10,14 @@ The visual baseline borrows Vercel's restraint: white canvas, near-black typogra
 - Make the navigation unmistakable: Korean labels, strong active state, readable hover state, and enough button width.
 - Make output previews feel premium: larger titles, paper-like white surfaces, subtle shadow depth, clear metadata blocks, and no old-fashioned underscore fields.
 - Keep the app utilitarian: no decorative blobs, no marketing hero, no card overload, no low-contrast controls.
-- Make image handling central: word/image rows, image search, upload affordances, and visual hint cards should be first-class UI.
+- Make photo handling central: word/photo rows, full-list photo search, upload affordances, and visual hint cards should be first-class UI.
 - Preserve the Vercel-inspired discipline: achromatic palette, `#171717` text, shadow borders, 6-8px radii, blue focus rings, and minimal accent usage.
 
 **Korean UI rules:**
 - All visible navigation and workflow controls must be Korean.
 - Use larger Korean headings than English defaults: tool headings 28px, output sheet titles 36px or larger.
 - Avoid placeholder-like printed fields such as `이름: _______`. Use structured student info blocks with labels for 학년, 반, 이름.
-- Buttons must remain readable in every state. Active dark buttons must stay dark on hover; inactive buttons must keep dark text on hover.
+- Buttons must remain readable in every state. Selected navigation tabs use a light surface plus accent line; dark fills are reserved for true primary actions such as export.
 
 **Output preview rules:**
 - Word search previews should render inside a sheet-like canvas with a separate board frame.
@@ -32,9 +32,11 @@ Reference: Laws of UX by Jon Yablonski, CC BY-NC-ND 4.0.
 - Jakob's Law: keep the app shaped like a familiar production tool. Use sticky top navigation, a left input panel, a right preview workspace, standard form controls, and predictable Korean labels.
 - Hick's Law: group choices by task. Keep the four main workflows in one persistent nav, keep puzzle settings in one controls row, and avoid mixing export actions into configuration areas.
 - Aesthetic-Usability Effect: generated previews should look like finished print material. Premium paper surfaces, larger titles, structured student info, and image-led hint cards are part of usability because they make the final artifact easier to trust.
-- Law of Proximity: related labels, fields, and controls must be visually grouped. Word/image controls live in each word row; output metadata stays inside the sheet header; export actions stay in the bottom action bar.
+- Law of Proximity: related labels, fields, and controls must be visually grouped. Word/photo controls live in each word row; output metadata stays inside the sheet header; export actions stay in the bottom action bar.
 - Tesler's Law: document generation complexity belongs in the FastAPI backend. The frontend should expose simple Korean controls while the backend handles `.pptx`/`.docx` generation and image fetching.
-- Doherty Threshold: image search and downloads should give immediate feedback through disabled/loading button states and short Korean toast messages.
+- Hick's Law: photo search should default to the lowest-friction path. `사진 전체 찾기` fills the first viable photo automatically, while the `변경` action progressively discloses alternate candidates only when the teacher wants to review them.
+- Doherty Threshold: photo search and downloads should give immediate feedback through disabled/loading button states and short Korean toast messages.
+- Law of Proximity: row-level photo URL, find, change, and upload controls stay in the same word row so each action clearly belongs to that word.
 
 ---
 
@@ -198,6 +200,16 @@ What distinguishes Vercel from other monochrome design systems is its shadow-as-
 - Top-rounded images: `12px 12px 0px 0px` radius
 - Dashboard/code preview screenshots dominate feature sections
 - Soft gradient backgrounds behind hero images (pastel multi-color)
+
+## 4.1 Photo Search Interaction
+
+Photo search is a primary workflow, not a secondary utility.
+
+- Default mode is `자동 추천`; Korean queries prefer Wikimedia Commons first, and English queries prefer Openverse first.
+- The optional search modifier field starts empty. It exists for edge cases, but the app should not require teachers to think like search-engine operators.
+- `사진 전체 찾기` is the main action. It searches all current words, fills each row with the first result, and reports partial misses in one concise toast.
+- Each row keeps a `변경` button. It opens a focused candidate picker with a recommended first result, source metadata, and large `이 사진 사용` targets.
+- The candidate picker must not open automatically after every search. Automatic filling keeps the happy path short; manual changing handles exceptions.
 
 ### Distinctive Components
 

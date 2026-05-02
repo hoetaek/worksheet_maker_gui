@@ -2,6 +2,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+ImageProvider = Literal["auto", "openverse", "commons"]
+
 
 class ImageCandidate(BaseModel):
     id: str
@@ -9,6 +11,7 @@ class ImageCandidate(BaseModel):
     image_url: str
     thumbnail_url: str
     source_url: str
+    provider: ImageProvider
     credit: str | None = None
     license: str | None = None
     license_url: str | None = None
@@ -16,6 +19,7 @@ class ImageCandidate(BaseModel):
 
 class ImageSearchResponse(BaseModel):
     query: str
+    provider: ImageProvider
     results: list[ImageCandidate]
 
 

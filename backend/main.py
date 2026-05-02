@@ -1,5 +1,6 @@
 from collections.abc import Awaitable
 from pathlib import Path
+from typing import Annotated
 from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Query
@@ -13,10 +14,11 @@ from backend.generators import (
     make_word_search_docx,
     make_worksheet_docx,
 )
-from backend.image_search import search_commons_images
+from backend.image_search import search_images
 from backend.schemas import (
     DobbleRequest,
     FlickerRequest,
+    ImageProvider,
     ImageSearchResponse,
     WordSearchRequest,
     WorksheetRequest,
@@ -40,18 +42,19 @@ async def health() -> dict[str, str]:
 
 @app.get("/api/images/search")
 async def image_search(
-    query: str = Query(min_length=1),
-    limit: int = Query(default=6, ge=1, le=12),
+    query: Annotated[str, Query(min_length=1)],
+    limit: Annotated[int, Query(ge=1, le=12)] = 6,
+    provider: Annotated[ImageProvider, Query()] = "auto",
 ) -> ImageSearchResponse:
     try:
-        results = await search_commons_images(query, limit)
+        results = await search_images(query, limit, provider)
     except Exception as exc:  # noqa: BLE001 - map upstream failure to API error
         raise HTTPException(
             status_code=502,
-            detail="이미지 검색 서버에 연결할 수 없습니다.",
+            detail="사진 검색 서버에 연결할 수 없습니다.",
         ) from exc
 
-    return ImageSearchResponse(query=query, results=results)
+    return ImageSearchResponse(query=query, provider=provider, results=results)
 
 
 @app.post("/api/materials/flicker.pptx")

@@ -4,6 +4,7 @@ import {
   Check,
   Copy,
   Download,
+  ExternalLink,
   FileText,
   Grid3X3,
   Images,
@@ -12,6 +13,7 @@ import {
   Printer,
   Search,
   Sparkles,
+  X,
 } from 'lucide-react';
 import {
   buildDobbleCards,
@@ -25,7 +27,7 @@ import {
   downloadWordSearchDocx,
   downloadWorksheetDocx,
 } from './lib/downloads';
-import { searchBackendImages } from './lib/imageSearch';
+import { searchBackendImages, type ImageCandidate, type ImageProvider } from './lib/imageSearch';
 import { buildFlickerSequence, buildWorksheetCells, type FlickerTemplate } from './lib/materials';
 import { createWordSearch, type FillerMode, type WordSearchDifficulty } from './lib/wordSearch';
 import { buildKeywordRows, detectLanguage, parseWords, wordCountStatus } from './lib/words';
@@ -33,10 +35,16 @@ import { buildKeywordRows, detectLanguage, parseWords, wordCountStatus } from '.
 type ToolId = 'word-search' | 'worksheet' | 'flicker' | 'dobble';
 
 type ImageMap = Record<string, string>;
+type ImageCandidateMap = Record<string, ImageCandidate[]>;
 
 type Toast = {
   id: number;
   text: string;
+};
+
+type ImagePickerState = {
+  word: string;
+  candidates: ImageCandidate[];
 };
 
 const TOOL_OPTIONS: Array<{
@@ -73,8 +81,8 @@ const TOOL_OPTIONS: Array<{
 const SAMPLE_WORDS = '토끼, 거북이, 사자, banana, peach, police_officer';
 const FLICKER_TEMPLATES: Array<{ id: FlickerTemplate; label: string }> = [
   { id: 'word', label: '단어' },
-  { id: 'image', label: '이미지' },
-  { id: 'word-image', label: '단어+이미지' },
+  { id: 'image', label: '사진' },
+  { id: 'word-image', label: '단어+사진' },
   { id: 'blank', label: '빈 슬라이드' },
 ];
 
@@ -84,10 +92,16 @@ const LANGUAGE_LABELS = {
   mixed: '혼합',
 } as const;
 
+const IMAGE_PROVIDER_OPTIONS: Array<{ id: ImageProvider; label: string }> = [
+  { id: 'auto', label: '자동 추천' },
+  { id: 'openverse', label: 'Openverse 우선' },
+  { id: 'commons', label: 'Wikimedia 우선' },
+];
+
 function App() {
   const [activeTool, setActiveTool] = useState<ToolId>('word-search');
   const [wordInput, setWordInput] = useState(SAMPLE_WORDS);
-  const [suffix, setSuffix] = useState('png');
+  const [suffix, setSuffix] = useState('');
   const [searchCount, setSearchCount] = useState(5);
   const [imageMap, setImageMap] = useState<ImageMap>({});
   const [grade, setGrade] = useState(3);
@@ -95,6 +109,10 @@ function App() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [imageLoadingWord, setImageLoadingWord] = useState<string | null>(null);
+  const [allImagesLoading, setAllImagesLoading] = useState(false);
+  const [imageProvider, setImageProvider] = useState<ImageProvider>('auto');
+  const [imagePicker, setImagePicker] = useState<ImagePickerState | null>(null);
+  const [imageCandidatesByWord, setImageCandidatesByWord] = useState<ImageCandidateMap>({});
 
   const words = useMemo(() => parseWords(wordInput), [wordInput]);
   const keywordRows = useMemo(
@@ -116,6 +134,16 @@ function App() {
     setImageMap((current) => ({ ...current, [word]: value }));
   }
 
+  function applyImageCandidates(word: string, candidates: ImageCandidate[]): boolean {
+    if (candidates.length === 0) {
+      return false;
+    }
+
+    setImageCandidatesByWord((current) => ({ ...current, [word]: candidates }));
+    updateImage(word, candidates[0].imageUrl);
+    return true;
+  }
+
   async function copyWords() {
     await navigator.clipboard.writeText(words.join(', '));
     notify('단어 목록을 복사했습니다.');
@@ -132,18 +160,80 @@ function App() {
   async function findImage(row: { word: string; keyword: string }) {
     setImageLoadingWord(row.word);
     try {
-      const [candidate] = await searchBackendImages(row.keyword, { limit: searchCount });
-      if (!candidate) {
-        notify('검색된 이미지가 없습니다.');
+      const candidates = await searchBackendImages(row.keyword, {
+        limit: searchCount,
+        provider: imageProvider,
+      });
+      if (candidates.length === 0) {
+        notify('검색된 사진이 없습니다.');
         return;
       }
-      updateImage(row.word, candidate.imageUrl);
-      notify(`${row.word} 이미지를 가져왔습니다.`);
+      applyImageCandidates(row.word, candidates);
+      notify(`${row.word} 첫 사진을 넣었습니다.`);
     } catch (error) {
-      notify(error instanceof Error ? error.message : '이미지 검색에 실패했습니다.');
+      notify(error instanceof Error ? error.message : '사진 검색에 실패했습니다.');
     } finally {
       setImageLoadingWord(null);
     }
+  }
+
+  async function findAllImages() {
+    if (keywordRows.length === 0) {
+      return;
+    }
+
+    setAllImagesLoading(true);
+    try {
+      const settled = await Promise.allSettled(
+        keywordRows.map(async (row) => ({
+          row,
+          candidates: await searchBackendImages(row.keyword, {
+            limit: searchCount,
+            provider: imageProvider,
+          }),
+        })),
+      );
+      let foundCount = 0;
+      let emptyCount = 0;
+      let failedCount = 0;
+
+      for (const result of settled) {
+        if (result.status === 'rejected') {
+          failedCount += 1;
+          continue;
+        }
+
+        if (applyImageCandidates(result.value.row.word, result.value.candidates)) {
+          foundCount += 1;
+        } else {
+          emptyCount += 1;
+        }
+      }
+
+      if (foundCount === 0) {
+        notify(failedCount > 0 ? '사진 검색에 실패했습니다.' : '검색된 사진이 없습니다.');
+        return;
+      }
+
+      const misses = emptyCount + failedCount;
+      notify(
+        misses > 0
+          ? `사진 ${foundCount}개를 넣었습니다. ${misses}개는 찾지 못했습니다.`
+          : `사진 ${foundCount}개를 넣었습니다.`,
+      );
+    } finally {
+      setAllImagesLoading(false);
+    }
+  }
+
+  function openImagePicker(word: string) {
+    const candidates = imageCandidatesByWord[word] ?? [];
+    if (candidates.length === 0) {
+      notify('먼저 사진을 찾아주세요.');
+      return;
+    }
+
+    setImagePicker({ word, candidates });
   }
 
   function uploadImage(word: string, file: File | null) {
@@ -155,7 +245,7 @@ function App() {
     reader.addEventListener('load', () => {
       if (typeof reader.result === 'string') {
         updateImage(word, reader.result);
-        notify(`${word} 이미지를 추가했습니다.`);
+        notify(`${word} 사진을 추가했습니다.`);
       }
     });
     reader.readAsDataURL(file);
@@ -214,7 +304,7 @@ function App() {
           <div className="panel-heading">
             <div>
               <p className="mono-label">입력</p>
-              <h2>단어와 이미지</h2>
+              <h2>단어와 사진</h2>
             </div>
             <Badge tone={wordCountStatus(words.length).tone}>
               {wordCountStatus(words.length).label}
@@ -252,12 +342,27 @@ function App() {
               <Copy size={15} />
               복사
             </button>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => {
+                void findAllImages();
+              }}
+              disabled={words.length === 0 || allImagesLoading}
+            >
+              <Images size={15} />
+              {allImagesLoading ? '전체 검색 중' : '사진 전체 찾기'}
+            </button>
           </div>
 
           <div className="settings-grid">
             <label>
-              <span>검색어 접미어</span>
-              <input value={suffix} onChange={(event) => setSuffix(event.target.value)} />
+              <span>검색어 보정어</span>
+              <input
+                value={suffix}
+                onChange={(event) => setSuffix(event.target.value)}
+                placeholder="필요할 때만 입력"
+              />
             </label>
             <label>
               <span>검색 개수</span>
@@ -268,6 +373,19 @@ function App() {
                 value={searchCount}
                 onChange={(event) => setSearchCount(Number(event.target.value))}
               />
+            </label>
+            <label>
+              <span>사진 검색 방식</span>
+              <select
+                value={imageProvider}
+                onChange={(event) => setImageProvider(event.target.value as ImageProvider)}
+              >
+                {IMAGE_PROVIDER_OPTIONS.map((provider) => (
+                  <option value={provider.id} key={provider.id}>
+                    {provider.label}
+                  </option>
+                ))}
+              </select>
             </label>
             <label>
               <span>학년</span>
@@ -294,7 +412,7 @@ function App() {
             <div className="keyword-header">
               <span>단어</span>
               <span>검색어</span>
-              <span>이미지 URL</span>
+              <span>사진 URL</span>
             </div>
             {keywordRows.length === 0 ? (
               <EmptyState text="단어를 입력하면 검색어가 만들어집니다." />
@@ -305,10 +423,10 @@ function App() {
                   <span>{row.keyword}</span>
                   <div className="image-controls">
                     <input
-                      aria-label={`${row.word} 이미지 URL`}
+                      aria-label={`${row.word} 사진 URL`}
                       value={imageMap[row.word] ?? ''}
                       onChange={(event) => updateImage(row.word, event.target.value)}
-                      placeholder="이미지 URL"
+                      placeholder="사진 URL"
                     />
                     <button
                       className="tiny-button"
@@ -316,9 +434,17 @@ function App() {
                       onClick={() => {
                         void findImage(row);
                       }}
-                      disabled={imageLoadingWord === row.word}
+                      disabled={imageLoadingWord === row.word || allImagesLoading}
                     >
                       {imageLoadingWord === row.word ? '검색 중' : '찾기'}
+                    </button>
+                    <button
+                      className="tiny-button"
+                      type="button"
+                      onClick={() => openImagePicker(row.word)}
+                      disabled={(imageCandidatesByWord[row.word] ?? []).length === 0}
+                    >
+                      변경
                     </button>
                     <label className="tiny-upload">
                       업로드
@@ -370,6 +496,18 @@ function App() {
           )}
         </section>
       </main>
+
+      {imagePicker && (
+        <ImagePickerDialog
+          state={imagePicker}
+          onSelect={(candidate) => {
+            updateImage(imagePicker.word, candidate.imageUrl);
+            setImagePicker(null);
+            notify(`${imagePicker.word} 사진을 선택했습니다.`);
+          }}
+          onClose={() => setImagePicker(null)}
+        />
+      )}
 
       {toast && <div className="toast">{toast.text}</div>}
     </div>
@@ -771,7 +909,7 @@ function WordImageHints({
     <section className="hint-section" aria-label="찾을 낱말">
       <div className="hint-heading">
         <strong>찾을 낱말</strong>
-        <span>이미지 힌트</span>
+        <span>사진 힌트</span>
       </div>
       <div className="hint-grid">
         {words.map((word) => (
@@ -791,7 +929,7 @@ function ImagePreview({ word, imageUrl }: { word: string; imageUrl?: string }) {
   }
 
   return (
-    <div className="image-placeholder" aria-label={`${word} 이미지 자리`}>
+    <div className="image-placeholder" aria-label={`${word} 사진 자리`}>
       <BookOpen size={18} />
     </div>
   );
@@ -810,6 +948,74 @@ function MaterialTile({
     <div className="material-tile">
       <ImagePreview word={word} imageUrl={imageUrl} />
       <strong>{syllables ? word.split('').join(' · ') : word}</strong>
+    </div>
+  );
+}
+
+function ImagePickerDialog({
+  state,
+  onSelect,
+  onClose,
+}: {
+  state: ImagePickerState;
+  onSelect: (candidate: ImageCandidate) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="modal-backdrop">
+      <section
+        className="image-picker-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${state.word} 사진 선택`}
+      >
+        <div className="image-picker-heading">
+          <div>
+            <p className="mono-label">사진 검색 결과</p>
+            <h2>{state.word} 사진 선택</h2>
+            <p className="image-picker-summary">사진 {state.candidates.length}장 중 선택</p>
+          </div>
+          <button className="icon-button" type="button" aria-label="닫기" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="image-result-grid">
+          {state.candidates.map((candidate, index) => (
+            <article
+              className="image-result-card"
+              data-recommended={index === 0 ? 'true' : undefined}
+              key={candidate.id}
+            >
+              {index === 0 && <span className="result-badge">추천</span>}
+              <img src={candidate.thumbnailUrl} alt={candidate.title} />
+              <div className="image-result-meta">
+                <strong>{candidate.title}</strong>
+                <span>
+                  {candidate.provider === 'openverse' ? 'Openverse' : 'Wikimedia Commons'}
+                  {candidate.license ? ` · ${candidate.license}` : ''}
+                </span>
+              </div>
+              <a
+                className="image-result-source"
+                href={candidate.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                출처 보기
+                <ExternalLink size={13} />
+              </a>
+              <button
+                className="primary-button image-result-action"
+                type="button"
+                onClick={() => onSelect(candidate)}
+              >
+                이 사진 사용
+              </button>
+            </article>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
