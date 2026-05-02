@@ -170,7 +170,7 @@ async def make_word_search_docx(request: WordSearchRequest) -> bytes:
                 paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 image = await resolve_image(item.image)
                 if image:
-                    paragraph.add_run().add_picture(image, width=Cm(2.0))
+                    paragraph.add_run().add_picture(image, width=Cm(3.2))
 
                 word_paragraph = cell.add_paragraph(item.word)
                 word_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER

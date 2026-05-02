@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   BookOpen,
   Check,
@@ -225,14 +225,21 @@ function App() {
   }
 
   async function findAllImages() {
-    if (keywordRows.length === 0) {
+    const missingRows = keywordRows.filter((row) => !imageMap[row.word]);
+
+    if (missingRows.length === 0) {
+      notify(
+        keywordRows.length === 0
+          ? '사진을 찾을 단어를 입력해주세요.'
+          : '이미 모든 단어에 사진이 있습니다.',
+      );
       return;
     }
 
     setAllImagesLoading(true);
     try {
       const settled = await Promise.allSettled(
-        keywordRows.map(async (row) => ({
+        missingRows.map(async (row) => ({
           row,
           candidates: await searchBackendImages(row.keyword, {
             limit: IMAGE_SEARCH_LIMIT,
@@ -283,10 +290,43 @@ function App() {
     setImagePicker({ word, candidates });
   }
 
-  async function findMoreImages(word: string) {
+  async function searchImageCandidates(word: string, query: string) {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+      notify('검색어를 입력해주세요.');
+      return;
+    }
+
     setImageLoadingWord(word);
     try {
-      const candidates = await searchBackendImages(word, {
+      const candidates = await searchBackendImages(trimmedQuery, {
+        limit: IMAGE_SEARCH_LIMIT,
+        provider: 'auto',
+      });
+      if (candidates.length === 0) {
+        notify('검색된 사진이 없습니다.');
+        return;
+      }
+
+      cacheImageCandidates(word, candidates);
+      notify(`${trimmedQuery} 사진 후보를 찾았습니다.`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '사진 검색에 실패했습니다.');
+    } finally {
+      setImageLoadingWord(null);
+    }
+  }
+
+  async function findMoreImages(word: string, query = word) {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+      notify('검색어를 입력해주세요.');
+      return;
+    }
+
+    setImageLoadingWord(word);
+    try {
+      const candidates = await searchBackendImages(trimmedQuery, {
         limit: IMAGE_EXPANDED_SEARCH_LIMIT,
         provider: 'auto',
       });
@@ -298,7 +338,7 @@ function App() {
       }
 
       cacheImageCandidates(word, mergedCandidates);
-      notify(`${word} 사진 후보를 더 찾았습니다.`);
+      notify(`${trimmedQuery} 사진 후보를 더 찾았습니다.`);
     } catch (error) {
       notify(error instanceof Error ? error.message : '사진 검색에 실패했습니다.');
     } finally {
@@ -530,6 +570,7 @@ function App() {
 
       {imagePicker && (
         <ImagePickerDialog
+          key={imagePicker.word}
           state={imagePicker}
           selectedImageUrl={imageMap[imagePicker.word]}
           onSelect={(candidate) => {
@@ -537,8 +578,11 @@ function App() {
             setImagePicker(null);
             notify(`${imagePicker.word} 사진을 선택했습니다.`);
           }}
-          onFindMore={() => {
-            void findMoreImages(imagePicker.word);
+          onSearch={(query) => {
+            void searchImageCandidates(imagePicker.word, query);
+          }}
+          onFindMore={(query) => {
+            void findMoreImages(imagePicker.word, query);
           }}
           findMoreLoading={imageLoadingWord === imagePicker.word}
           onClose={() => setImagePicker(null)}
@@ -1120,6 +1164,7 @@ function ImagePickerDialog({
   state,
   selectedImageUrl,
   onSelect,
+  onSearch,
   onFindMore,
   findMoreLoading,
   onClose,
@@ -1127,10 +1172,14 @@ function ImagePickerDialog({
   state: ImagePickerState;
   selectedImageUrl?: string;
   onSelect: (candidate: ImageCandidate) => void;
-  onFindMore: () => void;
+  onSearch: (query: string) => void;
+  onFindMore: (query: string) => void;
   findMoreLoading: boolean;
   onClose: () => void;
 }) {
+  const [searchQuery, setSearchQuery] = useState(state.word);
+  const trimmedSearchQuery = searchQuery.trim();
+
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
@@ -1141,6 +1190,15 @@ function ImagePickerDialog({
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
+
+  function submitSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!trimmedSearchQuery || findMoreLoading) {
+      return;
+    }
+
+    onSearch(trimmedSearchQuery);
+  }
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -1161,6 +1219,28 @@ function ImagePickerDialog({
             <X size={18} />
           </button>
         </div>
+
+        <form className="image-picker-search" onSubmit={submitSearch}>
+          <label htmlFor={`image-search-query-${state.word}`}>
+            <span>검색어 바꾸기</span>
+            <input
+              id={`image-search-query-${state.word}`}
+              aria-label="사진 검색어"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="turtle, sea turtle"
+            />
+          </label>
+          <p>한글 결과가 아쉬우면 영어 이름이나 더 구체적인 표현으로 다시 찾아보세요.</p>
+          <button
+            className="primary-button"
+            type="submit"
+            disabled={!trimmedSearchQuery || findMoreLoading}
+          >
+            <Search size={15} />
+            {findMoreLoading ? '다시 찾는 중' : '다시 찾기'}
+          </button>
+        </form>
 
         <div className="image-result-grid">
           {state.candidates.map((candidate, index) => {
@@ -1212,8 +1292,8 @@ function ImagePickerDialog({
           <button
             className="secondary-button image-picker-more"
             type="button"
-            onClick={onFindMore}
-            disabled={findMoreLoading}
+            onClick={() => onFindMore(trimmedSearchQuery || state.word)}
+            disabled={findMoreLoading || !trimmedSearchQuery}
           >
             <Search size={15} />
             {findMoreLoading ? '더 찾는 중' : '사진 더 찾기'}
@@ -1303,20 +1383,20 @@ function StepperControl({
         <button
           className="stepper-button"
           type="button"
-          aria-label={minusLabel}
-          onClick={onMinus}
-          disabled={minusDisabled}
-        >
-          <Minus size={16} />
-        </button>
-        <button
-          className="stepper-button"
-          type="button"
           aria-label={plusLabel}
           onClick={onPlus}
           disabled={plusDisabled}
         >
           <Plus size={16} />
+        </button>
+        <button
+          className="stepper-button"
+          type="button"
+          aria-label={minusLabel}
+          onClick={onMinus}
+          disabled={minusDisabled}
+        >
+          <Minus size={16} />
         </button>
       </div>
     </div>

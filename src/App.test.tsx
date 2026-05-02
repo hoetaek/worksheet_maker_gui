@@ -61,12 +61,22 @@ describe('App', () => {
 
     const sizeControl = screen.getByRole('group', { name: '퍼즐 크기' });
     expect(within(sizeControl).getByText('15 x 15')).toBeInTheDocument();
+    expect(
+      within(sizeControl)
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label')),
+    ).toEqual(['퍼즐 크기 늘리기', '퍼즐 크기 줄이기']);
     await user.click(within(sizeControl).getByRole('button', { name: '퍼즐 크기 줄이기' }));
     expect(within(sizeControl).getByText('14 x 14')).toBeInTheDocument();
     expect(screen.getAllByText('14 x 14').length).toBeGreaterThan(1);
 
     const difficultyControl = screen.getByRole('group', { name: '난이도' });
     expect(within(difficultyControl).getByText('쉬움')).toBeInTheDocument();
+    expect(
+      within(difficultyControl)
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label')),
+    ).toEqual(['난이도 올리기', '난이도 낮추기']);
     expect(within(difficultyControl).getByRole('button', { name: '난이도 낮추기' })).toBeDisabled();
 
     await user.click(within(difficultyControl).getByRole('button', { name: '난이도 올리기' }));
@@ -328,6 +338,69 @@ describe('App', () => {
     );
   });
 
+  it('does not overwrite manually selected photos when searching all photos again', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn((url: string) => {
+      const requestUrl = new URL(url, 'http://localhost');
+      const query = requestUrl.searchParams.get('query');
+      const slug = query === 'cat' ? 'cat' : 'dog';
+
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            query,
+            provider: 'auto',
+            results: [
+              {
+                id: `openverse:${slug}-1`,
+                title: `${slug} one`,
+                image_url: `https://example.com/${slug}-one.jpg`,
+                thumbnail_url: `https://example.com/${slug}-one-thumb.jpg`,
+                source_url: `https://openverse.org/image/${slug}-1`,
+                provider: 'openverse',
+              },
+              {
+                id: `openverse:${slug}-2`,
+                title: `${slug} two`,
+                image_url: `https://example.com/${slug}-two.jpg`,
+                thumbnail_url: `https://example.com/${slug}-two-thumb.jpg`,
+                source_url: `https://openverse.org/image/${slug}-2`,
+                provider: 'openverse',
+              },
+            ],
+          }),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    await user.clear(screen.getByLabelText(/단어 목록/i));
+    await user.type(screen.getByLabelText(/단어 목록/i), 'cat, dog');
+    await user.click(screen.getByRole('button', { name: '사진 전체 찾기' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    const photoList = screen.getByLabelText(/단어별 사진/i);
+    const catRow = within(photoList).getByText('cat').closest('.keyword-row');
+    await user.click(within(catRow as HTMLElement).getByRole('button', { name: '다른 사진' }));
+    const dialog = await screen.findByRole('dialog', { name: /cat 사진 선택/i });
+    await user.click(within(dialog).getByRole('button', { name: '이 사진 사용' }));
+
+    expect(within(catRow as HTMLElement).getByRole('img', { name: 'cat' })).toHaveAttribute(
+      'src',
+      'https://example.com/cat-two.jpg',
+    );
+
+    await user.click(screen.getByRole('button', { name: '사진 전체 찾기' }));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(within(catRow as HTMLElement).getByRole('img', { name: 'cat' })).toHaveAttribute(
+      'src',
+      'https://example.com/cat-two.jpg',
+    );
+  });
+
   it('finds more photos from the image picker without exposing search count settings', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn((url: string) => {
@@ -396,6 +469,85 @@ describe('App', () => {
       '/api/images/search?query=cat&limit=12&provider=auto',
     );
     expect(within(dialog).getByText('Cat three')).toBeInTheDocument();
+  });
+
+  it('lets teachers retry photo search from the picker with a clearer English query', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn((url: string) => {
+      const requestUrl = new URL(url, 'http://localhost');
+      const query = requestUrl.searchParams.get('query');
+
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            query,
+            provider: 'auto',
+            results:
+              query === 'turtle'
+                ? [
+                    {
+                      id: 'openverse:turtle-1',
+                      title: 'Sea turtle',
+                      image_url: 'https://example.com/sea-turtle.jpg',
+                      thumbnail_url: 'https://example.com/sea-turtle-thumb.jpg',
+                      source_url: 'https://openverse.org/image/turtle-1',
+                      provider: 'openverse',
+                    },
+                  ]
+                : [
+                    {
+                      id: 'commons:geo-1',
+                      title: 'Turtle statue',
+                      image_url: 'https://example.com/turtle-statue.jpg',
+                      thumbnail_url: 'https://example.com/turtle-statue-thumb.jpg',
+                      source_url: 'https://commons.wikimedia.org/wiki/File:Turtle_statue.jpg',
+                      provider: 'commons',
+                    },
+                  ],
+          }),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    await user.clear(screen.getByLabelText(/단어 목록/i));
+    await user.type(screen.getByLabelText(/단어 목록/i), '거북이');
+    await user.click(screen.getByRole('button', { name: '사진 전체 찾기' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    const photoList = screen.getByLabelText(/단어별 사진/i);
+    const turtleRow = within(photoList).getByText('거북이').closest('.keyword-row');
+    await user.click(within(turtleRow as HTMLElement).getByRole('button', { name: '다른 사진' }));
+
+    const dialog = await screen.findByRole('dialog', { name: /거북이 사진 선택/i });
+    expect(
+      within(dialog).getByText(
+        /한글 결과가 아쉬우면 영어 이름이나 더 구체적인 표현으로 다시 찾아보세요/,
+      ),
+    ).toBeInTheDocument();
+
+    const queryInput = within(dialog).getByLabelText('사진 검색어');
+    expect(queryInput).toHaveValue('거북이');
+
+    await user.clear(queryInput);
+    await user.type(queryInput, 'turtle');
+    await user.click(within(dialog).getByRole('button', { name: '다시 찾기' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      '/api/images/search?query=turtle&limit=8&provider=auto',
+    );
+    expect(within(dialog).queryByText('Turtle statue')).not.toBeInTheDocument();
+    expect(within(dialog).getByText('Sea turtle')).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: '이 사진 사용' }));
+
+    expect(within(turtleRow as HTMLElement).getByRole('img', { name: '거북이' })).toHaveAttribute(
+      'src',
+      'https://example.com/sea-turtle.jpg',
+    );
   });
 
   it('restores words, selected photos, and cached alternatives after refresh', async () => {

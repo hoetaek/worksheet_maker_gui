@@ -34,7 +34,7 @@ Reference: Laws of UX by Jon Yablonski, CC BY-NC-ND 4.0.
 - Aesthetic-Usability Effect: generated previews should look like finished print material. Premium paper surfaces, larger titles, structured student info, and image-led hint cards are part of usability because they make the final artifact easier to trust.
 - Law of Proximity: related labels, fields, and controls must be visually grouped. Word/photo controls live in each word row; output metadata stays inside the sheet header; export actions stay in the bottom action bar.
 - Tesler's Law: document generation complexity belongs in the FastAPI backend. The frontend should expose simple Korean controls while the backend handles `.pptx`/`.docx` generation and image fetching.
-- Hick's Law: photo search should default to the lowest-friction path. `사진 전체 찾기` fills the first viable photo automatically, while `다른 사진` progressively discloses alternate candidates only when the teacher wants to review them.
+- Hick's Law: photo search should default to the lowest-friction path. `사진 전체 찾기` fills empty photo rows automatically, while `다른 사진` progressively discloses alternate candidates only when the teacher wants to review them.
 - Doherty Threshold: photo search and downloads should give immediate feedback through disabled/loading button states and short Korean toast messages.
 - Law of Proximity: row-level thumbnail, word, photo status, find, alternate-photo, and upload controls stay in the same row so each action clearly belongs to that word.
 - Occam's Razor: word-search sizing is one square-size control, not separate width and height inputs. A teacher chooses puzzle scale, while the app preserves square cells for printing.
@@ -209,15 +209,18 @@ What distinguishes Vercel from other monochrome design systems is its shadow-as-
 Photo search is a primary workflow, not a secondary utility.
 
 - Default mode is `자동 추천`; Korean queries prefer Wikimedia Commons first, and English queries prefer Openverse first.
+- Korean terms can be expanded through a backend translation lookup before image search. This must remain best-effort: try the translated English candidate for better global image recall, then keep the original Korean query as fallback so cultural/proper terms are not lost.
 - The word list shows thumbnail-led photo rows. It should not show a separate search-term column in the default state.
 - URL entry, search count, and provider selection are implementation details. The default web UI should not ask teachers to think like search-engine operators.
 - `사진 전체 찾기` is the main action. It appears as the first, full-width primary action below the word list, searches all current words, fills each row with the first result, and reports partial misses in one concise toast.
 - `예시 단어 넣기` and `단어 복사` are secondary utilities. They should remain visually lighter than photo search.
 - Each row keeps a `다른 사진` button. It opens a focused candidate picker with a recommended first result, source metadata, and large `이 사진 사용` targets.
 - The candidate picker must show the current row photo as `현재 선택` and disable its action as `사용 중`; only real alternatives should remain actionable.
+- The candidate picker may expose `검색어 바꾸기` as progressive disclosure. Keep it inside the modal, not the main word list. UX writing should explain that English names or more specific phrases can work better when Korean results are weak.
 - Candidate photos use a fixed frame with `object-fit: contain`; teachers should see the whole image even when source dimensions vary wildly.
 - If the teacher wants more options, the candidate picker exposes `사진 더 찾기`. This expands results as an exploration action instead of exposing a search-count setting upfront.
 - The app persists the current word list, selected photos, and cached alternatives in browser storage so refreshes do not erase photo-selection work.
+- `사진 전체 찾기` fills only words that still have no selected image. It must never silently overwrite teacher-selected photos.
 - The candidate picker must not open automatically after every search. Automatic filling keeps the happy path short; manual changing handles exceptions.
 
 ## 4.2 Workflow User Paths
@@ -243,6 +246,7 @@ First-principles review:
 - Necessary review: selected photos and generated preview.
 - Necessary control: only settings that visibly change the student artifact.
 - Unnecessary default burden: search provider, image URL, image count, separate query field, separate width/height fields, or algorithmic filler labels.
+- Photo prominence: if images are the learning anchor, `찾을 낱말` must use image-led cards instead of tiny thumbnails, and generated DOCX hints should preserve that hierarchy.
 - Future gallery path: keep a reusable history of word-photo pairs, but present it as an optional reuse drawer after the current creation path is stable.
 
 ### Distinctive Components

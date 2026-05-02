@@ -7,6 +7,7 @@ from backend.schemas import ImageCandidate, ImageProvider
 
 COMMONS_API_URL = "https://commons.wikimedia.org/w/api.php"
 OPENVERSE_API_URL = "https://api.openverse.org/v1/images/"
+MYMEMORY_TRANSLATE_API_URL = "https://api.mymemory.translated.net/get"
 IMAGE_REQUEST_HEADERS = {
     "User-Agent": "worksheet-maker-gui/1.0 (local development; https://github.com/hoetaek/worksheet_maker_gui)",
     "Api-User-Agent": "worksheet-maker-gui/1.0",
@@ -27,6 +28,8 @@ SEARCH_SUFFIXES = {
     "이미지",
 }
 KOREAN_PATTERN = re.compile(r"[가-힣]")
+ENGLISH_PATTERN = re.compile(r"[A-Za-z]")
+TRANSLATION_WARNING_PATTERN = re.compile(r"(quota|warning|invalid|error)", re.IGNORECASE)
 
 
 async def search_images(
@@ -37,8 +40,8 @@ async def search_images(
     candidates: list[ImageCandidate] = []
     seen: set[str] = set()
 
-    for current_provider in provider_order(query, provider):
-        for current_query in build_search_queries(query):
+    for current_query in await build_image_search_queries(query):
+        for current_provider in provider_order(current_query, provider):
             for candidate in await provider_search(current_provider, current_query, limit):
                 dedupe_key = candidate.image_url
                 if dedupe_key in seen:
@@ -91,6 +94,59 @@ def build_search_queries(query: str) -> list[str]:
             queries.append(cleaned)
 
     return list(dict.fromkeys(queries))
+
+
+async def build_image_search_queries(query: str) -> list[str]:
+    queries = build_search_queries(query)
+    translated_queries: list[str] = []
+
+    for current_query in queries:
+        translated = await translate_korean_query_to_english(current_query)
+        if translated:
+            translated_queries.append(translated)
+
+    return list(dict.fromkeys([*translated_queries, *queries]))
+
+
+async def translate_korean_query_to_english(query: str) -> str | None:
+    if not KOREAN_PATTERN.search(query):
+        return None
+
+    try:
+        async with httpx.AsyncClient(
+            timeout=5,
+            headers=IMAGE_REQUEST_HEADERS,
+            follow_redirects=True,
+        ) as client:
+            response = await client.get(
+                MYMEMORY_TRANSLATE_API_URL,
+                params={"q": query, "langpair": "ko|en"},
+            )
+            response.raise_for_status()
+            payload = response.json()
+    except httpx.HTTPError:
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+
+    response_data = payload.get("responseData")
+    if not isinstance(response_data, dict):
+        return None
+
+    translated = string_or_none(response_data.get("translatedText"))
+    if not translated:
+        return None
+
+    cleaned = re.sub(r"\s+", " ", translated).strip(" .")
+    if (
+        not ENGLISH_PATTERN.search(cleaned)
+        or KOREAN_PATTERN.search(cleaned)
+        or TRANSLATION_WARNING_PATTERN.search(cleaned)
+    ):
+        return None
+
+    return cleaned.lower()
 
 
 def build_openverse_params(query: str, limit: int) -> dict[str, str | int]:

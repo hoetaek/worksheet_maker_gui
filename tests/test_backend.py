@@ -5,6 +5,7 @@ from zipfile import ZipFile
 import httpx
 import pytest
 from docx import Document
+from docx.shared import Cm
 from fastapi.testclient import TestClient
 from PIL import Image
 
@@ -13,6 +14,7 @@ from backend import generators
 from backend.image_search import (
     IMAGE_REQUEST_HEADERS,
     OPENVERSE_API_URL,
+    build_image_search_queries,
     build_search_queries,
     normalize_openverse_images,
     provider_order,
@@ -142,6 +144,7 @@ def test_word_search_endpoint_embeds_hint_images() -> None:
     assert response.status_code == 200
     assert archive_has_media(response.content, "word/media/")
     assert media_dimensions(response.content, "word/media/") == {(800, 600)}
+    assert docx_picture_widths(response.content) == {Cm(3.2)}
 
 
 def test_dobble_endpoint_embeds_card_images() -> None:
@@ -182,6 +185,19 @@ def test_search_query_variants_remove_file_or_media_suffixes() -> None:
     assert build_search_queries("  cat  ") == ["cat"]
 
 
+@pytest.mark.anyio
+async def test_image_search_queries_use_external_translation_without_local_dictionary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_translate(query: str) -> str | None:
+        return {"거북이": "turtle", "토끼": "rabbit"}.get(query)
+
+    monkeypatch.setattr(image_search, "translate_korean_query_to_english", fake_translate)
+
+    assert await build_image_search_queries("거북이") == ["turtle", "거북이"]
+    assert await build_image_search_queries("토끼 png") == ["rabbit", "토끼 png", "토끼"]
+
+
 def test_auto_provider_prefers_commons_for_korean_queries() -> None:
     assert provider_order("토끼", "auto") == ["commons", "openverse"]
     assert provider_order("rabbit", "auto") == ["openverse", "commons"]
@@ -215,14 +231,18 @@ async def test_search_images_retries_clean_query_then_secondary_provider(
 
         return []
 
+    async def fake_translate(query: str) -> str | None:
+        return "rabbit" if query == "토끼" else None
+
     monkeypatch.setattr(image_search, "search_openverse_images", fake_openverse)
     monkeypatch.setattr(image_search, "search_commons_images", fake_commons)
+    monkeypatch.setattr(image_search, "translate_korean_query_to_english", fake_translate)
 
     results = await search_images("토끼 png", 3, "openverse")
 
     assert [candidate.provider for candidate in results] == ["commons"]
-    assert openverse_queries == ["토끼 png", "토끼"]
-    assert commons_queries == ["토끼 png", "토끼"]
+    assert openverse_queries == ["rabbit", "토끼 png", "토끼"]
+    assert commons_queries == ["rabbit", "토끼 png", "토끼"]
 
 
 def test_openverse_candidates_are_normalized() -> None:
@@ -310,3 +330,8 @@ def media_dimensions(content: bytes, prefix: str) -> set[tuple[int, int]]:
                 with Image.open(BytesIO(archive.read(name))) as image:
                     dimensions.add(image.size)
     return dimensions
+
+
+def docx_picture_widths(content: bytes) -> set[int]:
+    document = Document(BytesIO(content))
+    return {shape.width for shape in document.inline_shapes}

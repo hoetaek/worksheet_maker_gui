@@ -38,6 +38,17 @@ describe('responsive stylesheet contracts', () => {
     );
   });
 
+  it('treats word-search hint images as primary learning material', () => {
+    expect(stylesheet).toMatch(
+      /\.hint-grid\s*{[^}]*grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(176px,\s*1fr\)\)/s,
+    );
+    expect(stylesheet).toMatch(/\.hint-item\s*{[^}]*grid-template-columns:\s*1fr/s);
+    expect(stylesheet).toMatch(
+      /\.hint-item \.image-preview,[\s\S]*\.hint-item \.image-placeholder\s*{[^}]*height:\s*132px/s,
+    );
+    expect(stylesheet).toMatch(/\.hint-item \.image-preview\s*{[^}]*object-fit:\s*contain/s);
+  });
+
   it('prevents the image picker modal from overflowing narrow screens', () => {
     expect(stylesheet).toMatch(/\.image-picker-dialog\s*{[^}]*max-inline-size:\s*100%/s);
     expect(stylesheet).toMatch(/\.image-picker-dialog\s*{[^}]*overflow-x:\s*hidden/s);
