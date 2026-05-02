@@ -1,3 +1,4 @@
+from base64 import b64encode
 from io import BytesIO
 from zipfile import ZipFile
 
@@ -5,6 +6,7 @@ import httpx
 import pytest
 from docx import Document
 from fastapi.testclient import TestClient
+from PIL import Image
 
 import backend.image_search as image_search
 from backend import generators
@@ -48,6 +50,20 @@ def test_flicker_endpoint_returns_pptx() -> None:
         assert "ppt/presentation.xml" in archive.namelist()
 
 
+def test_flicker_endpoint_embeds_item_images() -> None:
+    response = client.post(
+        "/api/materials/flicker.pptx",
+        json={
+            "items": [{"word": "cat", "image": tiny_png_data_uri(width=24, height=96)}],
+            "templates": ["image"],
+        },
+    )
+
+    assert response.status_code == 200
+    assert archive_has_media(response.content, "ppt/media/")
+    assert media_dimensions(response.content, "ppt/media/") == {(800, 600)}
+
+
 def test_worksheet_endpoint_returns_docx() -> None:
     response = client.post(
         "/api/materials/worksheet.docx",
@@ -68,6 +84,22 @@ def test_worksheet_endpoint_returns_docx() -> None:
     assert "학년" in docx_text(response.content)
     assert "반" in docx_text(response.content)
     assert "이름" in docx_text(response.content)
+
+
+def test_worksheet_endpoint_embeds_item_images() -> None:
+    response = client.post(
+        "/api/materials/worksheet.docx",
+        json={
+            "items": [{"word": "토끼", "image": tiny_png_data_uri(width=96, height=24)}],
+            "columns": 1,
+            "grade": 3,
+            "class_number": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    assert archive_has_media(response.content, "word/media/")
+    assert media_dimensions(response.content, "word/media/") == {(800, 600)}
 
 
 def test_word_search_endpoint_returns_premium_docx_without_underscore_name_field() -> None:
@@ -92,6 +124,44 @@ def test_word_search_endpoint_returns_premium_docx_without_underscore_name_field
     assert "학년" in text
     assert "반" in text
     assert "이름" in text
+
+
+def test_word_search_endpoint_embeds_hint_images() -> None:
+    response = client.post(
+        "/api/materials/word-search.docx",
+        json={
+            "words": ["토끼"],
+            "grid": [["토", "끼"]],
+            "hints": [{"word": "토끼", "image": tiny_png_data_uri(width=24, height=96)}],
+            "grade": 3,
+            "class_number": 1,
+            "title": "낱말 찾기",
+        },
+    )
+
+    assert response.status_code == 200
+    assert archive_has_media(response.content, "word/media/")
+    assert media_dimensions(response.content, "word/media/") == {(800, 600)}
+
+
+def test_dobble_endpoint_embeds_card_images() -> None:
+    response = client.post(
+        "/api/materials/dobble.pptx",
+        json={
+            "cards": [
+                [
+                    {"word": "cat", "image": tiny_png_data_uri(width=96, height=24)},
+                    {"word": "dog"},
+                    {"word": "pig"},
+                ]
+            ],
+            "pictures_per_card": 3,
+        },
+    )
+
+    assert response.status_code == 200
+    assert archive_has_media(response.content, "ppt/media/")
+    assert media_dimensions(response.content, "ppt/media/") == {(800, 600)}
 
 
 def test_image_search_validates_query() -> None:
@@ -218,3 +288,25 @@ def docx_text(content: bytes) -> str:
         for row in table.rows:
             parts.extend(cell.text for cell in row.cells)
     return "\n".join(parts)
+
+
+def tiny_png_data_uri(width: int = 12, height: int = 12) -> str:
+    buffer = BytesIO()
+    Image.new("RGB", (width, height), color=(240, 120, 80)).save(buffer, format="PNG")
+    encoded = b64encode(buffer.getvalue()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
+
+
+def archive_has_media(content: bytes, prefix: str) -> bool:
+    with ZipFile(BytesIO(content)) as archive:
+        return any(name.startswith(prefix) for name in archive.namelist())
+
+
+def media_dimensions(content: bytes, prefix: str) -> set[tuple[int, int]]:
+    dimensions: set[tuple[int, int]] = set()
+    with ZipFile(BytesIO(content)) as archive:
+        for name in archive.namelist():
+            if name.startswith(prefix):
+                with Image.open(BytesIO(archive.read(name))) as image:
+                    dimensions.add(image.size)
+    return dimensions

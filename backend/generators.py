@@ -9,6 +9,7 @@ from docx.document import Document as DocxDocument
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Cm, Pt
+from PIL import Image, UnidentifiedImageError
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_CONNECTOR
@@ -148,8 +149,34 @@ async def make_word_search_docx(request: WordSearchRequest) -> bytes:
 
     if request.hints:
         document.add_paragraph("")
-        hint_paragraph = document.add_paragraph(", ".join(item.word for item in request.hints))
-        hint_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        hint_heading = document.add_paragraph("찾을 낱말")
+        hint_heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        hint_heading.runs[0].bold = True
+
+        columns = min(4, len(request.hints))
+        rows = (len(request.hints) + columns - 1) // columns
+        hint_table = document.add_table(rows=rows, cols=columns, style="Table Grid")
+        hint_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+        for row_index, row in enumerate(hint_table.rows):
+            for col_index, cell in enumerate(row.cells):
+                item_index = row_index * columns + col_index
+                cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+                if item_index >= len(request.hints):
+                    continue
+
+                item = request.hints[item_index]
+                paragraph = cell.paragraphs[0]
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                image = await resolve_image(item.image)
+                if image:
+                    paragraph.add_run().add_picture(image, width=Cm(2.0))
+
+                word_paragraph = cell.add_paragraph(item.word)
+                word_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                word_run = word_paragraph.runs[0]
+                word_run.font.size = Pt(11)
+                word_run.bold = True
 
     return save_document(document)
 
@@ -168,7 +195,7 @@ async def resolve_image(value: str | None) -> BytesIO | None:
 
     if value.startswith("data:image/"):
         _, encoded = value.split(",", 1)
-        return BytesIO(b64decode(encoded))
+        return normalize_image(BytesIO(b64decode(encoded)))
 
     if value.startswith(("http://", "https://")):
         try:
@@ -182,11 +209,34 @@ async def resolve_image(value: str | None) -> BytesIO | None:
                 content_type = response.headers.get("content-type", "")
                 if not content_type.startswith("image/"):
                     return None
-                return BytesIO(response.content)
-        except httpx.HTTPError:
+                return normalize_image(BytesIO(response.content))
+        except (httpx.HTTPError, UnidentifiedImageError, OSError):
             return None
 
     return None
+
+
+def normalize_image(image: BytesIO, size: tuple[int, int] = (800, 600)) -> BytesIO:
+    image.seek(0)
+    with Image.open(image) as source:
+        source.thumbnail(size, Image.Resampling.LANCZOS)
+        frame = Image.new("RGB", size, "#ffffff")
+
+        if source.mode in {"RGBA", "LA"} or (
+            source.mode == "P" and "transparency" in source.info
+        ):
+            normalized = source.convert("RGBA")
+            position = ((size[0] - normalized.width) // 2, (size[1] - normalized.height) // 2)
+            frame.paste(normalized, position, normalized)
+        else:
+            normalized = source.convert("RGB")
+            position = ((size[0] - normalized.width) // 2, (size[1] - normalized.height) // 2)
+            frame.paste(normalized, position)
+
+    buffer = BytesIO()
+    frame.save(buffer, format="PNG")
+    buffer.seek(0)
+    return buffer
 
 
 def add_slide_frame(slide: Slide, label: str) -> None:

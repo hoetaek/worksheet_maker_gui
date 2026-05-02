@@ -37,13 +37,32 @@ Google Images or Bing Images directly. The default provider mode is `auto`:
 - English queries search Openverse first, then Wikimedia Commons.
 - File/media suffixes such as `png`, `jpg`, `photo`, `사진`, and `이미지` are retried without the suffix when the exact query is sparse.
 
-In the UI, `사진 전체 찾기` searches every word at once, fills each row with the first result, and
-caches the alternatives behind the row-level `변경` button. This keeps the default flow fast while
-still allowing teachers to choose a better photo when needed.
+In the UI, `사진 전체 찾기` is the primary action below the word list. It searches every word at
+once, fills each row with the first result, and caches the alternatives behind the row-level
+`다른 사진` button. This keeps the default flow fast while still allowing teachers to choose a better
+photo when needed.
+
+The word list shows each word as a photo row with a thumbnail, photo status, and nearby actions.
+Direct URL entry, provider controls, and search-count controls stay out of the default workflow.
+
+Photo candidates are displayed inside fixed frames with the whole image visible, so very wide or tall
+source images do not break the picker layout.
+
+If a teacher wants more options, the photo picker has `사진 더 찾기`. The browser also keeps the
+current word list, selected photos, and cached alternatives across refreshes.
 
 Google Programmable Search can be added later as another backend provider with API keys and quota
 handling. Bing Search APIs are not used because Microsoft has retired the standalone Bing Search API
 product.
+
+## Word Search UX
+
+`낱말 찾기` keeps setup intentionally small:
+
+- Puzzle size is one square control such as `15 x 15`, not separate width and height fields.
+- Difficulty moves up or down with two buttons and Korean learner-facing labels.
+- Filler behavior is chosen through three option cards: `쉽게 찾기`, `균형 있게`, `더 어렵게`.
+- The word list is saved in browser storage, so refreshing the page does not erase the current work.
 
 ## Quality Gates
 

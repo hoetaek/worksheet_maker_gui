@@ -34,9 +34,12 @@ Reference: Laws of UX by Jon Yablonski, CC BY-NC-ND 4.0.
 - Aesthetic-Usability Effect: generated previews should look like finished print material. Premium paper surfaces, larger titles, structured student info, and image-led hint cards are part of usability because they make the final artifact easier to trust.
 - Law of Proximity: related labels, fields, and controls must be visually grouped. Word/photo controls live in each word row; output metadata stays inside the sheet header; export actions stay in the bottom action bar.
 - Tesler's Law: document generation complexity belongs in the FastAPI backend. The frontend should expose simple Korean controls while the backend handles `.pptx`/`.docx` generation and image fetching.
-- Hick's Law: photo search should default to the lowest-friction path. `사진 전체 찾기` fills the first viable photo automatically, while the `변경` action progressively discloses alternate candidates only when the teacher wants to review them.
+- Hick's Law: photo search should default to the lowest-friction path. `사진 전체 찾기` fills the first viable photo automatically, while `다른 사진` progressively discloses alternate candidates only when the teacher wants to review them.
 - Doherty Threshold: photo search and downloads should give immediate feedback through disabled/loading button states and short Korean toast messages.
-- Law of Proximity: row-level photo URL, find, change, and upload controls stay in the same word row so each action clearly belongs to that word.
+- Law of Proximity: row-level thumbnail, word, photo status, find, alternate-photo, and upload controls stay in the same row so each action clearly belongs to that word.
+- Occam's Razor: word-search sizing is one square-size control, not separate width and height inputs. A teacher chooses puzzle scale, while the app preserves square cells for printing.
+- Hick's Law: word-search difficulty is a small stepper with named levels. Teachers should not parse a technical direction list before previewing the worksheet.
+- Chunking: filler behavior is presented as three Korean option cards. Each card names the learner-facing effect first and hides algorithmic wording.
 
 ---
 
@@ -206,10 +209,41 @@ What distinguishes Vercel from other monochrome design systems is its shadow-as-
 Photo search is a primary workflow, not a secondary utility.
 
 - Default mode is `자동 추천`; Korean queries prefer Wikimedia Commons first, and English queries prefer Openverse first.
-- The optional search modifier field starts empty. It exists for edge cases, but the app should not require teachers to think like search-engine operators.
-- `사진 전체 찾기` is the main action. It searches all current words, fills each row with the first result, and reports partial misses in one concise toast.
-- Each row keeps a `변경` button. It opens a focused candidate picker with a recommended first result, source metadata, and large `이 사진 사용` targets.
+- The word list shows thumbnail-led photo rows. It should not show a separate search-term column in the default state.
+- URL entry, search count, and provider selection are implementation details. The default web UI should not ask teachers to think like search-engine operators.
+- `사진 전체 찾기` is the main action. It appears as the first, full-width primary action below the word list, searches all current words, fills each row with the first result, and reports partial misses in one concise toast.
+- `예시 단어 넣기` and `단어 복사` are secondary utilities. They should remain visually lighter than photo search.
+- Each row keeps a `다른 사진` button. It opens a focused candidate picker with a recommended first result, source metadata, and large `이 사진 사용` targets.
+- The candidate picker must show the current row photo as `현재 선택` and disable its action as `사용 중`; only real alternatives should remain actionable.
+- Candidate photos use a fixed frame with `object-fit: contain`; teachers should see the whole image even when source dimensions vary wildly.
+- If the teacher wants more options, the candidate picker exposes `사진 더 찾기`. This expands results as an exploration action instead of exposing a search-count setting upfront.
+- The app persists the current word list, selected photos, and cached alternatives in browser storage so refreshes do not erase photo-selection work.
 - The candidate picker must not open automatically after every search. Automatic filling keeps the happy path short; manual changing handles exceptions.
+
+## 4.2 Workflow User Paths
+
+The left panel is the shared preparation path for every tool: enter words, fill photos, replace only bad matches, then export from the selected workflow.
+
+- `낱말 찾기`: teacher enters words, fills photos, adjusts one square puzzle size if needed, nudges difficulty up/down, picks a learner-facing filler style, checks the preview and optional answer view, then exports DOCX.
+- `단어 활동지`: teacher enters words, fills photos, chooses columns and optional `음절 표시`, checks the tile preview, then exports DOCX.
+- `단어 깜빡이`: teacher enters words, fills photos, chooses slide templates, checks the sequence preview, then exports PPTX.
+- `도블 카드`: teacher enters the exact required word count for the selected card size, fills photos, checks the warning/status badge, then exports PPTX.
+
+UX validation:
+
+- Next actions must be visible without reading instructions.
+- Shared photo work must survive switching tools and refreshing the page.
+- Each workflow keeps only its own necessary controls in the right panel.
+- Export actions stay at the bottom so settings and output are not visually mixed.
+
+First-principles review:
+
+- Core outcome: a teacher wants printable or slide-ready material with the right words and photos.
+- Necessary input: word list and student metadata.
+- Necessary review: selected photos and generated preview.
+- Necessary control: only settings that visibly change the student artifact.
+- Unnecessary default burden: search provider, image URL, image count, separate query field, separate width/height fields, or algorithmic filler labels.
+- Future gallery path: keep a reusable history of word-photo pairs, but present it as an optional reuse drawer after the current creation path is stable.
 
 ### Distinctive Components
 

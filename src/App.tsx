@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BookOpen,
   Check,
@@ -10,6 +10,8 @@ import {
   Images,
   Layers3,
   Menu,
+  Minus,
+  Plus,
   Printer,
   Search,
   Sparkles,
@@ -27,7 +29,7 @@ import {
   downloadWordSearchDocx,
   downloadWorksheetDocx,
 } from './lib/downloads';
-import { searchBackendImages, type ImageCandidate, type ImageProvider } from './lib/imageSearch';
+import { searchBackendImages, type ImageCandidate } from './lib/imageSearch';
 import { buildFlickerSequence, buildWorksheetCells, type FlickerTemplate } from './lib/materials';
 import { createWordSearch, type FillerMode, type WordSearchDifficulty } from './lib/wordSearch';
 import { buildKeywordRows, detectLanguage, parseWords, wordCountStatus } from './lib/words';
@@ -45,6 +47,15 @@ type Toast = {
 type ImagePickerState = {
   word: string;
   candidates: ImageCandidate[];
+};
+
+type WorkspaceDraft = {
+  activeTool?: ToolId;
+  wordInput?: string;
+  imageMap?: ImageMap;
+  grade?: number;
+  klass?: number;
+  imageCandidatesByWord?: ImageCandidateMap;
 };
 
 const TOOL_OPTIONS: Array<{
@@ -92,38 +103,69 @@ const LANGUAGE_LABELS = {
   mixed: '혼합',
 } as const;
 
-const IMAGE_PROVIDER_OPTIONS: Array<{ id: ImageProvider; label: string }> = [
-  { id: 'auto', label: '자동 추천' },
-  { id: 'openverse', label: 'Openverse 우선' },
-  { id: 'commons', label: 'Wikimedia 우선' },
+const IMAGE_SEARCH_LIMIT = 8;
+const IMAGE_EXPANDED_SEARCH_LIMIT = 12;
+const WORKSPACE_STORAGE_KEY = 'worksheet-maker-workspace-v1';
+const WORD_SEARCH_MIN_SIZE = 5;
+const WORD_SEARCH_MAX_SIZE = 28;
+
+const WORD_SEARCH_DIFFICULTIES: Array<{
+  value: WordSearchDifficulty;
+  label: string;
+  description: string;
+}> = [
+  { value: 1, label: '쉬움', description: '가로·세로' },
+  { value: 2, label: '보통', description: '역방향 포함' },
+  { value: 3, label: '어려움', description: '대각선 포함' },
+  { value: 4, label: '매우 어려움', description: '모든 방향' },
+];
+
+const FILLER_MODE_OPTIONS: Array<{
+  value: FillerMode;
+  label: string;
+  description: string;
+}> = [
+  { value: 'easy', label: '쉽게 찾기', description: '낱말 글자를 덜 섞어요' },
+  { value: 'balanced', label: '균형 있게', description: '기본 추천' },
+  { value: 'overlap', label: '더 어렵게', description: '비슷한 글자를 섞어요' },
 ];
 
 function App() {
-  const [activeTool, setActiveTool] = useState<ToolId>('word-search');
-  const [wordInput, setWordInput] = useState(SAMPLE_WORDS);
-  const [suffix, setSuffix] = useState('');
-  const [searchCount, setSearchCount] = useState(5);
-  const [imageMap, setImageMap] = useState<ImageMap>({});
-  const [grade, setGrade] = useState(3);
-  const [klass, setKlass] = useState(1);
+  const [workspaceDraft] = useState(readWorkspaceDraft);
+  const [activeTool, setActiveTool] = useState<ToolId>(workspaceDraft.activeTool ?? 'word-search');
+  const [wordInput, setWordInput] = useState(workspaceDraft.wordInput ?? SAMPLE_WORDS);
+  const [imageMap, setImageMap] = useState<ImageMap>(workspaceDraft.imageMap ?? {});
+  const [grade, setGrade] = useState(workspaceDraft.grade ?? 3);
+  const [klass, setKlass] = useState(workspaceDraft.klass ?? 1);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [imageLoadingWord, setImageLoadingWord] = useState<string | null>(null);
   const [allImagesLoading, setAllImagesLoading] = useState(false);
-  const [imageProvider, setImageProvider] = useState<ImageProvider>('auto');
   const [imagePicker, setImagePicker] = useState<ImagePickerState | null>(null);
-  const [imageCandidatesByWord, setImageCandidatesByWord] = useState<ImageCandidateMap>({});
+  const [imageCandidatesByWord, setImageCandidatesByWord] = useState<ImageCandidateMap>(
+    workspaceDraft.imageCandidatesByWord ?? {},
+  );
+  const toastIdRef = useRef(0);
 
   const words = useMemo(() => parseWords(wordInput), [wordInput]);
-  const keywordRows = useMemo(
-    () => buildKeywordRows(words, suffix, searchCount),
-    [searchCount, suffix, words],
-  );
+  const keywordRows = useMemo(() => buildKeywordRows(words, '', IMAGE_SEARCH_LIMIT), [words]);
   const language = detectLanguage(words);
   const activeToolConfig = TOOL_OPTIONS.find((tool) => tool.id === activeTool) ?? TOOL_OPTIONS[0];
 
+  useEffect(() => {
+    writeWorkspaceDraft({
+      activeTool,
+      wordInput,
+      imageMap: pickExistingWordEntries(imageMap, words),
+      grade,
+      klass,
+      imageCandidatesByWord: pickExistingWordEntries(imageCandidatesByWord, words),
+    });
+  }, [activeTool, grade, imageCandidatesByWord, imageMap, klass, wordInput, words]);
+
   function notify(text: string) {
-    const nextToast = { id: Date.now(), text };
+    toastIdRef.current += 1;
+    const nextToast = { id: toastIdRef.current, text };
     setToast(nextToast);
     window.setTimeout(() => {
       setToast((current) => (current?.id === nextToast.id ? null : current));
@@ -139,9 +181,14 @@ function App() {
       return false;
     }
 
-    setImageCandidatesByWord((current) => ({ ...current, [word]: candidates }));
+    cacheImageCandidates(word, candidates);
     updateImage(word, candidates[0].imageUrl);
     return true;
+  }
+
+  function cacheImageCandidates(word: string, candidates: ImageCandidate[]) {
+    setImageCandidatesByWord((current) => ({ ...current, [word]: candidates }));
+    setImagePicker((current) => (current?.word === word ? { ...current, candidates } : current));
   }
 
   async function copyWords() {
@@ -161,8 +208,8 @@ function App() {
     setImageLoadingWord(row.word);
     try {
       const candidates = await searchBackendImages(row.keyword, {
-        limit: searchCount,
-        provider: imageProvider,
+        limit: IMAGE_SEARCH_LIMIT,
+        provider: 'auto',
       });
       if (candidates.length === 0) {
         notify('검색된 사진이 없습니다.');
@@ -188,8 +235,8 @@ function App() {
         keywordRows.map(async (row) => ({
           row,
           candidates: await searchBackendImages(row.keyword, {
-            limit: searchCount,
-            provider: imageProvider,
+            limit: IMAGE_SEARCH_LIMIT,
+            provider: 'auto',
           }),
         })),
       );
@@ -234,6 +281,29 @@ function App() {
     }
 
     setImagePicker({ word, candidates });
+  }
+
+  async function findMoreImages(word: string) {
+    setImageLoadingWord(word);
+    try {
+      const candidates = await searchBackendImages(word, {
+        limit: IMAGE_EXPANDED_SEARCH_LIMIT,
+        provider: 'auto',
+      });
+      const currentCandidates = imageCandidatesByWord[word] ?? [];
+      const mergedCandidates = mergeImageCandidates(currentCandidates, candidates);
+      if (mergedCandidates.length === currentCandidates.length) {
+        notify('추가 사진을 찾지 못했습니다.');
+        return;
+      }
+
+      cacheImageCandidates(word, mergedCandidates);
+      notify(`${word} 사진 후보를 더 찾았습니다.`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '사진 검색에 실패했습니다.');
+    } finally {
+      setImageLoadingWord(null);
+    }
   }
 
   function uploadImage(word: string, file: File | null) {
@@ -322,14 +392,25 @@ function App() {
             spellCheck={false}
           />
 
-          <div className="inline-actions">
+          <div className="word-action-panel" role="group" aria-label="단어 빠른 작업">
+            <button
+              className="primary-button word-photo-search-action"
+              type="button"
+              onClick={() => {
+                void findAllImages();
+              }}
+              disabled={words.length === 0 || allImagesLoading}
+            >
+              <Images size={16} />
+              {allImagesLoading ? '사진 전체 검색 중' : '사진 전체 찾기'}
+            </button>
             <button
               className="secondary-button"
               type="button"
               onClick={() => setWordInput(SAMPLE_WORDS)}
             >
               <Grid3X3 size={15} />
-              예시
+              예시 단어 넣기
             </button>
             <button
               className="secondary-button"
@@ -340,53 +421,11 @@ function App() {
               disabled={words.length === 0}
             >
               <Copy size={15} />
-              복사
-            </button>
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => {
-                void findAllImages();
-              }}
-              disabled={words.length === 0 || allImagesLoading}
-            >
-              <Images size={15} />
-              {allImagesLoading ? '전체 검색 중' : '사진 전체 찾기'}
+              단어 복사
             </button>
           </div>
 
-          <div className="settings-grid">
-            <label>
-              <span>검색어 보정어</span>
-              <input
-                value={suffix}
-                onChange={(event) => setSuffix(event.target.value)}
-                placeholder="필요할 때만 입력"
-              />
-            </label>
-            <label>
-              <span>검색 개수</span>
-              <input
-                type="number"
-                min={1}
-                max={12}
-                value={searchCount}
-                onChange={(event) => setSearchCount(Number(event.target.value))}
-              />
-            </label>
-            <label>
-              <span>사진 검색 방식</span>
-              <select
-                value={imageProvider}
-                onChange={(event) => setImageProvider(event.target.value as ImageProvider)}
-              >
-                {IMAGE_PROVIDER_OPTIONS.map((provider) => (
-                  <option value={provider.id} key={provider.id}>
-                    {provider.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="settings-grid student-settings">
             <label>
               <span>학년</span>
               <input
@@ -408,26 +447,18 @@ function App() {
             </label>
           </div>
 
-          <div className="keyword-table" aria-label="검색어 목록">
-            <div className="keyword-header">
-              <span>단어</span>
-              <span>검색어</span>
-              <span>사진 URL</span>
-            </div>
+          <div className="keyword-table photo-list" aria-label="단어별 사진">
             {keywordRows.length === 0 ? (
-              <EmptyState text="단어를 입력하면 검색어가 만들어집니다." />
+              <EmptyState text="단어를 입력하면 사진 행이 만들어집니다." />
             ) : (
               keywordRows.map((row) => (
                 <div className="keyword-row" key={row.word}>
-                  <span className="word-token">{row.word}</span>
-                  <span>{row.keyword}</span>
+                  <ImagePreview word={row.word} imageUrl={imageMap[row.word]} />
+                  <div className="word-photo-copy">
+                    <span className="word-token">{row.word}</span>
+                    <span>{imageMap[row.word] ? '사진 준비됨' : '사진 없음'}</span>
+                  </div>
                   <div className="image-controls">
-                    <input
-                      aria-label={`${row.word} 사진 URL`}
-                      value={imageMap[row.word] ?? ''}
-                      onChange={(event) => updateImage(row.word, event.target.value)}
-                      placeholder="사진 URL"
-                    />
                     <button
                       className="tiny-button"
                       type="button"
@@ -436,7 +467,7 @@ function App() {
                       }}
                       disabled={imageLoadingWord === row.word || allImagesLoading}
                     >
-                      {imageLoadingWord === row.word ? '검색 중' : '찾기'}
+                      {imageLoadingWord === row.word ? '검색 중' : '사진 찾기'}
                     </button>
                     <button
                       className="tiny-button"
@@ -444,10 +475,10 @@ function App() {
                       onClick={() => openImagePicker(row.word)}
                       disabled={(imageCandidatesByWord[row.word] ?? []).length === 0}
                     >
-                      변경
+                      다른 사진
                     </button>
                     <label className="tiny-upload">
-                      업로드
+                      직접 올리기
                       <input
                         type="file"
                         accept="image/*"
@@ -500,17 +531,123 @@ function App() {
       {imagePicker && (
         <ImagePickerDialog
           state={imagePicker}
+          selectedImageUrl={imageMap[imagePicker.word]}
           onSelect={(candidate) => {
             updateImage(imagePicker.word, candidate.imageUrl);
             setImagePicker(null);
             notify(`${imagePicker.word} 사진을 선택했습니다.`);
           }}
+          onFindMore={() => {
+            void findMoreImages(imagePicker.word);
+          }}
+          findMoreLoading={imageLoadingWord === imagePicker.word}
           onClose={() => setImagePicker(null)}
         />
       )}
 
       {toast && <div className="toast">{toast.text}</div>}
     </div>
+  );
+}
+
+function readWorkspaceDraft(): WorkspaceDraft {
+  try {
+    const rawDraft = window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
+    if (!rawDraft) {
+      return {};
+    }
+
+    return parseWorkspaceDraft(JSON.parse(rawDraft) as unknown);
+  } catch {
+    return {};
+  }
+}
+
+function parseWorkspaceDraft(value: unknown): WorkspaceDraft {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  return {
+    activeTool: isToolId(value.activeTool) ? value.activeTool : undefined,
+    wordInput: typeof value.wordInput === 'string' ? value.wordInput : undefined,
+    imageMap: isStringRecord(value.imageMap) ? value.imageMap : undefined,
+    grade: typeof value.grade === 'number' ? Math.max(1, Math.min(6, value.grade)) : undefined,
+    klass: typeof value.klass === 'number' ? Math.max(1, value.klass) : undefined,
+    imageCandidatesByWord: isImageCandidateMap(value.imageCandidatesByWord)
+      ? value.imageCandidatesByWord
+      : undefined,
+  };
+}
+
+function writeWorkspaceDraft(draft: WorkspaceDraft) {
+  try {
+    window.localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(draft));
+  } catch {
+    // Uploaded data URLs can exceed storage quota; the live workspace should keep working.
+  }
+}
+
+function pickExistingWordEntries<T>(record: Record<string, T>, words: string[]): Record<string, T> {
+  return words.reduce<Record<string, T>>((entries, word) => {
+    if (Object.hasOwn(record, word)) {
+      entries[word] = record[word];
+    }
+    return entries;
+  }, {});
+}
+
+function mergeImageCandidates(
+  currentCandidates: ImageCandidate[],
+  nextCandidates: ImageCandidate[],
+): ImageCandidate[] {
+  const seen = new Set<string>();
+  return [...currentCandidates, ...nextCandidates].filter((candidate) => {
+    const key = candidate.imageUrl || candidate.id;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isToolId(value: unknown): value is ToolId {
+  return (
+    value === 'word-search' || value === 'worksheet' || value === 'flicker' || value === 'dobble'
+  );
+}
+
+function isImageProvider(value: unknown): value is ImageCandidate['provider'] {
+  return value === 'auto' || value === 'openverse' || value === 'commons';
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return isRecord(value) && Object.values(value).every((item) => typeof item === 'string');
+}
+
+function isImageCandidate(value: unknown): value is ImageCandidate {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.title === 'string' &&
+    typeof value.imageUrl === 'string' &&
+    typeof value.thumbnailUrl === 'string' &&
+    typeof value.sourceUrl === 'string' &&
+    isImageProvider(value.provider)
+  );
+}
+
+function isImageCandidateMap(value: unknown): value is ImageCandidateMap {
+  return (
+    isRecord(value) &&
+    Object.values(value).every(
+      (candidates) => Array.isArray(candidates) && candidates.every(isImageCandidate),
+    )
   );
 }
 
@@ -553,12 +690,14 @@ function WordSearchTool({
   imageMap: ImageMap;
   runDownload: (action: () => Promise<void>) => void;
 }) {
-  const [width, setWidth] = useState(15);
-  const [height, setHeight] = useState(15);
+  const [size, setSize] = useState(15);
   const [difficulty, setDifficulty] = useState<WordSearchDifficulty>(1);
-  const [fillerMode, setFillerMode] = useState<FillerMode>('easy');
+  const [fillerMode, setFillerMode] = useState<FillerMode>('balanced');
   const [uppercase, setUppercase] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
+  const difficultyIndex = WORD_SEARCH_DIFFICULTIES.findIndex((item) => item.value === difficulty);
+  const currentDifficulty =
+    WORD_SEARCH_DIFFICULTIES[difficultyIndex] ?? WORD_SEARCH_DIFFICULTIES[0];
 
   const puzzle = useMemo(() => {
     if (words.length === 0) {
@@ -568,8 +707,8 @@ function WordSearchTool({
     try {
       return createWordSearch({
         words,
-        width,
-        height,
+        width: size,
+        height: size,
         difficulty,
         fillerMode,
         uppercase,
@@ -578,42 +717,67 @@ function WordSearchTool({
     } catch (error) {
       return error instanceof Error ? error : new Error('퍼즐을 만들 수 없습니다.');
     }
-  }, [difficulty, fillerMode, height, uppercase, width, words]);
+  }, [difficulty, fillerMode, size, uppercase, words]);
 
   const hasError = puzzle instanceof Error;
   const generatedPuzzle = !hasError && puzzle ? puzzle : null;
   const currentGrid = !hasError && puzzle ? (showAnswer ? puzzle.answerGrid : puzzle.grid) : [];
+  const decreaseDifficulty = () =>
+    setDifficulty(WORD_SEARCH_DIFFICULTIES[Math.max(difficultyIndex - 1, 0)].value);
+  const increaseDifficulty = () =>
+    setDifficulty(
+      WORD_SEARCH_DIFFICULTIES[Math.min(difficultyIndex + 1, WORD_SEARCH_DIFFICULTIES.length - 1)]
+        .value,
+    );
 
   return (
     <>
-      <div className="tool-controls">
-        <NumberField label="가로 칸" value={width} min={5} max={28} onChange={setWidth} />
-        <NumberField label="세로 칸" value={height} min={5} max={28} onChange={setHeight} />
-        <label>
-          <span>난이도</span>
-          <select
-            value={difficulty}
-            onChange={(event) => setDifficulty(Number(event.target.value) as WordSearchDifficulty)}
-          >
-            <option value={1}>가로세로</option>
-            <option value={2}>역방향 포함</option>
-            <option value={3}>대각선 포함</option>
-            <option value={4}>모든 방향</option>
-          </select>
-        </label>
-        <label>
-          <span>채움 방식</span>
-          <select
-            value={fillerMode}
-            onChange={(event) => setFillerMode(event.target.value as FillerMode)}
-          >
-            <option value="easy">겹침 적게</option>
-            <option value="balanced">균형</option>
-            <option value="overlap">겹침 많게</option>
-          </select>
-        </label>
-        <Toggle label="대문자" checked={uppercase} onChange={setUppercase} />
-        <Toggle label="정답 보기" checked={showAnswer} onChange={setShowAnswer} />
+      <div className="word-search-controls" aria-label="낱말찾기 설정">
+        <StepperControl
+          ariaLabel="퍼즐 크기"
+          title="퍼즐 크기"
+          valueLabel={`${size} x ${size}`}
+          description="정사각형으로 인쇄해 칸이 찌그러지지 않게 유지합니다."
+          minusLabel="퍼즐 크기 줄이기"
+          plusLabel="퍼즐 크기 늘리기"
+          onMinus={() => setSize((current) => Math.max(WORD_SEARCH_MIN_SIZE, current - 1))}
+          onPlus={() => setSize((current) => Math.min(WORD_SEARCH_MAX_SIZE, current + 1))}
+          minusDisabled={size <= WORD_SEARCH_MIN_SIZE}
+          plusDisabled={size >= WORD_SEARCH_MAX_SIZE}
+        />
+        <StepperControl
+          ariaLabel="난이도"
+          title="난이도"
+          valueLabel={currentDifficulty.label}
+          description={currentDifficulty.description}
+          minusLabel="난이도 낮추기"
+          plusLabel="난이도 올리기"
+          onMinus={decreaseDifficulty}
+          onPlus={increaseDifficulty}
+          minusDisabled={difficultyIndex <= 0}
+          plusDisabled={difficultyIndex >= WORD_SEARCH_DIFFICULTIES.length - 1}
+        />
+        <div className="filler-choice-group" role="group" aria-label="채움 방식">
+          <div className="control-kicker">채움 방식</div>
+          <div className="filler-choice-grid">
+            {FILLER_MODE_OPTIONS.map((option) => (
+              <button
+                className="option-card-button"
+                type="button"
+                key={option.value}
+                aria-pressed={fillerMode === option.value}
+                onClick={() => setFillerMode(option.value)}
+              >
+                <strong>{option.label}</strong>
+                <span>{option.description}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="inline-toggle-stack">
+          <Toggle label="대문자" checked={uppercase} onChange={setUppercase} />
+          <Toggle label="정답 보기" checked={showAnswer} onChange={setShowAnswer} />
+        </div>
       </div>
 
       {hasError ? (
@@ -628,7 +792,7 @@ function WordSearchTool({
               </div>
               <div className="sheet-stats">
                 <span>
-                  {width} x {height}
+                  {size} x {size}
                 </span>
                 <span>단어 {words.length}개</span>
               </div>
@@ -638,7 +802,7 @@ function WordSearchTool({
               <div
                 className="puzzle-grid"
                 style={{
-                  gridTemplateColumns: `repeat(${Math.max(width, 1)}, minmax(0, 1fr))`,
+                  gridTemplateColumns: `repeat(${Math.max(size, 1)}, minmax(0, 1fr))`,
                 }}
               >
                 {currentGrid.flat().map((cell, index) => (
@@ -954,20 +1118,38 @@ function MaterialTile({
 
 function ImagePickerDialog({
   state,
+  selectedImageUrl,
   onSelect,
+  onFindMore,
+  findMoreLoading,
   onClose,
 }: {
   state: ImagePickerState;
+  selectedImageUrl?: string;
   onSelect: (candidate: ImageCandidate) => void;
+  onFindMore: () => void;
+  findMoreLoading: boolean;
   onClose: () => void;
 }) {
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop" onClick={onClose}>
       <section
         className="image-picker-dialog"
         role="dialog"
         aria-modal="true"
         aria-label={`${state.word} 사진 선택`}
+        onClick={(event) => event.stopPropagation()}
       >
         <div className="image-picker-heading">
           <div>
@@ -981,39 +1163,61 @@ function ImagePickerDialog({
         </div>
 
         <div className="image-result-grid">
-          {state.candidates.map((candidate, index) => (
-            <article
-              className="image-result-card"
-              data-recommended={index === 0 ? 'true' : undefined}
-              key={candidate.id}
-            >
-              {index === 0 && <span className="result-badge">추천</span>}
-              <img src={candidate.thumbnailUrl} alt={candidate.title} />
-              <div className="image-result-meta">
-                <strong>{candidate.title}</strong>
-                <span>
-                  {candidate.provider === 'openverse' ? 'Openverse' : 'Wikimedia Commons'}
-                  {candidate.license ? ` · ${candidate.license}` : ''}
-                </span>
-              </div>
-              <a
-                className="image-result-source"
-                href={candidate.sourceUrl}
-                target="_blank"
-                rel="noreferrer"
+          {state.candidates.map((candidate, index) => {
+            const isSelected = candidate.imageUrl === selectedImageUrl;
+            return (
+              <article
+                className="image-result-card"
+                data-recommended={!isSelected && index === 0 ? 'true' : undefined}
+                data-selected={isSelected ? 'true' : undefined}
+                key={candidate.id}
               >
-                출처 보기
-                <ExternalLink size={13} />
-              </a>
-              <button
-                className="primary-button image-result-action"
-                type="button"
-                onClick={() => onSelect(candidate)}
-              >
-                이 사진 사용
-              </button>
-            </article>
-          ))}
+                {isSelected ? (
+                  <span className="result-badge">현재 선택</span>
+                ) : (
+                  index === 0 && <span className="result-badge">추천</span>
+                )}
+                <div className="image-result-media">
+                  <img src={candidate.thumbnailUrl} alt={candidate.title} />
+                </div>
+                <div className="image-result-meta">
+                  <strong>{candidate.title}</strong>
+                  <span>
+                    {candidate.provider === 'openverse' ? 'Openverse' : 'Wikimedia Commons'}
+                    {candidate.license ? ` · ${candidate.license}` : ''}
+                  </span>
+                </div>
+                <a
+                  className="image-result-source"
+                  href={candidate.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  출처 보기
+                  <ExternalLink size={13} />
+                </a>
+                <button
+                  className="primary-button image-result-action"
+                  type="button"
+                  onClick={() => onSelect(candidate)}
+                  disabled={isSelected}
+                >
+                  {isSelected ? '사용 중' : '이 사진 사용'}
+                </button>
+              </article>
+            );
+          })}
+        </div>
+        <div className="image-picker-footer">
+          <button
+            className="secondary-button image-picker-more"
+            type="button"
+            onClick={onFindMore}
+            disabled={findMoreLoading}
+          >
+            <Search size={15} />
+            {findMoreLoading ? '더 찾는 중' : '사진 더 찾기'}
+          </button>
         </div>
       </section>
     </div>
@@ -1062,6 +1266,60 @@ function NumberField({
         onChange={(event) => onChange(Number(event.target.value))}
       />
     </label>
+  );
+}
+
+function StepperControl({
+  ariaLabel,
+  title,
+  valueLabel,
+  description,
+  minusLabel,
+  plusLabel,
+  onMinus,
+  onPlus,
+  minusDisabled,
+  plusDisabled,
+}: {
+  ariaLabel: string;
+  title: string;
+  valueLabel: string;
+  description: string;
+  minusLabel: string;
+  plusLabel: string;
+  onMinus: () => void;
+  onPlus: () => void;
+  minusDisabled: boolean;
+  plusDisabled: boolean;
+}) {
+  return (
+    <div className="stepper-control" role="group" aria-label={ariaLabel}>
+      <div>
+        <span className="control-kicker">{title}</span>
+        <strong>{valueLabel}</strong>
+        <small>{description}</small>
+      </div>
+      <div className="stepper-buttons">
+        <button
+          className="stepper-button"
+          type="button"
+          aria-label={minusLabel}
+          onClick={onMinus}
+          disabled={minusDisabled}
+        >
+          <Minus size={16} />
+        </button>
+        <button
+          className="stepper-button"
+          type="button"
+          aria-label={plusLabel}
+          onClick={onPlus}
+          disabled={plusDisabled}
+        >
+          <Plus size={16} />
+        </button>
+      </div>
+    </div>
   );
 }
 
