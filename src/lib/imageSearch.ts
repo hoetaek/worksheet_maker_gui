@@ -26,8 +26,15 @@ type BackendImageCandidate = {
 
 type BackendImageSearchResponse = {
   query: string;
+  searched_query?: string;
   provider: ImageProvider;
   results: BackendImageCandidate[];
+};
+
+export type ImageSearchResult = {
+  requestedQuery: string;
+  searchedQuery: string;
+  candidates: ImageCandidate[];
 };
 
 export type ImageSearchOptions = {
@@ -109,6 +116,14 @@ export async function searchBackendImages(
   query: string,
   { fetcher = fetch, limit = 6, provider = 'auto' }: ImageSearchOptions = {},
 ): Promise<ImageCandidate[]> {
+  const result = await searchBackendImageResults(query, { fetcher, limit, provider });
+  return result.candidates;
+}
+
+export async function searchBackendImageResults(
+  query: string,
+  { fetcher = fetch, limit = 6, provider = 'auto' }: ImageSearchOptions = {},
+): Promise<ImageSearchResult> {
   const params = new URLSearchParams({ query, limit: String(limit), provider });
   const response = await fetcher(`/api/images/search?${params.toString()}`);
   if (!response.ok) {
@@ -116,17 +131,21 @@ export async function searchBackendImages(
   }
 
   const payload = (await response.json()) as BackendImageSearchResponse;
-  return payload.results.map((candidate) => ({
-    id: candidate.id,
-    title: candidate.title,
-    imageUrl: candidate.image_url,
-    thumbnailUrl: candidate.thumbnail_url,
-    sourceUrl: candidate.source_url,
-    provider: candidate.provider,
-    credit: candidate.credit,
-    license: candidate.license,
-    licenseUrl: candidate.license_url,
-  }));
+  return {
+    requestedQuery: payload.query,
+    searchedQuery: payload.searched_query ?? payload.query,
+    candidates: payload.results.map((candidate) => ({
+      id: candidate.id,
+      title: candidate.title,
+      imageUrl: candidate.image_url,
+      thumbnailUrl: candidate.thumbnail_url,
+      sourceUrl: candidate.source_url,
+      provider: candidate.provider,
+      credit: candidate.credit,
+      license: candidate.license,
+      licenseUrl: candidate.license_url,
+    })),
+  };
 }
 
 function cleanTitle(title: string): string {

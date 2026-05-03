@@ -19,6 +19,7 @@ from backend.image_search import (
     normalize_openverse_images,
     provider_order,
     search_images,
+    search_images_with_query,
 )
 from backend.main import app
 from backend.schemas import ImageCandidate
@@ -243,6 +244,41 @@ async def test_search_images_retries_clean_query_then_secondary_provider(
     assert [candidate.provider for candidate in results] == ["commons"]
     assert openverse_queries == ["rabbit", "토끼 png", "토끼"]
     assert commons_queries == ["rabbit", "토끼 png", "토끼"]
+
+
+@pytest.mark.anyio
+async def test_search_images_reports_the_query_that_produced_results(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_openverse(query: str, limit: int = 6) -> list[ImageCandidate]:
+        if query == "turtle":
+            return [
+                ImageCandidate(
+                    id="openverse:turtle",
+                    title="Turtle",
+                    image_url="https://example.com/turtle.jpg",
+                    thumbnail_url="https://example.com/turtle-thumb.jpg",
+                    source_url="https://openverse.org/image/turtle",
+                    provider="openverse",
+                )
+            ]
+
+        return []
+
+    async def fake_commons(query: str, limit: int = 6) -> list[ImageCandidate]:
+        return []
+
+    async def fake_translate(query: str) -> str | None:
+        return "turtle" if query == "거북이" else None
+
+    monkeypatch.setattr(image_search, "search_openverse_images", fake_openverse)
+    monkeypatch.setattr(image_search, "search_commons_images", fake_commons)
+    monkeypatch.setattr(image_search, "translate_korean_query_to_english", fake_translate)
+
+    results, searched_query = await search_images_with_query("거북이", 3, "auto")
+
+    assert [candidate.title for candidate in results] == ["Turtle"]
+    assert searched_query == "turtle"
 
 
 def test_openverse_candidates_are_normalized() -> None:

@@ -14,7 +14,7 @@ from backend.generators import (
     make_word_search_docx,
     make_worksheet_docx,
 )
-from backend.image_search import search_images
+from backend.image_search import search_images_with_query
 from backend.schemas import (
     DobbleRequest,
     FlickerRequest,
@@ -47,14 +47,19 @@ async def image_search(
     provider: Annotated[ImageProvider, Query()] = "auto",
 ) -> ImageSearchResponse:
     try:
-        results = await search_images(query, limit, provider)
+        results, searched_query = await search_images_with_query(query, limit, provider)
     except Exception as exc:  # noqa: BLE001 - map upstream failure to API error
         raise HTTPException(
             status_code=502,
             detail="사진 검색 서버에 연결할 수 없습니다.",
         ) from exc
 
-    return ImageSearchResponse(query=query, provider=provider, results=results)
+    return ImageSearchResponse(
+        query=query,
+        searched_query=searched_query,
+        provider=provider,
+        results=results,
+    )
 
 
 @app.post("/api/materials/flicker.pptx")

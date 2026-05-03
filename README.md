@@ -59,7 +59,8 @@ current word list, selected photos, and cached alternatives across refreshes.
 
 When Korean results are weak, the photo picker also lets teachers change the search phrase and try a
 clearer English name such as `turtle` or `sea turtle` without adding a separate search column to the
-main word list.
+main word list. The picker opens with the backend search term that actually produced the current
+results, so a translated search like `turtle` is visible instead of only the original word `거북이`.
 
 Google Programmable Search can be added later as another backend provider with API keys and quota
 handling. Bing Search APIs are not used because Microsoft has retired the standalone Bing Search API

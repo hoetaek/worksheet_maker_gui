@@ -29,7 +29,11 @@ import {
   downloadWordSearchDocx,
   downloadWorksheetDocx,
 } from './lib/downloads';
-import { searchBackendImages, type ImageCandidate } from './lib/imageSearch';
+import {
+  searchBackendImageResults,
+  type ImageCandidate,
+  type ImageSearchResult,
+} from './lib/imageSearch';
 import { buildFlickerSequence, buildWorksheetCells, type FlickerTemplate } from './lib/materials';
 import { createWordSearch, type FillerMode, type WordSearchDifficulty } from './lib/wordSearch';
 import { buildKeywordRows, detectLanguage, parseWords, wordCountStatus } from './lib/words';
@@ -38,6 +42,7 @@ type ToolId = 'word-search' | 'worksheet' | 'flicker' | 'dobble';
 
 type ImageMap = Record<string, string>;
 type ImageCandidateMap = Record<string, ImageCandidate[]>;
+type ImageSearchQueryMap = Record<string, string>;
 
 type Toast = {
   id: number;
@@ -47,6 +52,7 @@ type Toast = {
 type ImagePickerState = {
   word: string;
   candidates: ImageCandidate[];
+  searchedQuery: string;
 };
 
 type WorkspaceDraft = {
@@ -56,6 +62,7 @@ type WorkspaceDraft = {
   grade?: number;
   klass?: number;
   imageCandidatesByWord?: ImageCandidateMap;
+  imageSearchQueryByWord?: ImageSearchQueryMap;
 };
 
 const TOOL_OPTIONS: Array<{
@@ -145,6 +152,9 @@ function App() {
   const [imageCandidatesByWord, setImageCandidatesByWord] = useState<ImageCandidateMap>(
     workspaceDraft.imageCandidatesByWord ?? {},
   );
+  const [imageSearchQueryByWord, setImageSearchQueryByWord] = useState<ImageSearchQueryMap>(
+    workspaceDraft.imageSearchQueryByWord ?? {},
+  );
   const toastIdRef = useRef(0);
 
   const words = useMemo(() => parseWords(wordInput), [wordInput]);
@@ -160,8 +170,18 @@ function App() {
       grade,
       klass,
       imageCandidatesByWord: pickExistingWordEntries(imageCandidatesByWord, words),
+      imageSearchQueryByWord: pickExistingWordEntries(imageSearchQueryByWord, words),
     });
-  }, [activeTool, grade, imageCandidatesByWord, imageMap, klass, wordInput, words]);
+  }, [
+    activeTool,
+    grade,
+    imageCandidatesByWord,
+    imageMap,
+    imageSearchQueryByWord,
+    klass,
+    wordInput,
+    words,
+  ]);
 
   function notify(text: string) {
     toastIdRef.current += 1;
@@ -176,19 +196,23 @@ function App() {
     setImageMap((current) => ({ ...current, [word]: value }));
   }
 
-  function applyImageCandidates(word: string, candidates: ImageCandidate[]): boolean {
+  function applyImageCandidates(word: string, result: ImageSearchResult): boolean {
+    const { candidates, searchedQuery } = result;
     if (candidates.length === 0) {
       return false;
     }
 
-    cacheImageCandidates(word, candidates);
+    cacheImageCandidates(word, candidates, searchedQuery);
     updateImage(word, candidates[0].imageUrl);
     return true;
   }
 
-  function cacheImageCandidates(word: string, candidates: ImageCandidate[]) {
+  function cacheImageCandidates(word: string, candidates: ImageCandidate[], searchedQuery: string) {
     setImageCandidatesByWord((current) => ({ ...current, [word]: candidates }));
-    setImagePicker((current) => (current?.word === word ? { ...current, candidates } : current));
+    setImageSearchQueryByWord((current) => ({ ...current, [word]: searchedQuery }));
+    setImagePicker((current) =>
+      current?.word === word ? { ...current, candidates, searchedQuery } : current,
+    );
   }
 
   async function copyWords() {
@@ -207,15 +231,15 @@ function App() {
   async function findImage(row: { word: string; keyword: string }) {
     setImageLoadingWord(row.word);
     try {
-      const candidates = await searchBackendImages(row.keyword, {
+      const result = await searchBackendImageResults(row.keyword, {
         limit: IMAGE_SEARCH_LIMIT,
         provider: 'auto',
       });
-      if (candidates.length === 0) {
+      if (result.candidates.length === 0) {
         notify('검색된 사진이 없습니다.');
         return;
       }
-      applyImageCandidates(row.word, candidates);
+      applyImageCandidates(row.word, result);
       notify(`${row.word} 첫 사진을 넣었습니다.`);
     } catch (error) {
       notify(error instanceof Error ? error.message : '사진 검색에 실패했습니다.');
@@ -241,7 +265,7 @@ function App() {
       const settled = await Promise.allSettled(
         missingRows.map(async (row) => ({
           row,
-          candidates: await searchBackendImages(row.keyword, {
+          result: await searchBackendImageResults(row.keyword, {
             limit: IMAGE_SEARCH_LIMIT,
             provider: 'auto',
           }),
@@ -257,7 +281,7 @@ function App() {
           continue;
         }
 
-        if (applyImageCandidates(result.value.row.word, result.value.candidates)) {
+        if (applyImageCandidates(result.value.row.word, result.value.result)) {
           foundCount += 1;
         } else {
           emptyCount += 1;
@@ -287,7 +311,11 @@ function App() {
       return;
     }
 
-    setImagePicker({ word, candidates });
+    setImagePicker({
+      word,
+      candidates,
+      searchedQuery: imageSearchQueryByWord[word] ?? word,
+    });
   }
 
   async function searchImageCandidates(word: string, query: string) {
@@ -299,17 +327,17 @@ function App() {
 
     setImageLoadingWord(word);
     try {
-      const candidates = await searchBackendImages(trimmedQuery, {
+      const result = await searchBackendImageResults(trimmedQuery, {
         limit: IMAGE_SEARCH_LIMIT,
         provider: 'auto',
       });
-      if (candidates.length === 0) {
+      if (result.candidates.length === 0) {
         notify('검색된 사진이 없습니다.');
         return;
       }
 
-      cacheImageCandidates(word, candidates);
-      notify(`${trimmedQuery} 사진 후보를 찾았습니다.`);
+      cacheImageCandidates(word, result.candidates, result.searchedQuery);
+      notify(`${result.searchedQuery} 사진 후보를 찾았습니다.`);
     } catch (error) {
       notify(error instanceof Error ? error.message : '사진 검색에 실패했습니다.');
     } finally {
@@ -326,19 +354,19 @@ function App() {
 
     setImageLoadingWord(word);
     try {
-      const candidates = await searchBackendImages(trimmedQuery, {
+      const result = await searchBackendImageResults(trimmedQuery, {
         limit: IMAGE_EXPANDED_SEARCH_LIMIT,
         provider: 'auto',
       });
       const currentCandidates = imageCandidatesByWord[word] ?? [];
-      const mergedCandidates = mergeImageCandidates(currentCandidates, candidates);
+      const mergedCandidates = mergeImageCandidates(currentCandidates, result.candidates);
       if (mergedCandidates.length === currentCandidates.length) {
         notify('추가 사진을 찾지 못했습니다.');
         return;
       }
 
-      cacheImageCandidates(word, mergedCandidates);
-      notify(`${trimmedQuery} 사진 후보를 더 찾았습니다.`);
+      cacheImageCandidates(word, mergedCandidates, result.searchedQuery);
+      notify(`${result.searchedQuery} 사진 후보를 더 찾았습니다.`);
     } catch (error) {
       notify(error instanceof Error ? error.message : '사진 검색에 실패했습니다.');
     } finally {
@@ -620,6 +648,9 @@ function parseWorkspaceDraft(value: unknown): WorkspaceDraft {
     klass: typeof value.klass === 'number' ? Math.max(1, value.klass) : undefined,
     imageCandidatesByWord: isImageCandidateMap(value.imageCandidatesByWord)
       ? value.imageCandidatesByWord
+      : undefined,
+    imageSearchQueryByWord: isStringRecord(value.imageSearchQueryByWord)
+      ? value.imageSearchQueryByWord
       : undefined,
   };
 }
@@ -1177,7 +1208,7 @@ function ImagePickerDialog({
   findMoreLoading: boolean;
   onClose: () => void;
 }) {
-  const [searchQuery, setSearchQuery] = useState(state.word);
+  const [searchQuery, setSearchQuery] = useState(state.searchedQuery);
   const trimmedSearchQuery = searchQuery.trim();
 
   useEffect(() => {

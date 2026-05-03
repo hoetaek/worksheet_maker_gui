@@ -37,8 +37,18 @@ async def search_images(
     limit: int = 6,
     provider: ImageProvider = "auto",
 ) -> list[ImageCandidate]:
+    results, _searched_query = await search_images_with_query(query, limit, provider)
+    return results
+
+
+async def search_images_with_query(
+    query: str,
+    limit: int = 6,
+    provider: ImageProvider = "auto",
+) -> tuple[list[ImageCandidate], str]:
     candidates: list[ImageCandidate] = []
     seen: set[str] = set()
+    searched_query = query
 
     for current_query in await build_image_search_queries(query):
         for current_provider in provider_order(current_query, provider):
@@ -47,12 +57,14 @@ async def search_images(
                 if dedupe_key in seen:
                     continue
 
+                if not candidates:
+                    searched_query = current_query
                 seen.add(dedupe_key)
                 candidates.append(candidate)
                 if len(candidates) >= limit:
-                    return candidates
+                    return candidates, searched_query
 
-    return candidates
+    return candidates, searched_query
 
 
 def provider_order(query: str, provider: ImageProvider) -> list[ImageProvider]:

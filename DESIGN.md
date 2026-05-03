@@ -217,6 +217,7 @@ Photo search is a primary workflow, not a secondary utility.
 - Each row keeps a `다른 사진` button. It opens a focused candidate picker with a recommended first result, source metadata, and large `이 사진 사용` targets.
 - The candidate picker must show the current row photo as `현재 선택` and disable its action as `사용 중`; only real alternatives should remain actionable.
 - The candidate picker may expose `검색어 바꾸기` as progressive disclosure. Keep it inside the modal, not the main word list. UX writing should explain that English names or more specific phrases can work better when Korean results are weak.
+- The picker search input should show the backend search term that produced the visible result set. If `거북이` yielded images through `turtle`, the visible editable query should be `turtle`.
 - Candidate photos use a fixed frame with `object-fit: contain`; teachers should see the whole image even when source dimensions vary wildly.
 - If the teacher wants more options, the candidate picker exposes `사진 더 찾기`. This expands results as an exploration action instead of exposing a search-count setting upfront.
 - The app persists the current word list, selected photos, and cached alternatives in browser storage so refreshes do not erase photo-selection work.

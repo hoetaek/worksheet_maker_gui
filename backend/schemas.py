@@ -19,6 +19,7 @@ class ImageCandidate(BaseModel):
 
 class ImageSearchResponse(BaseModel):
     query: str
+    searched_query: str
     provider: ImageProvider
     results: list[ImageCandidate]
 

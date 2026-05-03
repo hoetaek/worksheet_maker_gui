@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   buildCommonsImageSearchUrl,
+  searchBackendImageResults,
   searchBackendImages,
   searchCommonsImages,
 } from './imageSearch';
@@ -118,5 +119,23 @@ describe('image search', () => {
     expect(fetcher).toHaveBeenCalledWith(
       '/api/images/search?query=%ED%86%A0%EB%81%BC&limit=5&provider=auto',
     );
+  });
+
+  it('returns the backend search term that actually produced image results', async () => {
+    const fetcher = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => ({
+        query: '거북이',
+        searched_query: 'turtle',
+        provider: 'auto',
+        results: [],
+      }),
+    });
+
+    await expect(searchBackendImageResults('거북이', { fetcher, limit: 5 })).resolves.toEqual({
+      requestedQuery: '거북이',
+      searchedQuery: 'turtle',
+      candidates: [],
+    });
   });
 });

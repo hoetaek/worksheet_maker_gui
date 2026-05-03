@@ -550,6 +550,47 @@ describe('App', () => {
     );
   });
 
+  it('opens the photo picker with the backend search term that actually produced results', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            query: '거북이',
+            searched_query: 'turtle',
+            provider: 'auto',
+            results: [
+              {
+                id: 'openverse:turtle-1',
+                title: 'Sea turtle',
+                image_url: 'https://example.com/sea-turtle.jpg',
+                thumbnail_url: 'https://example.com/sea-turtle-thumb.jpg',
+                source_url: 'https://openverse.org/image/turtle-1',
+                provider: 'openverse',
+              },
+            ],
+          }),
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    await user.clear(screen.getByLabelText(/단어 목록/i));
+    await user.type(screen.getByLabelText(/단어 목록/i), '거북이');
+    await user.click(screen.getByRole('button', { name: '사진 전체 찾기' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    const photoList = screen.getByLabelText(/단어별 사진/i);
+    const turtleRow = within(photoList).getByText('거북이').closest('.keyword-row');
+    await user.click(within(turtleRow as HTMLElement).getByRole('button', { name: '다른 사진' }));
+
+    const dialog = await screen.findByRole('dialog', { name: /거북이 사진 선택/i });
+
+    expect(within(dialog).getByLabelText('사진 검색어')).toHaveValue('turtle');
+  });
+
   it('restores words, selected photos, and cached alternatives after refresh', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn(() =>
