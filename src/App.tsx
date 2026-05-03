@@ -44,6 +44,7 @@ type ImageCandidateMap = Record<string, ImageCandidate[]>;
 type ImageSearchQueryMap = Record<string, string>;
 type QuizMap = Record<string, string>;
 type DobbleDisplayMode = 'image-word' | 'image' | 'word';
+type WordSearchPuzzleState = ReturnType<typeof createWordSearch> | Error | null;
 
 type Toast = {
   id: number;
@@ -113,12 +114,6 @@ const FLICKER_TEMPLATES: Array<{ id: FlickerTemplate; label: string }> = [
   { id: 'blank', label: '빈 슬라이드' },
 ];
 
-const LANGUAGE_LABELS = {
-  english: '영어',
-  korean: '한글',
-  mixed: '혼합',
-} as const;
-
 const IMAGE_SEARCH_LIMIT = 8;
 const IMAGE_EXPANDED_SEARCH_LIMIT = 12;
 const WORKSPACE_STORAGE_KEY = 'worksheet-maker-workspace-v1';
@@ -184,6 +179,18 @@ function App() {
   const [klass, setKlass] = useState(workspaceDraft.klass ?? 1);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [wordDrawerOpen, setWordDrawerOpen] = useState(false);
+  const [wordSearchSize, setWordSearchSize] = useState(15);
+  const [wordSearchDifficulty, setWordSearchDifficulty] = useState<WordSearchDifficulty>(1);
+  const [wordSearchFillerMode, setWordSearchFillerMode] = useState<FillerMode>('balanced');
+  const [wordSearchUppercase, setWordSearchUppercase] = useState(false);
+  const [wordSearchShowAnswer, setWordSearchShowAnswer] = useState(false);
+  const [worksheetColumns, setWorksheetColumns] = useState(5);
+  const [worksheetSyllables, setWorksheetSyllables] = useState(false);
+  const [flickerTemplates, setFlickerTemplates] = useState<FlickerTemplate[]>([
+    'word',
+    'image',
+    'word-image',
+  ]);
   const [dobbleDisplayMode, setDobbleDisplayMode] = useState<DobbleDisplayMode>('image-word');
   const [dobbleInfoOpen, setDobbleInfoOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -204,10 +211,58 @@ function App() {
   const preparedImageCount = words.filter((word) => Boolean(imageMap[word])).length;
   const language = detectLanguage(words);
   const activeToolConfig = TOOL_OPTIONS.find((tool) => tool.id === activeTool) ?? TOOL_OPTIONS[0];
+  const wordSearchDifficultyIndex = WORD_SEARCH_DIFFICULTIES.findIndex(
+    (item) => item.value === wordSearchDifficulty,
+  );
+  const currentWordSearchDifficulty =
+    WORD_SEARCH_DIFFICULTIES[wordSearchDifficultyIndex] ?? WORD_SEARCH_DIFFICULTIES[0];
+  const wordSearchPuzzle = useMemo<WordSearchPuzzleState>(() => {
+    if (words.length === 0) {
+      return null;
+    }
+
+    try {
+      return createWordSearch({
+        words,
+        width: wordSearchSize,
+        height: wordSearchSize,
+        difficulty: wordSearchDifficulty,
+        fillerMode: wordSearchFillerMode,
+        uppercase: wordSearchUppercase,
+        seed: 20260502,
+      });
+    } catch (error) {
+      return error instanceof Error ? error : new Error('퍼즐을 만들 수 없습니다.');
+    }
+  }, [wordSearchDifficulty, wordSearchFillerMode, wordSearchSize, wordSearchUppercase, words]);
+  const generatedWordSearchPuzzle =
+    wordSearchPuzzle instanceof Error ? null : (wordSearchPuzzle ?? null);
+  const worksheet = useMemo(
+    () => buildWorksheetCells(words, worksheetColumns),
+    [worksheetColumns, words],
+  );
+  const worksheetShowsLetterSplit = worksheetSyllables && language !== 'korean';
+  const flickerSequence = useMemo(
+    () => buildFlickerSequence(flickerTemplates, words),
+    [flickerTemplates, words],
+  );
+  const flickerTemplateSummary = flickerTemplates
+    .map((template) => FLICKER_TEMPLATES.find((item) => item.id === template)?.label)
+    .filter((label): label is string => Boolean(label))
+    .join(' · ');
+  const hasSelectedFlickerTemplate = flickerTemplates.length > 0;
   const dobbleDetails = useMemo(
     () => getDobblePlanDetails(words, imageMap, dobbleDisplayMode),
     [dobbleDisplayMode, imageMap, words],
   );
+
+  useEffect(() => {
+    document.documentElement.dataset.appRoute = currentRoute === 'home' ? 'home' : 'material';
+
+    return () => {
+      delete document.documentElement.dataset.appRoute;
+    };
+  }, [currentRoute]);
 
   useEffect(() => {
     writeWorkspaceDraft({
@@ -355,6 +410,30 @@ function App() {
         dobbleDisplayMode,
       ),
     );
+  }
+
+  function decreaseWordSearchDifficulty() {
+    setWordSearchDifficulty(
+      WORD_SEARCH_DIFFICULTIES[Math.max(wordSearchDifficultyIndex - 1, 0)].value,
+    );
+  }
+
+  function increaseWordSearchDifficulty() {
+    setWordSearchDifficulty(
+      WORD_SEARCH_DIFFICULTIES[
+        Math.min(wordSearchDifficultyIndex + 1, WORD_SEARCH_DIFFICULTIES.length - 1)
+      ].value,
+    );
+  }
+
+  function toggleFlickerTemplate(template: FlickerTemplate) {
+    setFlickerTemplates((current) => {
+      if (current.includes(template)) {
+        return current.filter((item) => item !== template);
+      }
+
+      return [...current, template];
+    });
   }
 
   async function findImage(row: { word: string; keyword: string }) {
@@ -924,39 +1003,206 @@ function App() {
     );
   }
 
-  function renderMaterialSettingsRail() {
-    const Icon = activeToolConfig.icon;
+  const wordSearchExportDisabled = !generatedWordSearchPuzzle;
+  const wordSearchExportDisabledReason =
+    words.length === 0
+      ? EMPTY_MATERIAL_REASON
+      : wordSearchPuzzle instanceof Error
+        ? '퍼즐을 만들 수 없어 다운로드할 수 없습니다.'
+        : undefined;
+  const worksheetExportDisabledReason = words.length === 0 ? EMPTY_MATERIAL_REASON : undefined;
+  const flickerExportDisabledReason =
+    words.length === 0
+      ? EMPTY_MATERIAL_REASON
+      : hasSelectedFlickerTemplate
+        ? undefined
+        : '슬라이드 양식을 하나 이상 선택하세요.';
+
+  function renderMaterialOutputActions() {
+    if (activeTool === 'dobble') {
+      return (
+        <ActionBar
+          variant="inline"
+          onPrint={printMaterialPreview}
+          onExport={exportDobble}
+          exportLabel="PPTX 다운로드"
+          exportDisabled={!dobbleDetails.canExportDobble}
+          disabledReason={dobbleDetails.disabledReason}
+        />
+      );
+    }
+
+    if (activeTool === 'word-search') {
+      return (
+        <ActionBar
+          variant="inline"
+          onPrint={printMaterialPreview}
+          onExport={() =>
+            runDownload(() =>
+              downloadWordSearchDocx({
+                words,
+                imageMap,
+                puzzle: generatedWordSearchPuzzle,
+                grade,
+                classNumber: klass,
+              }),
+            )
+          }
+          exportLabel="DOCX 다운로드"
+          exportDisabled={wordSearchExportDisabled}
+          disabledReason={wordSearchExportDisabledReason}
+        />
+      );
+    }
+
+    if (activeTool === 'worksheet') {
+      return (
+        <ActionBar
+          variant="inline"
+          onPrint={printMaterialPreview}
+          onExport={() =>
+            runDownload(() =>
+              downloadWorksheetDocx({
+                words,
+                imageMap,
+                columns: worksheetColumns,
+                syllables: worksheetSyllables,
+                grade,
+                classNumber: klass,
+              }),
+            )
+          }
+          exportLabel="DOCX 다운로드"
+          exportDisabled={words.length === 0}
+          disabledReason={worksheetExportDisabledReason}
+        />
+      );
+    }
 
     return (
-      <aside className="material-settings-rail" role="complementary" aria-label="자료 설정">
-        {activeTool === 'dobble' ? (
+      <ActionBar
+        variant="inline"
+        onPrint={printMaterialPreview}
+        onExport={() => runDownload(() => downloadFlickerPptx(words, imageMap, flickerTemplates))}
+        exportLabel="PPTX 다운로드"
+        exportDisabled={Boolean(flickerExportDisabledReason)}
+        disabledReason={flickerExportDisabledReason}
+        showDisabledReason={flickerExportDisabledReason === EMPTY_MATERIAL_REASON}
+      />
+    );
+  }
+
+  function renderPreviewTitle() {
+    return activeTool === 'dobble' ? '실제 카드 미리보기' : '실제 자료 미리보기';
+  }
+
+  function renderMaterialSettingsRail() {
+    const showClassInfoAction = activeTool === 'word-search' || activeTool === 'worksheet';
+
+    function renderMaterialPlanPanel() {
+      if (activeTool === 'dobble') {
+        return (
           <DobblePlanPanel
             tool={activeToolConfig}
             details={dobbleDetails}
             onInfoOpen={() => setDobbleInfoOpen(true)}
           />
-        ) : (
-          <section className="material-tool-summary" aria-label="현재 자료">
-            <p className="mono-label">
-              {LANGUAGE_LABELS[language]} · {activeToolConfig.description} · 단어 {words.length}개
-            </p>
-            <div className="material-tool-title">
-              <Icon size={19} />
-              <strong>{activeToolConfig.label}</strong>
-            </div>
-          </section>
-        )}
+        );
+      }
+
+      if (activeTool === 'word-search') {
+        return (
+          <MaterialPlanPanel
+            tool={activeToolConfig}
+            statusLabel={wordSearchExportDisabled ? '단어 필요' : undefined}
+            statusTone="danger"
+            summary={`퍼즐 ${wordSearchSize} x ${wordSearchSize} · 단어 ${words.length}개`}
+          />
+        );
+      }
+
+      if (activeTool === 'worksheet') {
+        return (
+          <MaterialPlanPanel
+            tool={activeToolConfig}
+            summary={`단어 ${words.length}개 · 한 줄 ${worksheetColumns}칸`}
+          />
+        );
+      }
+
+      return (
+        <MaterialPlanPanel
+          tool={activeToolConfig}
+          statusLabel={hasSelectedFlickerTemplate ? undefined : '양식 선택 필요'}
+          statusTone="danger"
+          summary={`슬라이드 ${flickerSequence.length}장 · ${flickerTemplateSummary || '양식 0개'}`}
+        />
+      );
+    }
+
+    function renderMaterialControls() {
+      if (activeTool === 'dobble') {
+        return (
+          <DobbleDisplayControls
+            canExportDobble={dobbleDetails.plan.kind !== 'unavailable'}
+            displayMode={dobbleDisplayMode}
+            onDisplayModeChange={setDobbleDisplayMode}
+          />
+        );
+      }
+
+      if (activeTool === 'word-search') {
+        return (
+          <WordSearchSettings
+            size={wordSearchSize}
+            difficultyIndex={wordSearchDifficultyIndex}
+            currentDifficulty={currentWordSearchDifficulty}
+            fillerMode={wordSearchFillerMode}
+            uppercase={wordSearchUppercase}
+            showAnswer={wordSearchShowAnswer}
+            onSizeChange={setWordSearchSize}
+            onDifficultyDecrease={decreaseWordSearchDifficulty}
+            onDifficultyIncrease={increaseWordSearchDifficulty}
+            onFillerModeChange={setWordSearchFillerMode}
+            onUppercaseChange={setWordSearchUppercase}
+            onShowAnswerChange={setWordSearchShowAnswer}
+          />
+        );
+      }
+
+      if (activeTool === 'worksheet') {
+        return (
+          <WorksheetSettings
+            columns={worksheetColumns}
+            showLetterSplit={language !== 'korean'}
+            letterSplit={worksheetSyllables}
+            onColumnsChange={setWorksheetColumns}
+            onLetterSplitChange={setWorksheetSyllables}
+          />
+        );
+      }
+
+      return (
+        <FlickerSettings templates={flickerTemplates} onTemplateToggle={toggleFlickerTemplate} />
+      );
+    }
+
+    return (
+      <aside className="material-settings-rail" role="complementary" aria-label="자료 설정">
+        {renderMaterialPlanPanel()}
 
         <div className="material-rail-actions">
-          <button
-            className="secondary-button"
-            type="button"
-            aria-label="학급 정보 수정"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <Settings size={15} />
-            학급 정보
-          </button>
+          {showClassInfoAction && (
+            <button
+              className="secondary-button"
+              type="button"
+              aria-label="학급 정보 수정"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <Settings size={15} />
+              학급 정보
+            </button>
+          )}
           <button
             className="secondary-button"
             type="button"
@@ -967,23 +1213,7 @@ function App() {
           </button>
         </div>
 
-        {activeTool === 'dobble' && (
-          <>
-            <DobbleDisplayControls
-              canExportDobble={dobbleDetails.plan.kind !== 'unavailable'}
-              displayMode={dobbleDisplayMode}
-              onDisplayModeChange={setDobbleDisplayMode}
-            />
-            <ActionBar
-              variant="inline"
-              onPrint={printMaterialPreview}
-              onExport={exportDobble}
-              exportLabel="PPTX 다운로드"
-              exportDisabled={!dobbleDetails.canExportDobble}
-              disabledReason={dobbleDetails.disabledReason}
-            />
-          </>
-        )}
+        {renderMaterialControls()}
       </aside>
     );
   }
@@ -1049,9 +1279,10 @@ function App() {
             className={`tool-panel accent-${activeToolConfig.accent}`}
             aria-label={activeToolConfig.label}
           >
-            {activeTool !== 'dobble' && (
-              <ToolHeader tool={activeToolConfig} words={words} language={language} />
-            )}
+            <div className="material-preview-toolbar">
+              <h3 className="material-preview-title">{renderPreviewTitle()}</h3>
+              {renderMaterialOutputActions()}
+            </div>
 
             {activeTool === 'word-search' && (
               <WordSearchTool
@@ -1059,8 +1290,10 @@ function App() {
                 grade={grade}
                 klass={klass}
                 imageMap={imageMap}
-                runDownload={runDownload}
-                onPrint={printMaterialPreview}
+                size={wordSearchSize}
+                uppercase={wordSearchUppercase}
+                showAnswer={wordSearchShowAnswer}
+                puzzle={wordSearchPuzzle}
               />
             )}
 
@@ -1070,17 +1303,17 @@ function App() {
                 grade={grade}
                 klass={klass}
                 imageMap={imageMap}
-                runDownload={runDownload}
-                onPrint={printMaterialPreview}
+                worksheet={worksheet}
+                columns={worksheetColumns}
+                syllables={worksheetShowsLetterSplit}
               />
             )}
 
             {activeTool === 'flicker' && (
               <FlickerTool
-                words={words}
                 imageMap={imageMap}
-                runDownload={runDownload}
-                onPrint={printMaterialPreview}
+                templates={flickerTemplates}
+                sequence={flickerSequence}
               />
             )}
 
@@ -1284,28 +1517,157 @@ function isImageCandidateMap(value: unknown): value is ImageCandidateMap {
   );
 }
 
-function ToolHeader({
+function MaterialPlanPanel({
   tool,
-  words,
-  language,
+  statusLabel,
+  statusTone,
+  summary,
 }: {
   tool: (typeof TOOL_OPTIONS)[number];
-  words: string[];
-  language: keyof typeof LANGUAGE_LABELS;
+  statusLabel?: string;
+  statusTone?: 'success' | 'danger';
+  summary: string;
 }) {
   const Icon = tool.icon;
 
   return (
-    <div className="tool-heading">
-      <div className="tool-title">
-        <Icon size={20} />
-        <div>
-          <p className="mono-label">{LANGUAGE_LABELS[language]}</p>
+    <section className={`material-plan-panel accent-${tool.accent}`} aria-label="현재 자료">
+      <div className="material-plan-title">
+        <div className="material-title-row">
+          <Icon size={20} />
           <h2>{tool.label}</h2>
-          <p className="tool-subtitle">{tool.description}</p>
+          {statusLabel && <span data-tone={statusTone}>{statusLabel}</span>}
+        </div>
+        <p>{summary}</p>
+      </div>
+    </section>
+  );
+}
+
+function WordSearchSettings({
+  size,
+  difficultyIndex,
+  currentDifficulty,
+  fillerMode,
+  uppercase,
+  showAnswer,
+  onSizeChange,
+  onDifficultyDecrease,
+  onDifficultyIncrease,
+  onFillerModeChange,
+  onUppercaseChange,
+  onShowAnswerChange,
+}: {
+  size: number;
+  difficultyIndex: number;
+  currentDifficulty: (typeof WORD_SEARCH_DIFFICULTIES)[number];
+  fillerMode: FillerMode;
+  uppercase: boolean;
+  showAnswer: boolean;
+  onSizeChange: (value: number) => void;
+  onDifficultyDecrease: () => void;
+  onDifficultyIncrease: () => void;
+  onFillerModeChange: (value: FillerMode) => void;
+  onUppercaseChange: (value: boolean) => void;
+  onShowAnswerChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="word-search-controls" role="group" aria-label="낱말찾기 설정">
+      <CompactStepperControl
+        ariaLabel="퍼즐 크기"
+        title="퍼즐 크기"
+        valueLabel={`${size} x ${size}`}
+        minusLabel="퍼즐 크기 줄이기"
+        plusLabel="퍼즐 크기 늘리기"
+        onMinus={() => onSizeChange(Math.max(WORD_SEARCH_MIN_SIZE, size - 1))}
+        onPlus={() => onSizeChange(Math.min(WORD_SEARCH_MAX_SIZE, size + 1))}
+        minusDisabled={size <= WORD_SEARCH_MIN_SIZE}
+        plusDisabled={size >= WORD_SEARCH_MAX_SIZE}
+      />
+      <CompactStepperControl
+        ariaLabel="난이도"
+        title="난이도"
+        valueLabel={currentDifficulty.label}
+        caption={currentDifficulty.description}
+        minusLabel="난이도 낮추기"
+        plusLabel="난이도 올리기"
+        onMinus={onDifficultyDecrease}
+        onPlus={onDifficultyIncrease}
+        minusDisabled={difficultyIndex <= 0}
+        plusDisabled={difficultyIndex >= WORD_SEARCH_DIFFICULTIES.length - 1}
+      />
+      <div className="filler-choice-group" role="group" aria-label="채움 방식">
+        <div className="control-kicker">채움 방식</div>
+        <div className="filler-choice-grid">
+          {FILLER_MODE_OPTIONS.map((option) => (
+            <button
+              className="choice-button"
+              type="button"
+              key={option.value}
+              aria-pressed={fillerMode === option.value}
+              onClick={() => onFillerModeChange(option.value)}
+              title={option.description}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
       </div>
-      <Badge tone={words.length > 0 ? 'success' : 'neutral'}>단어 {words.length}개</Badge>
+      <div className="inline-toggle-stack">
+        <Toggle label="대문자" checked={uppercase} onChange={onUppercaseChange} />
+        <Toggle label="정답 보기" checked={showAnswer} onChange={onShowAnswerChange} />
+      </div>
+    </div>
+  );
+}
+
+function WorksheetSettings({
+  columns,
+  showLetterSplit,
+  letterSplit,
+  onColumnsChange,
+  onLetterSplitChange,
+}: {
+  columns: number;
+  showLetterSplit: boolean;
+  letterSplit: boolean;
+  onColumnsChange: (value: number) => void;
+  onLetterSplitChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="tool-controls" role="group" aria-label="활동지 설정">
+      <NumberField label="한 줄 칸 수" value={columns} min={1} max={8} onChange={onColumnsChange} />
+      {showLetterSplit && (
+        <Toggle label="글자 나누기" checked={letterSplit} onChange={onLetterSplitChange} />
+      )}
+    </div>
+  );
+}
+
+function FlickerSettings({
+  templates,
+  onTemplateToggle,
+}: {
+  templates: FlickerTemplate[];
+  onTemplateToggle: (template: FlickerTemplate) => void;
+}) {
+  return (
+    <div className="flicker-settings" role="group" aria-label="깜빡이 설정">
+      <div className="control-kicker">슬라이드 양식</div>
+      <div className="template-picker" role="group" aria-label="슬라이드 양식">
+        {FLICKER_TEMPLATES.map((template) => (
+          <button
+            key={template.id}
+            className="choice-button"
+            type="button"
+            data-active={templates.includes(template.id)}
+            onClick={() => onTemplateToggle(template.id)}
+          >
+            {templates.includes(template.id) && <Check size={14} />}
+            {template.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1315,133 +1677,38 @@ function WordSearchTool({
   grade,
   klass,
   imageMap,
-  runDownload,
-  onPrint,
+  size,
+  uppercase,
+  showAnswer,
+  puzzle,
 }: {
   words: string[];
   grade: number;
   klass: number;
   imageMap: ImageMap;
-  runDownload: (action: () => Promise<void>) => Promise<void>;
-  onPrint: () => void;
+  size: number;
+  uppercase: boolean;
+  showAnswer: boolean;
+  puzzle: WordSearchPuzzleState;
 }) {
-  const [size, setSize] = useState(15);
-  const [difficulty, setDifficulty] = useState<WordSearchDifficulty>(1);
-  const [fillerMode, setFillerMode] = useState<FillerMode>('balanced');
-  const [uppercase, setUppercase] = useState(false);
-  const [showAnswer, setShowAnswer] = useState(false);
-  const difficultyIndex = WORD_SEARCH_DIFFICULTIES.findIndex((item) => item.value === difficulty);
-  const currentDifficulty =
-    WORD_SEARCH_DIFFICULTIES[difficultyIndex] ?? WORD_SEARCH_DIFFICULTIES[0];
-
-  const puzzle = useMemo(() => {
-    if (words.length === 0) {
-      return null;
-    }
-
-    try {
-      return createWordSearch({
-        words,
-        width: size,
-        height: size,
-        difficulty,
-        fillerMode,
-        uppercase,
-        seed: 20260502,
-      });
-    } catch (error) {
-      return error instanceof Error ? error : new Error('퍼즐을 만들 수 없습니다.');
-    }
-  }, [difficulty, fillerMode, size, uppercase, words]);
-
   const hasError = puzzle instanceof Error;
-  const generatedPuzzle = !hasError && puzzle ? puzzle : null;
   const currentGrid = !hasError && puzzle ? (showAnswer ? puzzle.answerGrid : puzzle.grid) : [];
   const preparedImageCount = getPreparedImageCount(words, imageMap);
-  const exportDisabled = !generatedPuzzle;
-  const exportDisabledReason =
-    words.length === 0
-      ? EMPTY_MATERIAL_REASON
-      : hasError
-        ? '퍼즐을 만들 수 없어 다운로드할 수 없습니다.'
-        : undefined;
-  const decreaseDifficulty = () =>
-    setDifficulty(WORD_SEARCH_DIFFICULTIES[Math.max(difficultyIndex - 1, 0)].value);
-  const increaseDifficulty = () =>
-    setDifficulty(
-      WORD_SEARCH_DIFFICULTIES[Math.min(difficultyIndex + 1, WORD_SEARCH_DIFFICULTIES.length - 1)]
-        .value,
-    );
 
   return (
     <>
-      <div className="word-search-controls" aria-label="낱말찾기 설정">
-        <StepperControl
-          ariaLabel="퍼즐 크기"
-          title="퍼즐 크기"
-          valueLabel={`${size} x ${size}`}
-          description="정사각형으로 인쇄해 칸이 찌그러지지 않게 유지합니다."
-          minusLabel="퍼즐 크기 줄이기"
-          plusLabel="퍼즐 크기 늘리기"
-          onMinus={() => setSize((current) => Math.max(WORD_SEARCH_MIN_SIZE, current - 1))}
-          onPlus={() => setSize((current) => Math.min(WORD_SEARCH_MAX_SIZE, current + 1))}
-          minusDisabled={size <= WORD_SEARCH_MIN_SIZE}
-          plusDisabled={size >= WORD_SEARCH_MAX_SIZE}
-        />
-        <StepperControl
-          ariaLabel="난이도"
-          title="난이도"
-          valueLabel={currentDifficulty.label}
-          description={currentDifficulty.description}
-          minusLabel="난이도 낮추기"
-          plusLabel="난이도 올리기"
-          onMinus={decreaseDifficulty}
-          onPlus={increaseDifficulty}
-          minusDisabled={difficultyIndex <= 0}
-          plusDisabled={difficultyIndex >= WORD_SEARCH_DIFFICULTIES.length - 1}
-        />
-        <div className="filler-choice-group" role="group" aria-label="채움 방식">
-          <div className="control-kicker">채움 방식</div>
-          <div className="filler-choice-grid">
-            {FILLER_MODE_OPTIONS.map((option) => (
-              <button
-                className="option-card-button"
-                type="button"
-                key={option.value}
-                aria-pressed={fillerMode === option.value}
-                onClick={() => setFillerMode(option.value)}
-              >
-                <strong>{option.label}</strong>
-                <span>{option.description}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="inline-toggle-stack">
-          <Toggle label="대문자" checked={uppercase} onChange={setUppercase} />
-          <Toggle label="정답 보기" checked={showAnswer} onChange={setShowAnswer} />
-        </div>
-      </div>
-
       {hasError ? (
         <Callout tone="warning">{puzzle.message}</Callout>
       ) : (
         <div className="preview-layout printable">
           <div className="puzzle-sheet">
             <div className="sheet-meta">
-              <div>
-                <p className="mono-label">출력 미리보기</p>
+              <div className="sheet-title-row">
                 <h3>{/[가-힣]/.test(words.join('')) ? '낱말 찾기' : '단어 찾기'}</h3>
               </div>
-              <div className="sheet-stats">
-                <span>
-                  {size} x {size}
-                </span>
-                <span>단어 {words.length}개</span>
-              </div>
+              <StudentInfo grade={grade} klass={klass} />
             </div>
             <div className="puzzle-board-wrap">
-              <StudentInfo grade={grade} klass={klass} />
               <div
                 className="puzzle-grid"
                 style={{
@@ -1459,25 +1726,9 @@ function WordSearchTool({
           </div>
         </div>
       )}
-
-      <ActionBar
-        onPrint={onPrint}
-        onExport={() =>
-          runDownload(() =>
-            downloadWordSearchDocx({
-              words,
-              imageMap,
-              puzzle: generatedPuzzle,
-              grade,
-              classNumber: klass,
-            }),
-          )
-        }
-        exportLabel="DOCX 다운로드"
-        exportDisabled={exportDisabled}
-        disabledReason={exportDisabledReason}
-        summary={`DOCX · 퍼즐 ${size} x ${size} · 단어 ${words.length}개 · 사진 ${preparedImageCount}/${words.length}개 준비`}
-      />
+      <p className="sr-only">
+        사진 {preparedImageCount}/{words.length}개 준비
+      </p>
     </>
   );
 }
@@ -1487,32 +1738,27 @@ function WorksheetTool({
   grade,
   klass,
   imageMap,
-  runDownload,
-  onPrint,
+  worksheet,
+  columns,
+  syllables,
 }: {
   words: string[];
   grade: number;
   klass: number;
   imageMap: ImageMap;
-  runDownload: (action: () => Promise<void>) => Promise<void>;
-  onPrint: () => void;
+  worksheet: ReturnType<typeof buildWorksheetCells>;
+  columns: number;
+  syllables: boolean;
 }) {
-  const [columns, setColumns] = useState(5);
-  const [syllables, setSyllables] = useState(false);
-  const worksheet = useMemo(() => buildWorksheetCells(words, columns), [columns, words]);
   const preparedImageCount = getPreparedImageCount(words, imageMap);
-  const disabledReason = words.length === 0 ? EMPTY_MATERIAL_REASON : undefined;
 
   return (
     <>
-      <div className="tool-controls">
-        <NumberField label="한 줄 칸 수" value={columns} min={1} max={8} onChange={setColumns} />
-        <Toggle label="음절 표시" checked={syllables} onChange={setSyllables} />
-      </div>
-
       <div className="worksheet-sheet printable">
         <div className="sheet-meta">
-          <h3>단어 활동지</h3>
+          <div className="sheet-title-row">
+            <h3>단어 활동지</h3>
+          </div>
           <StudentInfo grade={grade} klass={klass} />
         </div>
         <div
@@ -1535,81 +1781,24 @@ function WorksheetTool({
           )}
         </div>
       </div>
-
-      <ActionBar
-        onPrint={onPrint}
-        onExport={() =>
-          runDownload(() =>
-            downloadWorksheetDocx({
-              words,
-              imageMap,
-              columns,
-              syllables,
-              grade,
-              classNumber: klass,
-            }),
-          )
-        }
-        exportLabel="DOCX 다운로드"
-        exportDisabled={words.length === 0}
-        disabledReason={disabledReason}
-        summary={`DOCX · 단어 ${words.length}개 · 한 줄 ${columns}칸 · 사진 ${preparedImageCount}/${words.length}개 준비`}
-      />
+      <p className="sr-only">
+        사진 {preparedImageCount}/{words.length}개 준비 · 한 줄 {columns}칸
+      </p>
     </>
   );
 }
 
 function FlickerTool({
-  words,
   imageMap,
-  runDownload,
-  onPrint,
+  templates,
+  sequence,
 }: {
-  words: string[];
   imageMap: ImageMap;
-  runDownload: (action: () => Promise<void>) => Promise<void>;
-  onPrint: () => void;
+  templates: FlickerTemplate[];
+  sequence: ReturnType<typeof buildFlickerSequence>;
 }) {
-  const [templates, setTemplates] = useState<FlickerTemplate[]>(['word', 'image', 'word-image']);
-  const sequence = useMemo(() => buildFlickerSequence(templates, words), [templates, words]);
-  const templateSummary = templates
-    .map((template) => FLICKER_TEMPLATES.find((item) => item.id === template)?.label)
-    .filter((label): label is string => Boolean(label))
-    .join(' · ');
-  const disabledReason =
-    words.length === 0
-      ? EMPTY_MATERIAL_REASON
-      : templates.length === 0
-        ? '슬라이드 양식을 하나 이상 선택하세요.'
-        : undefined;
-
-  function toggleTemplate(template: FlickerTemplate) {
-    setTemplates((current) => {
-      if (current.includes(template)) {
-        return current.filter((item) => item !== template);
-      }
-
-      return [...current, template];
-    });
-  }
-
   return (
     <>
-      <div className="template-picker" role="group" aria-label="슬라이드 양식">
-        {FLICKER_TEMPLATES.map((template) => (
-          <button
-            key={template.id}
-            className="choice-button"
-            type="button"
-            data-active={templates.includes(template.id)}
-            onClick={() => toggleTemplate(template.id)}
-          >
-            {templates.includes(template.id) && <Check size={14} />}
-            {template.label}
-          </button>
-        ))}
-      </div>
-
       {templates.length === 0 ? (
         <Callout tone="warning">슬라이드 양식을 하나 이상 선택하세요.</Callout>
       ) : (
@@ -1631,15 +1820,6 @@ function FlickerTool({
           )}
         </div>
       )}
-
-      <ActionBar
-        onPrint={onPrint}
-        onExport={() => runDownload(() => downloadFlickerPptx(words, imageMap, templates))}
-        exportLabel="PPTX 다운로드"
-        exportDisabled={Boolean(disabledReason)}
-        disabledReason={disabledReason}
-        summary={`PPTX · 슬라이드 ${sequence.length}장 · ${templateSummary || '양식 0개'}`}
-      />
     </>
   );
 }
@@ -1724,7 +1904,9 @@ function DobblePlanPanel({
           <div className="dobble-title-row">
             <Icon size={20} />
             <h2>{tool.label}</h2>
-            <span>{details.dobblePlanTitle}</span>
+            <span data-tone={details.plan.kind === 'unavailable' ? 'danger' : 'success'}>
+              {details.dobblePlanTitle}
+            </span>
             <button
               className="icon-button dobble-info-button"
               type="button"
@@ -1743,9 +1925,13 @@ function DobblePlanPanel({
         details.dobblePhotoIssue ||
         details.dobbleExcludedIssue) && (
         <div className="dobble-plan-alerts" role="status" aria-live="polite">
-          {details.dobbleCompletionHint && <span>{details.dobbleCompletionHint}</span>}
-          {details.dobblePhotoIssue && <span data-tone="warning">{details.dobblePhotoIssue}</span>}
-          {details.dobbleExcludedIssue && <span>{details.dobbleExcludedIssue}</span>}
+          {details.dobbleCompletionHint && (
+            <span data-tone="opportunity">{details.dobbleCompletionHint}</span>
+          )}
+          {details.dobblePhotoIssue && <span data-tone="caution">{details.dobblePhotoIssue}</span>}
+          {details.dobbleExcludedIssue && (
+            <span data-tone="caution">{details.dobbleExcludedIssue}</span>
+          )}
         </div>
       )}
     </section>
@@ -1799,7 +1985,6 @@ function DobbleTool({
 }) {
   return details.indexes.length > 0 ? (
     <>
-      <h3 className="preview-heading">실제 카드 미리보기</h3>
       <div className="dobble-grid printable">
         {details.indexes.map((card, index) => (
           <div className="dobble-card" key={index}>
@@ -2391,19 +2576,9 @@ function ImagePickerDialog({
 
 function StudentInfo({ grade, klass }: { grade: number; klass: number }) {
   return (
-    <div className="student-info" aria-label="학생 정보">
-      <span>
-        <small>학년</small>
-        {grade}
-      </span>
-      <span>
-        <small>반</small>
-        {klass}
-      </span>
-      <span className="student-name">
-        <small>이름</small>
-      </span>
-    </div>
+    <p className="student-info" aria-label="학생 정보">
+      {grade}학년 {klass}반
+    </p>
   );
 }
 
@@ -2434,11 +2609,11 @@ function NumberField({
   );
 }
 
-function StepperControl({
+function CompactStepperControl({
   ariaLabel,
   title,
   valueLabel,
-  description,
+  caption,
   minusLabel,
   plusLabel,
   onMinus,
@@ -2449,7 +2624,7 @@ function StepperControl({
   ariaLabel: string;
   title: string;
   valueLabel: string;
-  description: string;
+  caption?: string;
   minusLabel: string;
   plusLabel: string;
   onMinus: () => void;
@@ -2458,11 +2633,11 @@ function StepperControl({
   plusDisabled: boolean;
 }) {
   return (
-    <div className="stepper-control" role="group" aria-label={ariaLabel}>
+    <div className="compact-stepper-control" role="group" aria-label={ariaLabel}>
       <div>
         <span className="control-kicker">{title}</span>
         <strong>{valueLabel}</strong>
-        <small>{description}</small>
+        {caption && <small>{caption}</small>}
       </div>
       <div className="stepper-buttons">
         <button
@@ -2550,6 +2725,7 @@ function ActionBar({
   disabledReason,
   summary,
   variant = 'sticky',
+  showDisabledReason = true,
 }: {
   onPrint: () => void;
   onExport: () => Promise<void>;
@@ -2558,6 +2734,7 @@ function ActionBar({
   disabledReason?: string;
   summary?: string;
   variant?: 'sticky' | 'inline';
+  showDisabledReason?: boolean;
 }) {
   const [isExporting, setIsExporting] = useState(false);
   const isDisabled = exportDisabled || isExporting;
@@ -2608,9 +2785,8 @@ function ActionBar({
 
   return (
     <div className="action-bar" data-variant={variant} role="group" aria-label="출력 작업">
-      {isCompact && <div className="control-kicker action-kicker">출력</div>}
       {summary && <p className="action-summary">{summary}</p>}
-      {disabledReason && exportDisabled && (
+      {showDisabledReason && disabledReason && exportDisabled && (
         <p className="action-disabled-reason" aria-live="polite">
           {disabledReason}
         </p>

@@ -25,7 +25,7 @@ export function buildFlickerSequence(
   templates: FlickerTemplate[],
   words: string[],
 ): FlickerSlide[] {
-  return words.flatMap((word) => templates.map((template) => ({ template, word })));
+  return templates.flatMap((template) => words.map((word) => ({ template, word })));
 }
 
 export function splitSyllables(word: string): string {

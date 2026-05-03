@@ -9,13 +9,13 @@ describe('material layout helpers', () => {
     ]);
   });
 
-  it('orders flicker slides by selected templates', () => {
+  it('groups flicker slides by template before moving to the next form', () => {
     expect(buildFlickerSequence(['word', 'image', 'word-image'], ['cat', 'dog'])).toEqual([
       { template: 'word', word: 'cat' },
-      { template: 'image', word: 'cat' },
-      { template: 'word-image', word: 'cat' },
       { template: 'word', word: 'dog' },
+      { template: 'image', word: 'cat' },
       { template: 'image', word: 'dog' },
+      { template: 'word-image', word: 'cat' },
       { template: 'word-image', word: 'dog' },
     ]);
   });

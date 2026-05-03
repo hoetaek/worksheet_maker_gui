@@ -22,11 +22,8 @@ describe('App', () => {
     expect(screen.getByRole('navigation', { name: /도구/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: /낱말 찾기/i })).toBeInTheDocument();
     const studentInfo = screen.getByLabelText(/학생 정보/i);
-    expect(within(studentInfo).getByText('학년')).toBeInTheDocument();
-    expect(within(studentInfo).getByText('3')).toBeInTheDocument();
-    expect(within(studentInfo).getByText('반')).toBeInTheDocument();
-    expect(within(studentInfo).getByText('1')).toBeInTheDocument();
-    expect(within(studentInfo).getByText('이름')).toBeInTheDocument();
+    expect(studentInfo).toHaveTextContent('3학년 1반');
+    expect(within(studentInfo).queryByText('이름')).not.toBeInTheDocument();
   });
 
   it('shows a separate word preparation home page at the root route', async () => {
@@ -73,8 +70,7 @@ describe('App', () => {
     await user.click(within(dialog).getByRole('button', { name: '완료' }));
 
     const studentInfo = screen.getByLabelText(/학생 정보/i);
-    expect(within(studentInfo).getByText('4')).toBeInTheDocument();
-    expect(within(studentInfo).getByText('2')).toBeInTheDocument();
+    expect(studentInfo).toHaveTextContent('4학년 2반');
     expect(screen.queryByRole('dialog', { name: '학급 정보' })).not.toBeInTheDocument();
   });
 
@@ -190,11 +186,22 @@ describe('App', () => {
     window.history.replaceState(null, '', '/worksheet');
     render(<App />);
 
+    expect(document.documentElement).toHaveAttribute('data-app-route', 'material');
     expect(screen.getByRole('heading', { level: 2, name: /단어 활동지/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /단어 활동지/i })).toHaveAttribute(
       'aria-current',
       'page',
     );
+  });
+
+  it('marks the root route as a home scroll context', () => {
+    window.history.replaceState(null, '', '/');
+    const { unmount } = render(<App />);
+
+    expect(document.documentElement).toHaveAttribute('data-app-route', 'home');
+
+    unmount();
+    expect(document.documentElement).not.toHaveAttribute('data-app-route');
   });
 
   it('places dobble material settings in the left rail', () => {
@@ -213,24 +220,28 @@ describe('App', () => {
 
     const rail = screen.getByRole('complementary', { name: '자료 설정' });
     expect(within(rail).queryByText('단어 6개 · 사진 6/6개 준비')).not.toBeInTheDocument();
-    expect(within(rail).getByRole('button', { name: /학급 정보 수정/i })).toBeInTheDocument();
-    expect(within(rail).getByText('학급 정보')).toBeInTheDocument();
+    expect(within(rail).queryByRole('button', { name: /학급 정보 수정/i })).not.toBeInTheDocument();
+    expect(within(rail).queryByText('학급 정보')).not.toBeInTheDocument();
     expect(within(rail).queryByText('출력 설정')).not.toBeInTheDocument();
     expect(within(rail).queryByText(/^설정$/)).not.toBeInTheDocument();
     expect(within(rail).getByRole('button', { name: '단어 수정' })).toBeInTheDocument();
     expect(within(rail).queryByText('한글')).not.toBeInTheDocument();
     expect(within(rail).queryByText('한글 · 게임 카드 · 단어 6개')).not.toBeInTheDocument();
-    expect(within(rail).getByRole('heading', { level: 2, name: '도블 카드' })).toBeInTheDocument();
-    expect(within(rail).getByText('바로 출력 가능')).toBeInTheDocument();
-    expect(within(rail).getByText('카드 4장 · 카드당 단어 3개')).toBeInTheDocument();
-    const printButton = within(rail).getByRole('button', { name: '미리보기 인쇄' });
-    const settingsButton = within(rail).getByRole('button', { name: /학급 정보 수정/i });
+    const planPanel = within(rail).getByRole('region', { name: '도블 생성 방식' });
+    expect(
+      within(planPanel).getByRole('heading', { level: 2, name: '도블 카드' }),
+    ).toBeInTheDocument();
+    expect(within(planPanel).getByText('바로 출력 가능')).toBeInTheDocument();
+    expect(within(planPanel).getByText('카드 4장 · 카드당 단어 3개')).toBeInTheDocument();
+    const toolPanel = screen.getByRole('region', { name: '도블 카드' });
+    const outputActions = within(toolPanel).getByRole('group', { name: '출력 작업' });
+    const printButton = within(toolPanel).getByRole('button', { name: '미리보기 인쇄' });
     const wordEditButton = within(rail).getByRole('button', { name: '단어 수정' });
     expect(wordEditButton.querySelector('.lucide-pencil')).toBeInTheDocument();
     expect(printButton).toBeInTheDocument();
     expect(printButton).toHaveAttribute('title', '미리보기 인쇄');
     expect(printButton.textContent?.trim()).toBe('');
-    const exportButton = within(rail).getByRole('button', { name: 'PPTX 다운로드' });
+    const exportButton = within(toolPanel).getByRole('button', { name: 'PPTX 다운로드' });
     expect(exportButton).toBeInTheDocument();
     expect(exportButton).toHaveAttribute('title', 'PPTX 다운로드');
     expect(exportButton.textContent?.trim()).toBe('');
@@ -241,19 +252,126 @@ describe('App', () => {
     ).toBeTruthy();
     expect(within(rail).getByText('단어 1개 더 넣으면 카드 7장 가능')).toBeInTheDocument();
     const displayMode = within(rail).getByRole('group', { name: '도블 표시 방식' });
-    const outputActions = within(rail).getByRole('group', { name: '출력 작업' });
     expect(within(displayMode).getByText('카드에 넣을 내용')).toBeInTheDocument();
-    expect(within(outputActions).getByText('출력')).toBeInTheDocument();
+    expect(within(outputActions).queryByText(/^출력$/)).not.toBeInTheDocument();
     expect(within(displayMode).queryByText(/^표시$/)).not.toBeInTheDocument();
-    expect(
-      settingsButton.compareDocumentPosition(wordEditButton) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(within(rail).queryByRole('group', { name: '출력 작업' })).not.toBeInTheDocument();
+    expect(within(toolPanel).getByText('실제 카드 미리보기')).toBeInTheDocument();
     expect(
       wordEditButton.compareDocumentPosition(displayMode) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it('keeps settings in the left rail and output actions in the preview header', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const assertRailOwnsWorkflow = ({
+      toolName,
+      settingsName,
+      summaryText,
+    }: {
+      toolName: string;
+      settingsName: string;
+      summaryText: string;
+    }) => {
+      const rail = screen.getByRole('complementary', { name: '자료 설정' });
+      const toolPanel = screen.getByRole('region', { name: toolName });
+      const settings = within(rail).getByRole('group', { name: settingsName });
+      const outputActions = within(toolPanel).getByRole('group', { name: '출력 작업' });
+
+      expect(within(rail).getByText(summaryText)).toBeInTheDocument();
+      expect(settings).toBeInTheDocument();
+      expect(outputActions).toBeInTheDocument();
+      expect(within(rail).queryByRole('group', { name: '출력 작업' })).not.toBeInTheDocument();
+      if (toolName === '낱말 찾기' || toolName === '단어 활동지') {
+        expect(within(rail).getByRole('button', { name: /학급 정보 수정/i })).toBeInTheDocument();
+      } else {
+        expect(
+          within(rail).queryByRole('button', { name: /학급 정보 수정/i }),
+        ).not.toBeInTheDocument();
+      }
+      expect(
+        within(toolPanel).queryByRole('group', { name: settingsName }),
+      ).not.toBeInTheDocument();
+      expect(
+        within(toolPanel).queryByRole('heading', { level: 2, name: toolName }),
+      ).not.toBeInTheDocument();
+    };
+
+    assertRailOwnsWorkflow({
+      toolName: '낱말 찾기',
+      settingsName: '낱말찾기 설정',
+      summaryText: '퍼즐 15 x 15 · 단어 6개',
+    });
     expect(
-      displayMode.compareDocumentPosition(outputActions) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+      within(screen.getByRole('complementary', { name: '자료 설정' })).queryByText(
+        '바로 출력 가능',
+      ),
+    ).not.toBeInTheDocument();
+    const wordSearchSettings = screen.getByRole('group', { name: '낱말찾기 설정' });
+    expect(
+      within(wordSearchSettings).queryByText(
+        '정사각형으로 인쇄해 칸이 찌그러지지 않게 유지합니다.',
+      ),
+    ).not.toBeInTheDocument();
+    expect(within(wordSearchSettings).queryByText('낱말 글자를 덜 섞어요')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /단어 활동지/i }));
+    assertRailOwnsWorkflow({
+      toolName: '단어 활동지',
+      settingsName: '활동지 설정',
+      summaryText: '단어 6개 · 한 줄 5칸',
+    });
+
+    await user.click(screen.getByRole('button', { name: /단어 깜빡이/i }));
+    assertRailOwnsWorkflow({
+      toolName: '단어 깜빡이',
+      settingsName: '깜빡이 설정',
+      summaryText: '슬라이드 18장 · 단어 · 사진 · 단어+사진',
+    });
+  });
+
+  it('keeps sheet-based previews to a single compact header', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    let toolPanel = screen.getByRole('region', { name: '낱말 찾기' });
+    expect(
+      within(toolPanel).getByRole('heading', { level: 3, name: '실제 자료 미리보기' }),
+    ).toHaveClass('material-preview-title');
+    expect(within(toolPanel).getByText('실제 자료 미리보기').parentElement).toHaveClass(
+      'material-preview-toolbar',
+    );
+    expect(
+      within(toolPanel).getByRole('heading', { level: 3, name: '낱말 찾기' }),
+    ).toBeInTheDocument();
+    expect(
+      within(toolPanel).getByRole('heading', { level: 3, name: '낱말 찾기' }).parentElement,
+    ).toHaveClass('sheet-title-row');
+    expect(within(toolPanel).getByLabelText('학생 정보')).toHaveTextContent('3학년 1반');
+    expect(within(toolPanel).queryByText('15 x 15')).not.toBeInTheDocument();
+    expect(within(toolPanel).queryByText('단어 6개')).not.toBeInTheDocument();
+    expect(within(toolPanel).queryByText('이름')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /단어 활동지/i }));
+
+    toolPanel = screen.getByRole('region', { name: '단어 활동지' });
+    expect(
+      within(toolPanel).getByRole('heading', { level: 3, name: '실제 자료 미리보기' }),
+    ).toHaveClass('material-preview-title');
+    expect(within(toolPanel).getByText('실제 자료 미리보기').parentElement).toHaveClass(
+      'material-preview-toolbar',
+    );
+    expect(
+      within(toolPanel).getByRole('heading', { level: 3, name: '단어 활동지' }),
+    ).toBeInTheDocument();
+    expect(
+      within(toolPanel).getByRole('heading', { level: 3, name: '단어 활동지' }).parentElement,
+    ).toHaveClass('sheet-title-row');
+    expect(within(toolPanel).getByLabelText('학생 정보')).toHaveTextContent('3학년 1반');
+    expect(within(toolPanel).queryByText('단어 6개')).not.toBeInTheDocument();
+    expect(within(toolPanel).queryByText('이름')).not.toBeInTheDocument();
   });
 
   it('uses sample words that match the active workflow', async () => {
@@ -279,26 +397,29 @@ describe('App', () => {
     );
   });
 
-  it('summarizes non-dobble exports in the sticky action bar', async () => {
+  it('summarizes non-dobble materials in the left settings rail', async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    let actionBar = screen.getByRole('group', { name: '출력 작업' });
-    expect(
-      within(actionBar).getByText('DOCX · 퍼즐 15 x 15 · 단어 6개 · 사진 0/6개 준비'),
-    ).toBeInTheDocument();
+    let rail = screen.getByRole('complementary', { name: '자료 설정' });
+    let toolPanel = screen.getByRole('region', { name: '낱말 찾기' });
+    let actionBar = within(toolPanel).getByRole('group', { name: '출력 작업' });
+    expect(within(rail).getByText('퍼즐 15 x 15 · 단어 6개')).toBeInTheDocument();
+    expect(within(actionBar).getByRole('button', { name: 'DOCX 다운로드' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /단어 활동지/i }));
-    actionBar = screen.getByRole('group', { name: '출력 작업' });
-    expect(
-      within(actionBar).getByText('DOCX · 단어 6개 · 한 줄 5칸 · 사진 0/6개 준비'),
-    ).toBeInTheDocument();
+    rail = screen.getByRole('complementary', { name: '자료 설정' });
+    toolPanel = screen.getByRole('region', { name: '단어 활동지' });
+    actionBar = within(toolPanel).getByRole('group', { name: '출력 작업' });
+    expect(within(rail).getByText('단어 6개 · 한 줄 5칸')).toBeInTheDocument();
+    expect(within(actionBar).getByRole('button', { name: 'DOCX 다운로드' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /단어 깜빡이/i }));
-    actionBar = screen.getByRole('group', { name: '출력 작업' });
-    expect(
-      within(actionBar).getByText('PPTX · 슬라이드 18장 · 단어 · 사진 · 단어+사진'),
-    ).toBeInTheDocument();
+    rail = screen.getByRole('complementary', { name: '자료 설정' });
+    toolPanel = screen.getByRole('region', { name: '단어 깜빡이' });
+    actionBar = within(toolPanel).getByRole('group', { name: '출력 작업' });
+    expect(within(rail).getByText('슬라이드 18장 · 단어 · 사진 · 단어+사진')).toBeInTheDocument();
+    expect(within(actionBar).getByRole('button', { name: 'PPTX 다운로드' })).toBeInTheDocument();
   });
 
   it('shows a visible reason when flicker export has no selected template', async () => {
@@ -313,9 +434,10 @@ describe('App', () => {
     await user.click(within(templatePicker).getByRole('button', { name: '단어+사진' }));
 
     const actionBar = screen.getByRole('group', { name: '출력 작업' });
+    expect(screen.getByText('양식 선택 필요')).toHaveAttribute('data-tone', 'danger');
     expect(
-      within(actionBar).getByText('슬라이드 양식을 하나 이상 선택하세요.'),
-    ).toBeInTheDocument();
+      within(actionBar).queryByText('슬라이드 양식을 하나 이상 선택하세요.'),
+    ).not.toBeInTheDocument();
     expect(within(actionBar).getByRole('button', { name: '미리보기 인쇄' })).toBeDisabled();
     expect(within(actionBar).getByRole('button', { name: 'PPTX 다운로드' })).toBeDisabled();
   });
@@ -353,9 +475,9 @@ describe('App', () => {
     expect(
       within(planPanel).queryByText(/모든 카드 조합을 만들 수 있습니다/i),
     ).not.toBeInTheDocument();
-    const rail = screen.getByRole('complementary', { name: '자료 설정' });
-    expect(within(rail).getByRole('button', { name: '미리보기 인쇄' })).toBeEnabled();
-    expect(within(rail).getByRole('button', { name: 'PPTX 다운로드' })).toBeEnabled();
+    const toolPanel = screen.getByRole('region', { name: '도블 카드' });
+    expect(within(toolPanel).getByRole('button', { name: '미리보기 인쇄' })).toBeEnabled();
+    expect(within(toolPanel).getByRole('button', { name: 'PPTX 다운로드' })).toBeEnabled();
     expect(
       screen.getByRole('heading', { level: 3, name: '실제 카드 미리보기' }),
     ).toBeInTheDocument();
@@ -400,7 +522,10 @@ describe('App', () => {
     expect(screen.queryByText('word 21')).not.toBeInTheDocument();
     expect(within(planPanel).getByText('바로 출력 가능')).toBeInTheDocument();
     expect(within(planPanel).queryByText(/축소 세트/i)).not.toBeInTheDocument();
-    expect(within(planPanel).getByText('단어 1개 더 넣으면 카드 21장 가능')).toBeInTheDocument();
+    expect(within(planPanel).getByText('단어 1개 더 넣으면 카드 21장 가능')).toHaveAttribute(
+      'data-tone',
+      'opportunity',
+    );
     expect(within(planPanel).getByText('카드 16장 · 카드당 단어 5개')).toBeInTheDocument();
     expect(within(planPanel).queryByText('자세히 보기')).not.toBeInTheDocument();
     expect(within(planPanel).queryByText(/20\/20개 사용/i)).not.toBeInTheDocument();
@@ -619,15 +744,18 @@ describe('App', () => {
 
     expect(
       within(planPanel).getByText('사진 19개 필요 · 부족한 사진은 첫 글자로 대체됨'),
-    ).toBeInTheDocument();
-    expect(within(planPanel).getByText('단어 1개는 카드에 안 들어감')).toBeInTheDocument();
+    ).toHaveAttribute('data-tone', 'caution');
+    expect(within(planPanel).getByText('단어 1개는 카드에 안 들어감')).toHaveAttribute(
+      'data-tone',
+      'caution',
+    );
     expect(within(planPanel).queryByText('자세히 보기')).not.toBeInTheDocument();
     expect(within(planPanel).queryByText(/사진 2\/21개 준비/i)).not.toBeInTheDocument();
     expect(within(planPanel).queryByText('사용 단어 21개 보기')).not.toBeInTheDocument();
     expect(within(planPanel).queryByText(/제외: victor/i)).not.toBeInTheDocument();
   });
 
-  it('keeps dobble output actions at the end of the settings rail', async () => {
+  it('keeps dobble output actions in the preview header', async () => {
     const user = userEvent.setup();
     const words = [
       'apple',
@@ -652,29 +780,25 @@ describe('App', () => {
 
     const rail = screen.getByRole('complementary', { name: '자료 설정' });
     const planPanel = within(rail).getByRole('region', { name: '도블 생성 방식' });
-    const actionBar = within(rail).getByRole('group', { name: '출력 작업' });
+    const toolPanel = screen.getByRole('region', { name: '도블 카드' });
+    const actionBar = within(toolPanel).getByRole('group', { name: '출력 작업' });
     const wordEditButton = within(rail).getByRole('button', { name: '단어 수정' });
-    const settingsButton = within(rail).getByRole('button', { name: /학급 정보 수정/i });
     const displayMode = within(rail).getByRole('group', { name: '도블 표시 방식' });
     expect(within(planPanel).getByText('카드 13장 · 카드당 단어 4개')).toBeInTheDocument();
     expect(displayMode).toBeInTheDocument();
+    expect(within(rail).queryByRole('button', { name: /학급 정보 수정/i })).not.toBeInTheDocument();
+    expect(within(rail).queryByRole('group', { name: '출력 작업' })).not.toBeInTheDocument();
     expect(
       within(planPanel).queryByText(
         '카드 13장 · 카드당 단어 4개 · 사진 0/13개 준비 · 첫 글자 13개 대체',
       ),
     ).not.toBeInTheDocument();
     expect(
-      settingsButton.compareDocumentPosition(wordEditButton) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
       wordEditButton.compareDocumentPosition(displayMode) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      displayMode.compareDocumentPosition(actionBar) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     const exportButton = within(actionBar).getByRole('button', { name: 'PPTX 다운로드' });
     const printButton = within(actionBar).getByRole('button', { name: '미리보기 인쇄' });
-    expect(within(actionBar).getByText('출력')).toBeInTheDocument();
+    expect(within(actionBar).queryByText(/^출력$/)).not.toBeInTheDocument();
     expect(exportButton).toBeEnabled();
     expect(
       exportButton.compareDocumentPosition(printButton) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -807,7 +931,7 @@ describe('App', () => {
     await user.click(within(templatePicker).getByRole('button', { name: '사진' }));
     await user.click(within(templatePicker).getByRole('button', { name: '단어+사진' }));
 
-    expect(screen.getAllByText('슬라이드 양식을 하나 이상 선택하세요.')).toHaveLength(2);
+    expect(screen.getByText('슬라이드 양식을 하나 이상 선택하세요.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'PPTX 다운로드' })).toBeDisabled();
   });
 
@@ -866,14 +990,14 @@ describe('App', () => {
 
     expect(screen.queryByText('카드당 그림 수')).not.toBeInTheDocument();
     expect(screen.queryByRole('group', { name: '도블 표시 방식' })).not.toBeInTheDocument();
-    expect(within(planPanel).getByText('단어 2개 더 필요')).toBeInTheDocument();
+    expect(within(planPanel).getByText('단어 2개 더 필요')).toHaveAttribute('data-tone', 'danger');
     expect(within(planPanel).getByText('현재 3개 · 최소 5개')).toBeInTheDocument();
     expect(
       within(planPanel).queryByText(/단어 7개를 맞추면 가장 작은 완전 세트/i),
     ).not.toBeInTheDocument();
-    const rail = screen.getByRole('complementary', { name: '자료 설정' });
-    expect(within(rail).getByRole('button', { name: '미리보기 인쇄' })).toBeDisabled();
-    expect(within(rail).getByRole('button', { name: 'PPTX 다운로드' })).toBeDisabled();
+    const toolPanel = screen.getByRole('region', { name: '도블 카드' });
+    expect(within(toolPanel).getByRole('button', { name: '미리보기 인쇄' })).toBeDisabled();
+    expect(within(toolPanel).getByRole('button', { name: 'PPTX 다운로드' })).toBeDisabled();
   });
 
   it('explains dobble with only teacher-facing concepts', async () => {
@@ -915,7 +1039,10 @@ describe('App', () => {
     ).toEqual(['퍼즐 크기 늘리기', '퍼즐 크기 줄이기']);
     await user.click(within(sizeControl).getByRole('button', { name: '퍼즐 크기 줄이기' }));
     expect(within(sizeControl).getByText('14 x 14')).toBeInTheDocument();
-    expect(screen.getAllByText('14 x 14').length).toBeGreaterThan(1);
+    expect(screen.getAllByText('14 x 14')).toHaveLength(1);
+    expect(
+      within(screen.getByRole('region', { name: '낱말 찾기' })).queryByText('14 x 14'),
+    ).not.toBeInTheDocument();
 
     const difficultyControl = screen.getByRole('group', { name: '난이도' });
     expect(within(difficultyControl).getByText('쉬움')).toBeInTheDocument();
@@ -941,11 +1068,7 @@ describe('App', () => {
       within(fillerControl)
         .getAllByRole('button')
         .map((button) => button.textContent),
-    ).toEqual([
-      '쉽게 찾기낱말 글자를 덜 섞어요',
-      '균형 있게기본 추천',
-      '더 어렵게비슷한 글자를 섞어요',
-    ]);
+    ).toEqual(['쉽게 찾기', '균형 있게', '더 어렵게']);
 
     await user.click(within(fillerControl).getByRole('button', { name: /더 어렵게/ }));
 
@@ -955,7 +1078,7 @@ describe('App', () => {
     );
   });
 
-  it('updates the worksheet preview when syllable display is toggled', async () => {
+  it('hides letter splitting for Korean worksheet words', async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -964,10 +1087,23 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: /단어 활동지/i }));
 
     expect(screen.getAllByText('토끼').length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText('글자 나누기')).not.toBeInTheDocument();
+    expect(screen.queryByText('토 · 끼')).not.toBeInTheDocument();
+  });
 
-    await user.click(screen.getByLabelText('음절 표시'));
+  it('updates the worksheet preview when non-Korean letter splitting is toggled', async () => {
+    const user = userEvent.setup();
+    render(<App />);
 
-    expect(screen.getByText('토 · 끼')).toBeInTheDocument();
+    await user.clear(screen.getByLabelText(/단어 목록/i));
+    await user.type(screen.getByLabelText(/단어 목록/i), 'apple');
+    await user.click(screen.getByRole('button', { name: /단어 활동지/i }));
+
+    expect(screen.getAllByText('apple').length).toBeGreaterThan(0);
+
+    await user.click(screen.getByLabelText('글자 나누기'));
+
+    expect(screen.getByText('a · p · p · l · e')).toBeInTheDocument();
   });
 
   it('restores the edited word list after refresh before photo search', async () => {

@@ -134,27 +134,91 @@ describe('responsive stylesheet contracts', () => {
     );
   });
 
-  it('groups compact dobble output actions in a contained footer toolbar', () => {
+  it('groups compact output actions in the preview header', () => {
     expect(stylesheet).toMatch(
-      /\.material-settings-rail \.action-bar\[data-variant='inline'\]\s*{[^}]*width:\s*100%/s,
+      /\.material-preview-toolbar \.action-bar\[data-variant='inline'\]\s*{[^}]*width:\s*auto/s,
     );
     expect(stylesheet).toMatch(
-      /\.material-settings-rail \.action-bar\[data-variant='inline'\]\s*{[^}]*padding-top:\s*10px/s,
+      /\.material-preview-toolbar \.action-bar\[data-variant='inline'\]\s*{[^}]*padding-top:\s*0/s,
     );
     expect(stylesheet).toMatch(
-      /\.material-settings-rail \.action-bar\[data-variant='inline'\]\s*{[^}]*display:\s*grid/s,
+      /\.material-preview-toolbar \.action-bar\[data-variant='inline'\]\s*{[^}]*display:\s*grid/s,
     );
     expect(stylesheet).toMatch(
-      /\.material-settings-rail \.action-bar\[data-variant='inline'\] \.action-buttons\s*{[^}]*display:\s*flex/s,
+      /\.material-preview-toolbar \.action-bar\[data-variant='inline'\] \.action-buttons\s*{[^}]*display:\s*flex/s,
     );
     expect(stylesheet).toMatch(
-      /\.material-settings-rail \.action-bar\[data-variant='inline'\] \.action-buttons\s*{[^}]*justify-content:\s*flex-end/s,
+      /\.material-preview-toolbar \.action-bar\[data-variant='inline'\] \.action-buttons\s*{[^}]*justify-content:\s*flex-end/s,
     );
     expect(stylesheet).toMatch(
-      /\.material-settings-rail \.action-bar\[data-variant='inline'\] \.secondary-button,[\s\S]*\.material-settings-rail \.action-bar\[data-variant='inline'\] \.primary-button\s*{[^}]*width:\s*44px/s,
+      /\.material-preview-toolbar \.action-bar\[data-variant='inline'\] \.secondary-button,[\s\S]*\.material-preview-toolbar \.action-bar\[data-variant='inline'\] \.primary-button\s*{[^}]*width:\s*44px/s,
     );
     expect(stylesheet).toMatch(
-      /\.material-settings-rail \.action-bar\[data-variant='inline'\] \.secondary-button,[\s\S]*\.material-settings-rail \.action-bar\[data-variant='inline'\] \.primary-button\s*{[^}]*min-height:\s*44px/s,
+      /\.material-preview-toolbar \.action-bar\[data-variant='inline'\] \.secondary-button,[\s\S]*\.material-preview-toolbar \.action-bar\[data-variant='inline'\] \.primary-button\s*{[^}]*min-height:\s*44px/s,
+    );
+  });
+
+  it('uses distinct dobble status tones for opportunity, caution, and blocking states', () => {
+    expect(stylesheet).toMatch(
+      /\.dobble-plan-alerts span\[data-tone='opportunity'\]\s*{[^}]*color:\s*#a16207/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.dobble-plan-alerts span\[data-tone='caution'\]\s*{[^}]*color:\s*#c2410c/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.dobble-title-row > span\[data-tone='danger'\]\s*{[^}]*color:\s*#9f2d25/s,
+    );
+  });
+
+  it('splits material-page scrolling between the settings rail and preview panel', () => {
+    expect(stylesheet).toMatch(
+      /@media \(min-width:\s*981px\)[\s\S]*html\[data-app-route='material'\],[\s\S]*html\[data-app-route='material'\] body,[\s\S]*html\[data-app-route='material'\] #root\s*{[^}]*overflow:\s*hidden/s,
+    );
+    expect(stylesheet).toMatch(
+      /@media \(min-width:\s*981px\)[\s\S]*html\[data-app-route='material'\] \.app-shell\s*{[^}]*grid-template-rows:\s*auto minmax\(0,\s*1fr\)/s,
+    );
+    expect(stylesheet).toMatch(
+      /@media \(min-width:\s*981px\)[\s\S]*html\[data-app-route='material'\] \.app-shell\s*{[^}]*height:\s*100dvh/s,
+    );
+    expect(stylesheet).toMatch(/\.material-workspace\s*{[^}]*padding:\s*24px 0/s);
+    expect(stylesheet).toMatch(/\.material-workspace\s*{[^}]*overflow:\s*hidden/s);
+    expect(stylesheet).toMatch(/\.material-workspace\s*{[^}]*align-items:\s*stretch/s);
+    expect(stylesheet).toMatch(/\.material-settings-rail\s*{[^}]*max-height:\s*100%/s);
+    expect(stylesheet).toMatch(/\.material-settings-rail\s*{[^}]*overflow-y:\s*auto/s);
+    expect(stylesheet).toMatch(/\.material-settings-rail\s*{[^}]*overscroll-behavior:\s*contain/s);
+    expect(stylesheet).toMatch(/\.tool-panel\s*{[^}]*max-height:\s*100%/s);
+    expect(stylesheet).toMatch(/\.tool-panel\s*{[^}]*overflow-y:\s*auto/s);
+    expect(stylesheet).toMatch(/\.tool-panel\s*{[^}]*overscroll-behavior:\s*contain/s);
+    expect(stylesheet).toMatch(
+      /@media \(max-width:\s*980px\)[\s\S]*\.material-workspace\s*{[^}]*overflow:\s*visible/s,
+    );
+  });
+
+  it('keeps sheet preview headers compact', () => {
+    expect(stylesheet).toMatch(/\.sheet-meta\s*{[^}]*align-items:\s*center/s);
+    expect(stylesheet).toMatch(/\.sheet-meta\s*{[^}]*padding-bottom:\s*12px/s);
+    expect(stylesheet).toMatch(/\.sheet-title-row\s*{[^}]*display:\s*flex/s);
+    expect(stylesheet).toMatch(/\.sheet-title-row\s*{[^}]*align-items:\s*baseline/s);
+    expect(stylesheet).toMatch(/\.sheet-meta h3\s*{[^}]*font-size:\s*22px/s);
+    expect(stylesheet).toMatch(/\.student-info\s*{[^}]*display:\s*inline-flex/s);
+    expect(stylesheet).toMatch(/\.student-info\s*{[^}]*white-space:\s*nowrap/s);
+  });
+
+  it('places compact output actions inside the preview header', () => {
+    expect(stylesheet).toMatch(/\.material-preview-toolbar\s*{[^}]*position:\s*sticky/s);
+    expect(stylesheet).toMatch(/\.material-preview-toolbar\s*{[^}]*top:\s*0/s);
+    expect(stylesheet).toMatch(/\.material-preview-toolbar\s*{[^}]*display:\s*flex/s);
+    expect(stylesheet).toMatch(
+      /\.material-preview-toolbar\s*{[^}]*justify-content:\s*space-between/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.material-preview-toolbar \.action-bar\[data-variant='inline'\]\s*{[^}]*width:\s*auto/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.material-preview-toolbar \.action-bar\[data-variant='inline'\]\s*{[^}]*padding-top:\s*0/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.material-preview-toolbar \.action-bar\[data-variant='inline'\]\s*{[^}]*border-top:\s*0/s,
     );
   });
 });
