@@ -1354,6 +1354,14 @@ select {
   border-bottom: 1px solid var(--line);
 }
 
+.sheet-instruction {
+  margin-top: -8px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
 .sheet-title-row {
   display: flex;
   align-items: baseline;
@@ -1474,11 +1482,23 @@ select {
 }
 
 .hint-item {
+  position: relative;
   grid-template-columns: 1fr;
   align-items: center;
   justify-items: stretch;
   gap: 10px;
   text-align: center;
+}
+
+.hint-checkmark {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #4b5563;
+  border-radius: 4px;
+  background: #ffffff;
 }
 
 .hint-item .image-preview,
@@ -1495,6 +1515,10 @@ select {
 .material-tile {
   justify-items: center;
   text-align: center;
+}
+
+.material-tile {
+  align-content: start;
 }
 
 .hint-item span,
@@ -1563,6 +1587,32 @@ select {
 
 .material-tile strong {
   overflow-wrap: anywhere;
+}
+
+.material-tile .image-preview,
+.material-tile .image-placeholder {
+  width: 88px;
+  height: 88px;
+}
+
+.write-practice {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+  text-align: left;
+}
+
+.write-practice span:first-child {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.write-line {
+  display: block;
+  height: 18px;
+  border-bottom: 1.5px solid #4b5563;
 }
 
 .template-picker {

@@ -374,6 +374,29 @@ describe('App', () => {
     expect(within(toolPanel).queryByText('이름')).not.toBeInTheDocument();
   });
 
+  it('gives student sheets a clear task and nearby completion spaces', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    let toolPanel = screen.getByRole('region', { name: '낱말 찾기' });
+    expect(within(toolPanel).getByText('그림을 보고 낱말을 찾아 동그라미 하세요.')).toHaveClass(
+      'sheet-instruction',
+    );
+    const hintSection = within(toolPanel).getByRole('region', { name: '찾을 낱말' });
+    expect(hintSection.querySelectorAll('.hint-checkmark')).toHaveLength(6);
+
+    await user.click(screen.getByRole('button', { name: /단어 활동지/i }));
+
+    toolPanel = screen.getByRole('region', { name: '단어 활동지' });
+    expect(
+      within(toolPanel).getByText('그림을 보고 단어를 읽은 뒤 빈칸에 따라 쓰세요.'),
+    ).toHaveClass('sheet-instruction');
+    const firstTile = within(toolPanel).getByRole('group', { name: '토끼 단어 카드' });
+    expect(within(firstTile).getByText('써 보기')).toBeInTheDocument();
+    expect(within(firstTile).getByLabelText('토끼 쓰기 연습')).toBeInTheDocument();
+    expect(firstTile.querySelectorAll('.write-line')).toHaveLength(2);
+  });
+
   it('uses sample words that match the active workflow', async () => {
     const user = userEvent.setup();
     render(<App />);

@@ -172,10 +172,13 @@ def test_worksheet_endpoint_returns_docx() -> None:
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
     assert response.content[:2] == b"PK"
-    assert "_______" not in docx_text(response.content)
-    assert "학년" in docx_text(response.content)
-    assert "반" in docx_text(response.content)
-    assert "이름" in docx_text(response.content)
+    text = docx_text(response.content)
+    assert "_______" not in text
+    assert "그림을 보고 단어를 읽은 뒤 빈칸에 따라 쓰세요." in text
+    assert "써 보기" in text
+    assert "학년" in text
+    assert "반" in text
+    assert "이름" in text
 
 
 def test_worksheet_endpoint_embeds_item_images() -> None:
@@ -213,6 +216,8 @@ def test_word_search_endpoint_returns_premium_docx_without_underscore_name_field
     )
     text = docx_text(response.content)
     assert "_______" not in text
+    assert "그림을 보고 낱말을 찾아 동그라미 하세요." in text
+    assert "□ 토끼" in text
     assert "학년" in text
     assert "반" in text
     assert "이름" in text

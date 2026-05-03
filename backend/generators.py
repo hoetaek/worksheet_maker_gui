@@ -42,6 +42,8 @@ FLICKER_REVEAL_DELAY_MS = 500
 FLICKER_REVEAL_DURATION_MS = 500
 P14_NS_URI = "http://schemas.microsoft.com/office/powerpoint/2010/main"
 WAV_CONTENT_TYPE = "audio/x-wav"
+WORD_SEARCH_STUDENT_INSTRUCTION = "그림을 보고 낱말을 찾아 동그라미 하세요."
+WORKSHEET_STUDENT_INSTRUCTION = "그림을 보고 단어를 읽은 뒤 빈칸에 따라 쓰세요."
 
 
 async def make_flicker_pptx(request: FlickerRequest) -> bytes:
@@ -161,14 +163,17 @@ async def make_worksheet_docx(request: WorksheetRequest) -> bytes:
     heading = document.add_heading("단어 활동지", 0)
     heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_student_info(document, request.grade, request.class_number)
+    instruction = document.add_paragraph(WORKSHEET_STUDENT_INSTRUCTION)
+    instruction.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    instruction.runs[0].bold = True
 
-    rows = ((len(request.items) + request.columns - 1) // request.columns) * 2
+    rows = (len(request.items) + request.columns - 1) // request.columns
     table = document.add_table(rows=rows, cols=request.columns, style="Table Grid")
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
 
     for row_index, row in enumerate(table.rows):
         for col_index, cell in enumerate(row.cells):
-            item_index = (row_index // 2) * request.columns + col_index
+            item_index = row_index * request.columns + col_index
             cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
             paragraph = cell.paragraphs[0]
             paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -176,18 +181,27 @@ async def make_worksheet_docx(request: WorksheetRequest) -> bytes:
                 continue
 
             item = request.items[item_index]
-            if row_index % 2 == 0:
-                image = await resolve_image(item.image)
-                if image:
-                    paragraph.add_run().add_picture(image, width=Cm(3.0))
-                else:
-                    paragraph.add_run("사진 없음")
+            image = await resolve_image(item.image)
+            if image:
+                paragraph.add_run().add_picture(image, width=Cm(3.0))
             else:
-                text = split_syllables(item.word) if request.syllables else item.word
-                run = paragraph.add_run(text)
-                run.font.name = "Arial"
-                run.font.size = Pt(15)
-                run.bold = True
+                paragraph.add_run("사진 없음")
+
+            text = split_syllables(item.word) if request.syllables else item.word
+            word_paragraph = cell.add_paragraph()
+            word_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            word_run = word_paragraph.add_run(text)
+            word_run.font.name = "Arial"
+            word_run.font.size = Pt(15)
+            word_run.bold = True
+
+            practice_label = cell.add_paragraph("써 보기")
+            practice_label.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            practice_label.runs[0].font.size = Pt(9)
+            for _ in range(2):
+                line_paragraph = cell.add_paragraph()
+                line_run = line_paragraph.add_run(" " * 24)
+                line_run.underline = True
 
     return save_document(document)
 
@@ -203,6 +217,9 @@ async def make_word_search_docx(request: WordSearchRequest) -> bytes:
     heading = document.add_heading(request.title, 0)
     heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_student_info(document, request.grade, request.class_number)
+    instruction = document.add_paragraph(WORD_SEARCH_STUDENT_INSTRUCTION)
+    instruction.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    instruction.runs[0].bold = True
 
     width = max(len(request.grid[0]), 1)
     table = document.add_table(rows=len(request.grid), cols=width, style="Table Grid")
@@ -241,7 +258,7 @@ async def make_word_search_docx(request: WordSearchRequest) -> bytes:
                 if image:
                     paragraph.add_run().add_picture(image, width=Cm(3.2))
 
-                word_paragraph = cell.add_paragraph(item.word)
+                word_paragraph = cell.add_paragraph(f"□ {item.word}")
                 word_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 word_run = word_paragraph.runs[0]
                 word_run.font.size = Pt(11)

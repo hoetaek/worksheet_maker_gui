@@ -120,6 +120,8 @@ const WORKSPACE_STORAGE_KEY = 'worksheet-maker-workspace-v1';
 const WORD_SEARCH_MIN_SIZE = 5;
 const WORD_SEARCH_MAX_SIZE = 28;
 const EMPTY_MATERIAL_REASON = '단어를 입력하면 다운로드할 수 있습니다.';
+const WORD_SEARCH_STUDENT_INSTRUCTION = '그림을 보고 낱말을 찾아 동그라미 하세요.';
+const WORKSHEET_STUDENT_INSTRUCTION = '그림을 보고 단어를 읽은 뒤 빈칸에 따라 쓰세요.';
 
 const ROUTE_PATHS: Record<RouteId, string> = {
   home: '/',
@@ -1708,6 +1710,7 @@ function WordSearchTool({
               </div>
               <StudentInfo grade={grade} klass={klass} />
             </div>
+            <p className="sheet-instruction">{WORD_SEARCH_STUDENT_INSTRUCTION}</p>
             <div className="puzzle-board-wrap">
               <div
                 className="puzzle-grid"
@@ -1761,6 +1764,7 @@ function WorksheetTool({
           </div>
           <StudentInfo grade={grade} klass={klass} />
         </div>
+        <p className="sheet-instruction">{WORKSHEET_STUDENT_INSTRUCTION}</p>
         <div
           className="worksheet-grid"
           style={{ gridTemplateColumns: `repeat(${worksheet.columns}, minmax(96px, 1fr))` }}
@@ -2253,6 +2257,7 @@ function WordImageHints({
       <div className="hint-grid">
         {words.map((word) => (
           <div className="hint-item" key={word}>
+            <span className="hint-checkmark" aria-hidden="true" />
             <ImagePreview word={word} imageUrl={imageMap[word]} />
             <span>{uppercase ? word.toUpperCase() : word}</span>
           </div>
@@ -2284,9 +2289,14 @@ function MaterialTile({
   syllables: boolean;
 }) {
   return (
-    <div className="material-tile">
+    <div className="material-tile" role="group" aria-label={`${word} 단어 카드`}>
       <ImagePreview word={word} imageUrl={imageUrl} />
       <strong>{syllables ? word.split('').join(' · ') : word}</strong>
+      <div className="write-practice" aria-label={`${word} 쓰기 연습`}>
+        <span>써 보기</span>
+        <span className="write-line" />
+        <span className="write-line" />
+      </div>
     </div>
   );
 }
