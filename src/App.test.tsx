@@ -9,6 +9,7 @@ describe('App', () => {
   });
 
   afterEach(() => {
+    delete document.body.dataset.printTarget;
     window.localStorage.clear();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
@@ -780,6 +781,68 @@ describe('App', () => {
     );
   });
 
+  it('disables downloads that would generate empty materials', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.clear(screen.getByLabelText(/단어 목록/i));
+
+    const wordSearchExport = screen.getByRole('button', { name: 'DOCX 다운로드' });
+    expect(wordSearchExport).toBeDisabled();
+    expect(screen.getByText('단어를 입력하면 다운로드할 수 있습니다.')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /단어 깜빡이/i }));
+    expect(screen.getByRole('button', { name: 'PPTX 다운로드' })).toBeDisabled();
+    expect(screen.getByText('단어를 입력하면 다운로드할 수 있습니다.')).toBeInTheDocument();
+  });
+
+  it('disables flicker download when every slide template is turned off', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: /단어 깜빡이/i }));
+    const templatePicker = screen.getByRole('group', { name: /슬라이드 양식/i });
+
+    await user.click(within(templatePicker).getByRole('button', { name: '단어' }));
+    await user.click(within(templatePicker).getByRole('button', { name: '사진' }));
+    await user.click(within(templatePicker).getByRole('button', { name: '단어+사진' }));
+
+    expect(screen.getAllByText('슬라이드 양식을 하나 이상 선택하세요.')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'PPTX 다운로드' })).toBeDisabled();
+  });
+
+  it('requires prepared photos before exporting dobble in image-only mode', async () => {
+    const user = userEvent.setup();
+    const words = [
+      'apple',
+      'banana',
+      'cherry',
+      'date',
+      'elderberry',
+      'fig',
+      'grape',
+      'honeydew',
+      'kiwi',
+      'lemon',
+      'mango',
+      'nectarine',
+      'orange',
+    ];
+    render(<App />);
+
+    await user.clear(screen.getByLabelText(/단어 목록/i));
+    await user.type(screen.getByLabelText(/단어 목록/i), words.join(', '));
+    await user.click(screen.getByRole('button', { name: /도블 카드/i }));
+    await user.click(
+      within(screen.getByRole('group', { name: '도블 표시 방식' })).getByRole('button', {
+        name: /사진만/i,
+      }),
+    );
+
+    expect(screen.getByRole('button', { name: 'PPTX 다운로드' })).toBeDisabled();
+    expect(screen.getByText(/사진만 카드에는 사진이 모두 필요합니다/i)).toBeInTheDocument();
+  });
+
   it('marks print as material-only before opening the browser print dialog', async () => {
     const user = userEvent.setup();
     const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
@@ -1283,7 +1346,7 @@ describe('App', () => {
     const dialog = await screen.findByRole('dialog', { name: /cat 사진 선택/i });
     expect(within(dialog).queryByText('Cat three')).not.toBeInTheDocument();
 
-    await user.click(within(dialog).getByRole('button', { name: '사진 더 찾기' }));
+    await user.click(within(dialog).getByRole('button', { name: '결과 더 보기' }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
     expect(fetchMock).toHaveBeenLastCalledWith(
@@ -1354,7 +1417,7 @@ describe('App', () => {
 
     await user.clear(queryInput);
     await user.type(queryInput, 'turtle');
-    await user.click(within(dialog).getByRole('button', { name: '다시 찾기' }));
+    await user.click(within(dialog).getByRole('button', { name: '새 검색으로 바꾸기' }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
     expect(fetchMock).toHaveBeenLastCalledWith(
@@ -1410,6 +1473,40 @@ describe('App', () => {
     const dialog = await screen.findByRole('dialog', { name: /거북이 사진 선택/i });
 
     expect(within(dialog).getByLabelText('사진 검색어')).toHaveValue('turtle');
+  });
+
+  it('does not describe prepared photos as still needing confirmation', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            query: 'cat',
+            provider: 'auto',
+            results: [
+              {
+                id: 'openverse:cat-1',
+                title: 'Cat one',
+                image_url: 'https://example.com/cat-one.jpg',
+                thumbnail_url: 'https://example.com/cat-one-thumb.jpg',
+                source_url: 'https://openverse.org/image/cat-1',
+                provider: 'openverse',
+              },
+            ],
+          }),
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    await user.clear(screen.getByLabelText(/단어 목록/i));
+    await user.type(screen.getByLabelText(/단어 목록/i), 'cat');
+    await user.click(screen.getByRole('button', { name: '사진 전체 찾기' }));
+
+    await waitFor(() => expect(screen.getByText('사진 선택됨')).toBeInTheDocument());
+    expect(screen.queryByText(/확인 필요/)).not.toBeInTheDocument();
   });
 
   it('restores words, selected photos, and cached alternatives after refresh', async () => {

@@ -124,6 +124,7 @@ const IMAGE_EXPANDED_SEARCH_LIMIT = 12;
 const WORKSPACE_STORAGE_KEY = 'worksheet-maker-workspace-v1';
 const WORD_SEARCH_MIN_SIZE = 5;
 const WORD_SEARCH_MAX_SIZE = 28;
+const EMPTY_MATERIAL_REASON = '단어를 입력하면 다운로드할 수 있습니다.';
 
 const ROUTE_PATHS: Record<RouteId, string> = {
   home: '/',
@@ -969,7 +970,7 @@ function App() {
         {activeTool === 'dobble' && (
           <>
             <DobbleDisplayControls
-              canExportDobble={dobbleDetails.canExportDobble}
+              canExportDobble={dobbleDetails.plan.kind !== 'unavailable'}
               displayMode={dobbleDisplayMode}
               onDisplayModeChange={setDobbleDisplayMode}
             />
@@ -1358,7 +1359,12 @@ function WordSearchTool({
   const currentGrid = !hasError && puzzle ? (showAnswer ? puzzle.answerGrid : puzzle.grid) : [];
   const preparedImageCount = getPreparedImageCount(words, imageMap);
   const exportDisabled = !generatedPuzzle;
-  const exportDisabledReason = exportDisabled ? '먼저 퍼즐을 만들 단어를 입력하세요.' : undefined;
+  const exportDisabledReason =
+    words.length === 0
+      ? EMPTY_MATERIAL_REASON
+      : hasError
+        ? '퍼즐을 만들 수 없어 다운로드할 수 없습니다.'
+        : undefined;
   const decreaseDifficulty = () =>
     setDifficulty(WORD_SEARCH_DIFFICULTIES[Math.max(difficultyIndex - 1, 0)].value);
   const increaseDifficulty = () =>
@@ -1495,6 +1501,7 @@ function WorksheetTool({
   const [syllables, setSyllables] = useState(false);
   const worksheet = useMemo(() => buildWorksheetCells(words, columns), [columns, words]);
   const preparedImageCount = getPreparedImageCount(words, imageMap);
+  const disabledReason = words.length === 0 ? EMPTY_MATERIAL_REASON : undefined;
 
   return (
     <>
@@ -1544,6 +1551,8 @@ function WorksheetTool({
           )
         }
         exportLabel="DOCX 다운로드"
+        exportDisabled={words.length === 0}
+        disabledReason={disabledReason}
         summary={`DOCX · 단어 ${words.length}개 · 한 줄 ${columns}칸 · 사진 ${preparedImageCount}/${words.length}개 준비`}
       />
     </>
@@ -1567,7 +1576,12 @@ function FlickerTool({
     .map((template) => FLICKER_TEMPLATES.find((item) => item.id === template)?.label)
     .filter((label): label is string => Boolean(label))
     .join(' · ');
-  const hasSelectedTemplate = templates.length > 0;
+  const disabledReason =
+    words.length === 0
+      ? EMPTY_MATERIAL_REASON
+      : templates.length === 0
+        ? '슬라이드 양식을 하나 이상 선택하세요.'
+        : undefined;
 
   function toggleTemplate(template: FlickerTemplate) {
     setTemplates((current) => {
@@ -1622,8 +1636,8 @@ function FlickerTool({
         onPrint={onPrint}
         onExport={() => runDownload(() => downloadFlickerPptx(words, imageMap, templates))}
         exportLabel="PPTX 다운로드"
-        exportDisabled={!hasSelectedTemplate}
-        disabledReason={hasSelectedTemplate ? undefined : '슬라이드 양식을 하나 이상 선택하세요.'}
+        exportDisabled={Boolean(disabledReason)}
+        disabledReason={disabledReason}
         summary={`PPTX · 슬라이드 ${sequence.length}장 · ${templateSummary || '양식 0개'}`}
       />
     </>
@@ -1636,7 +1650,6 @@ function getDobblePlanDetails(words: string[], imageMap: ImageMap, displayMode: 
   const usedWords = Array.from(new Set(indexes.flat().map((wordIndex) => words[wordIndex]))).filter(
     (word): word is string => Boolean(word),
   );
-  const canExportDobble = plan.kind !== 'unavailable';
   const usedWordCount = plan.kind === 'unavailable' ? 0 : plan.usedWordCount;
   const unusedWordCount =
     plan.kind === 'unavailable' ? 0 : Math.max(0, words.length - usedWordCount);
@@ -1644,12 +1657,18 @@ function getDobblePlanDetails(words: string[], imageMap: ImageMap, displayMode: 
   const preparedDobbleImageCount = usedWords.filter((word) => Boolean(imageMap[word])).length;
   const missingDobbleImageCount = Math.max(0, usedWords.length - preparedDobbleImageCount);
   const showDobbleInitialFallback = showDobblePhotoStatus && missingDobbleImageCount > 0;
+  const missingRequiredImageCount = displayMode === 'image' ? missingDobbleImageCount : 0;
+  const canExportDobble = plan.kind !== 'unavailable' && missingRequiredImageCount === 0;
   const picturesPerCard =
     plan.kind === 'unavailable' ? plan.suggestedPicturesPerCard : plan.picturesPerCard;
   const wordsUntilComplete =
     plan.kind === 'partial' ? Math.max(0, plan.requiredWords - words.length) : 0;
   const disabledReason =
-    plan.kind === 'unavailable' ? `단어 ${plan.wordsNeeded}개를 더 넣어주세요.` : undefined;
+    plan.kind === 'unavailable'
+      ? `단어 ${plan.wordsNeeded}개를 더 넣어주세요.`
+      : missingRequiredImageCount > 0
+        ? `사진만 카드에는 사진이 모두 필요합니다. 사진 ${missingRequiredImageCount}개를 더 준비해주세요.`
+        : undefined;
   const dobblePlanTitle =
     plan.kind === 'unavailable' ? `단어 ${plan.wordsNeeded}개 더 필요` : '바로 출력 가능';
   const dobblePlanSummary =
@@ -1660,9 +1679,12 @@ function getDobblePlanDetails(words: string[], imageMap: ImageMap, displayMode: 
     plan.kind === 'partial' && wordsUntilComplete > 0
       ? `단어 ${wordsUntilComplete}개 더 넣으면 카드 ${plan.requiredWords}장 가능`
       : undefined;
-  const dobblePhotoIssue = showDobbleInitialFallback
-    ? `사진 ${missingDobbleImageCount}개 필요 · 부족한 사진은 첫 글자로 대체됨`
-    : undefined;
+  const dobblePhotoIssue =
+    missingRequiredImageCount > 0
+      ? `사진만 카드에는 사진 ${missingRequiredImageCount}개가 더 필요합니다`
+      : showDobbleInitialFallback
+        ? `사진 ${missingDobbleImageCount}개 필요 · 부족한 사진은 첫 글자로 대체됨`
+        : undefined;
   const dobbleExcludedIssue =
     unusedWordCount > 0 ? `단어 ${unusedWordCount}개는 카드에 안 들어감` : undefined;
 
@@ -2301,7 +2323,7 @@ function ImagePickerDialog({
             disabled={!trimmedSearchQuery || findMoreLoading}
           >
             {findMoreLoading ? <ButtonSpinner /> : <Search size={15} />}
-            {findMoreLoading ? '다시 찾는 중' : '다시 찾기'}
+            {findMoreLoading ? '새 검색 중' : '새 검색으로 바꾸기'}
           </button>
         </form>
 
@@ -2359,7 +2381,7 @@ function ImagePickerDialog({
             disabled={findMoreLoading || !trimmedSearchQuery}
           >
             {findMoreLoading ? <ButtonSpinner /> : <Search size={15} />}
-            {findMoreLoading ? '더 찾는 중' : '사진 더 찾기'}
+            {findMoreLoading ? '결과 불러오는 중' : '결과 더 보기'}
           </button>
         </div>
       </section>

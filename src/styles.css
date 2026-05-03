@@ -1936,6 +1936,14 @@ select {
   gap: 12px;
 }
 
+.action-disabled-reason {
+  margin-right: auto;
+  color: #9f2d25;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
 .toast {
   position: fixed;
   right: 24px;
