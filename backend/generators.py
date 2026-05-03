@@ -101,19 +101,35 @@ async def make_dobble_pptx(request: DobbleRequest) -> bytes:
         positions = card_positions(len(card))
         symbol_size = card_symbol_size(len(card))
         for item, (left, top) in zip(card, positions, strict=False):
-            image = await resolve_image(item.image)
-            if image:
+            image = await resolve_image(item.image) if request.display_mode != "word" else None
+            if image and request.display_mode != "word":
                 add_image(slide, image, left=left, top=top, width=symbol_size, height=symbol_size)
+            if request.display_mode == "image":
+                continue
+
+            text_left = left - 0.3 if request.display_mode == "image-word" else left - 0.45
+            text_top = (
+                top + symbol_size + 0.03
+                if request.display_mode == "image-word"
+                else top + symbol_size * 0.3
+            )
+            text_width = (
+                symbol_size + 0.6
+                if request.display_mode == "image-word"
+                else symbol_size + 0.9
+            )
+            text_height = 0.52 if request.display_mode == "image-word" else symbol_size * 0.55
             textbox = slide.shapes.add_textbox(
-                Inches(left - 0.2),
-                Inches(top + symbol_size + 0.08),
-                Inches(symbol_size + 0.4),
-                Inches(0.32),
+                Inches(text_left),
+                Inches(text_top),
+                Inches(text_width),
+                Inches(text_height),
             )
             paragraph = textbox.text_frame.paragraphs[0]
             paragraph.text = item.word
             paragraph.alignment = PP_ALIGN.CENTER
-            paragraph.font.size = PptPt(13)
+            paragraph.font.size = PptPt(11 if request.display_mode == "image-word" else 18)
+            paragraph.font.bold = request.display_mode == "word"
 
     return save_presentation(presentation)
 

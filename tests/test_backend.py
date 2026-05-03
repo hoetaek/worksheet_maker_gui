@@ -280,6 +280,28 @@ def test_dobble_endpoint_draws_circular_game_card() -> None:
     assert "도블 카드 1" in slide_xml
 
 
+def test_dobble_endpoint_respects_image_only_display_mode() -> None:
+    response = client.post(
+        "/api/materials/dobble.pptx",
+        json={
+            "cards": [
+                [
+                    {"word": "cat", "image": tiny_png_data_uri()},
+                    {"word": "dog"},
+                    {"word": "pig"},
+                ]
+            ],
+            "pictures_per_card": 3,
+            "display_mode": "image",
+        },
+    )
+
+    assert response.status_code == 200
+    slide_xml = pptx_slide_xmls(response.content)[0]
+    assert "cat" not in slide_xml
+    assert archive_has_media(response.content, "ppt/media/")
+
+
 def test_image_search_validates_query() -> None:
     response = client.get("/api/images/search", params={"query": "", "limit": 3})
 

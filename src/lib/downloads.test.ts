@@ -73,6 +73,22 @@ describe('downloads', () => {
       body: {
         cards: [[{ word: 'cat', image: imageMap.cat }]],
         pictures_per_card: 3,
+        display_mode: 'image-word',
+      },
+    });
+  });
+
+  it('posts the selected dobble display mode', async () => {
+    const fetcher = stubDownloadTransport();
+
+    await downloadDobblePptx([[{ word: 'cat' }]], 3, 'image');
+
+    expect(lastPost(fetcher)).toEqual({
+      endpoint: '/api/materials/dobble.pptx',
+      body: {
+        cards: [[{ word: 'cat' }]],
+        pictures_per_card: 3,
+        display_mode: 'image',
       },
     });
   });

@@ -101,10 +101,11 @@ export function downloadWordSearchDocx(options: {
 export function downloadDobblePptx(
   cards: WordImagePayload[][],
   picturesPerCard: number,
+  displayMode: 'image-word' | 'image' | 'word' = 'image-word',
 ): Promise<void> {
   return downloadBlob(
     '/api/materials/dobble.pptx',
-    { cards, pictures_per_card: picturesPerCard },
+    { cards, pictures_per_card: picturesPerCard, display_mode: displayMode },
     '도블카드.pptx',
   );
 }

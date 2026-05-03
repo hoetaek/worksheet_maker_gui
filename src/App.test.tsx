@@ -135,6 +135,167 @@ describe('App', () => {
     expect(screen.queryByText('word 21')).not.toBeInTheDocument();
   });
 
+  it('keeps dobble word labels inside larger image tiles', async () => {
+    const user = userEvent.setup();
+    const words = [
+      'police_officer',
+      'firefighter',
+      'construction_worker',
+      'veterinarian',
+      'astronaut',
+      'photographer',
+      'librarian',
+      'scientist',
+      'chef',
+      'pilot',
+      'farmer',
+      'doctor',
+      'teacher',
+    ];
+    render(<App />);
+
+    await user.clear(screen.getByLabelText(/단어 목록/i));
+    await user.type(screen.getByLabelText(/단어 목록/i), words.join(', '));
+    await user.click(screen.getByRole('button', { name: /도블 카드/i }));
+
+    const firstCard = screen.getByLabelText('도블 카드 1');
+    const symbols = Array.from(firstCard.querySelectorAll<HTMLElement>('.dobble-symbol'));
+    const firstLongLabel = within(firstCard).getByText('police officer');
+
+    expect(firstLongLabel.closest('.dobble-symbol-image')).not.toBeNull();
+    expect(symbols).not.toHaveLength(0);
+    symbols.forEach((symbol) => {
+      const x = Number.parseFloat(symbol.style.getPropertyValue('--symbol-x'));
+      const y = Number.parseFloat(symbol.style.getPropertyValue('--symbol-y'));
+      expect(x).toBeGreaterThanOrEqual(25);
+      expect(x).toBeLessThanOrEqual(75);
+      expect(y).toBeGreaterThanOrEqual(25);
+      expect(y).toBeLessThanOrEqual(75);
+    });
+  });
+
+  it('lets teachers switch dobble cards between image and word display modes', async () => {
+    const user = userEvent.setup();
+    const words = [
+      'apple',
+      'banana',
+      'cherry',
+      'date',
+      'elderberry',
+      'fig',
+      'grape',
+      'honeydew',
+      'kiwi',
+      'lemon',
+      'mango',
+      'nectarine',
+      'orange',
+    ];
+    render(<App />);
+
+    await user.clear(screen.getByLabelText(/단어 목록/i));
+    await user.type(screen.getByLabelText(/단어 목록/i), words.join(', '));
+    await user.click(screen.getByRole('button', { name: /도블 카드/i }));
+
+    const displayMode = screen.getByRole('group', { name: '도블 표시 방식' });
+    const firstCard = screen.getByLabelText('도블 카드 1');
+
+    expect(within(displayMode).getByRole('button', { name: /사진\+단어/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(firstCard).toHaveAttribute('data-display-mode', 'image-word');
+    expect(within(firstCard).getByText('apple').closest('.dobble-symbol-image')).not.toBeNull();
+
+    await user.click(within(displayMode).getByRole('button', { name: /사진만/i }));
+
+    expect(firstCard).toHaveAttribute('data-display-mode', 'image');
+    expect(within(firstCard).queryByText('apple')).not.toBeInTheDocument();
+    expect(firstCard.querySelector('.dobble-symbol-image')).not.toBeNull();
+
+    await user.click(within(displayMode).getByRole('button', { name: /단어만/i }));
+
+    expect(firstCard).toHaveAttribute('data-display-mode', 'word');
+    expect(within(firstCard).getByText('apple').closest('.dobble-word-symbol')).not.toBeNull();
+    expect(firstCard.querySelector('.dobble-symbol-image')).toBeNull();
+  });
+
+  it('shows spinner feedback and disables bulk photo search while loading', async () => {
+    const user = userEvent.setup();
+    const photoSearch = createDeferredResponse({
+      query: 'cat',
+      provider: 'auto',
+      results: [
+        {
+          id: 'openverse:cat-1',
+          title: 'Cat one',
+          image_url: 'https://example.com/cat-one.jpg',
+          thumbnail_url: 'https://example.com/cat-one-thumb.jpg',
+          source_url: 'https://openverse.org/image/cat-1',
+          provider: 'openverse',
+        },
+      ],
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => photoSearch.promise),
+    );
+
+    render(<App />);
+
+    await user.clear(screen.getByLabelText(/단어 목록/i));
+    await user.type(screen.getByLabelText(/단어 목록/i), 'cat');
+    await user.click(screen.getByRole('button', { name: '사진 전체 찾기' }));
+
+    const loadingButton = screen.getByRole('button', { name: /사진 전체 검색 중/i });
+    expect(loadingButton).toBeDisabled();
+    expect(loadingButton.querySelector('.button-spinner')).not.toBeNull();
+
+    photoSearch.resolve();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '사진 전체 찾기' })).toBeEnabled(),
+    );
+  });
+
+  it('shows spinner feedback and disables export while generating a file', async () => {
+    const user = userEvent.setup();
+    const download = createDeferredBlobResponse();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => download.promise),
+    );
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn(() => 'blob:download'),
+      revokeObjectURL: vi.fn(),
+    });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: 'DOCX 다운로드' }));
+
+    const loadingButton = screen.getByRole('button', { name: /파일 생성 중/i });
+    expect(loadingButton).toBeDisabled();
+    expect(loadingButton.querySelector('.button-spinner')).not.toBeNull();
+
+    download.resolve();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'DOCX 다운로드' })).toBeEnabled(),
+    );
+  });
+
+  it('marks print as material-only before opening the browser print dialog', async () => {
+    const user = userEvent.setup();
+    const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+
+    render(<App />);
+
+    await user.click(screen.getByRole('button', { name: '미리보기 인쇄' }));
+
+    expect(document.body).toHaveAttribute('data-print-target', 'material');
+    expect(print).toHaveBeenCalledTimes(1);
+  });
+
   it('explains the minimum safe dobble word count before enough words are entered', async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -250,6 +411,41 @@ describe('App', () => {
     expect(screen.queryByText('사진 검색 옵션')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('cat 사진 URL')).not.toBeInTheDocument();
     expect(screen.queryByText('검색 개수')).not.toBeInTheDocument();
+  });
+
+  it('summarizes photo readiness next to the bulk photo action', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            query: 'cat',
+            provider: 'auto',
+            results: [
+              {
+                id: 'openverse:cat-1',
+                title: 'Cat one',
+                image_url: 'https://example.com/cat-one.jpg',
+                thumbnail_url: 'https://example.com/cat-one-thumb.jpg',
+                source_url: 'https://openverse.org/image/cat-1',
+                provider: 'openverse',
+              },
+            ],
+          }),
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    await user.clear(screen.getByLabelText(/단어 목록/i));
+    await user.type(screen.getByLabelText(/단어 목록/i), 'cat, dog');
+
+    expect(screen.getByText('사진 0/2 준비됨')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '사진 전체 찾기' }));
+    await waitFor(() => expect(screen.getByText('사진 2/2 준비됨')).toBeInTheDocument());
   });
 
   it('puts the first searched photo in the row and lets teachers change it', async () => {
@@ -749,3 +945,41 @@ describe('App', () => {
     expect(within(dialog).getByText('Cat two')).toBeInTheDocument();
   });
 });
+
+function createDeferredResponse(body: unknown) {
+  let resolvePromise: () => void = () => undefined;
+  const promise = new Promise<{
+    ok: boolean;
+    json: () => Promise<unknown>;
+  }>((resolve) => {
+    resolvePromise = () =>
+      resolve({
+        ok: true,
+        json: () => Promise.resolve(body),
+      });
+  });
+
+  return {
+    promise,
+    resolve: resolvePromise,
+  };
+}
+
+function createDeferredBlobResponse() {
+  let resolvePromise: () => void = () => undefined;
+  const promise = new Promise<{
+    ok: boolean;
+    blob: () => Promise<Blob>;
+  }>((resolve) => {
+    resolvePromise = () =>
+      resolve({
+        ok: true,
+        blob: () => Promise.resolve(new Blob(['ok'])),
+      });
+  });
+
+  return {
+    promise,
+    resolve: resolvePromise,
+  };
+}

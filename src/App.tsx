@@ -38,6 +38,7 @@ type ToolId = 'word-search' | 'worksheet' | 'flicker' | 'dobble';
 type ImageMap = Record<string, string>;
 type ImageCandidateMap = Record<string, ImageCandidate[]>;
 type ImageSearchQueryMap = Record<string, string>;
+type DobbleDisplayMode = 'image-word' | 'image' | 'word';
 
 type Toast = {
   id: number;
@@ -132,6 +133,16 @@ const FILLER_MODE_OPTIONS: Array<{
   { value: 'overlap', label: '더 어렵게', description: '비슷한 글자를 섞어요' },
 ];
 
+const DOBBLE_DISPLAY_OPTIONS: Array<{
+  value: DobbleDisplayMode;
+  label: string;
+  description: string;
+}> = [
+  { value: 'image-word', label: '사진+단어', description: '확인용 기본값' },
+  { value: 'image', label: '사진만', description: '놀이 카드 중심' },
+  { value: 'word', label: '단어만', description: '읽기 활동 중심' },
+];
+
 function App() {
   const [workspaceDraft] = useState(readWorkspaceDraft);
   const [activeTool, setActiveTool] = useState<ToolId>(workspaceDraft.activeTool ?? 'word-search');
@@ -154,6 +165,7 @@ function App() {
 
   const words = useMemo(() => parseWords(wordInput), [wordInput]);
   const keywordRows = useMemo(() => buildKeywordRows(words, '', IMAGE_SEARCH_LIMIT), [words]);
+  const preparedImageCount = words.filter((word) => Boolean(imageMap[word])).length;
   const language = detectLanguage(words);
   const activeToolConfig = TOOL_OPTIONS.find((tool) => tool.id === activeTool) ?? TOOL_OPTIONS[0];
 
@@ -215,12 +227,22 @@ function App() {
     notify('단어 목록을 복사했습니다.');
   }
 
-  function runDownload(action: () => Promise<void>) {
-    action()
+  function runDownload(action: () => Promise<void>): Promise<void> {
+    return action()
       .then(() => notify('파일 다운로드를 시작했습니다.'))
       .catch((error: unknown) => {
         notify(error instanceof Error ? error.message : '파일을 만들 수 없습니다.');
       });
+  }
+
+  function printMaterialPreview() {
+    document.body.dataset.printTarget = 'material';
+    window.print();
+    window.setTimeout(() => {
+      if (document.body.dataset.printTarget === 'material') {
+        delete document.body.dataset.printTarget;
+      }
+    }, 250);
   }
 
   async function findImage(row: { word: string; keyword: string }) {
@@ -464,7 +486,7 @@ function App() {
               }}
               disabled={words.length === 0 || allImagesLoading}
             >
-              <Images size={16} />
+              {allImagesLoading ? <ButtonSpinner /> : <Images size={16} />}
               {allImagesLoading ? '사진 전체 검색 중' : '사진 전체 찾기'}
             </button>
             <button
@@ -486,6 +508,9 @@ function App() {
               <Copy size={15} />
               단어 복사
             </button>
+            <div className="photo-readiness" aria-live="polite">
+              사진 {preparedImageCount}/{words.length} 준비됨
+            </div>
           </div>
 
           <div className="settings-grid student-settings">
@@ -519,7 +544,7 @@ function App() {
                   <ImagePreview word={row.word} imageUrl={imageMap[row.word]} />
                   <div className="word-photo-copy">
                     <span className="word-token">{row.word}</span>
-                    <span>{imageMap[row.word] ? '사진 준비됨' : '사진 없음'}</span>
+                    <span>{imageMap[row.word] ? '사진 준비됨 · 확인 필요' : '사진 없음'}</span>
                   </div>
                   <div className="image-controls">
                     <button
@@ -530,6 +555,7 @@ function App() {
                       }}
                       disabled={imageLoadingWord === row.word || allImagesLoading}
                     >
+                      {imageLoadingWord === row.word && <ButtonSpinner />}
                       {imageLoadingWord === row.word ? '검색 중' : '사진 찾기'}
                     </button>
                     <button
@@ -568,6 +594,7 @@ function App() {
               klass={klass}
               imageMap={imageMap}
               runDownload={runDownload}
+              onPrint={printMaterialPreview}
             />
           )}
 
@@ -578,15 +605,26 @@ function App() {
               klass={klass}
               imageMap={imageMap}
               runDownload={runDownload}
+              onPrint={printMaterialPreview}
             />
           )}
 
           {activeTool === 'flicker' && (
-            <FlickerTool words={words} imageMap={imageMap} runDownload={runDownload} />
+            <FlickerTool
+              words={words}
+              imageMap={imageMap}
+              runDownload={runDownload}
+              onPrint={printMaterialPreview}
+            />
           )}
 
           {activeTool === 'dobble' && (
-            <DobbleTool words={words} imageMap={imageMap} runDownload={runDownload} />
+            <DobbleTool
+              words={words}
+              imageMap={imageMap}
+              runDownload={runDownload}
+              onPrint={printMaterialPreview}
+            />
           )}
         </section>
       </main>
@@ -753,12 +791,14 @@ function WordSearchTool({
   klass,
   imageMap,
   runDownload,
+  onPrint,
 }: {
   words: string[];
   grade: number;
   klass: number;
   imageMap: ImageMap;
-  runDownload: (action: () => Promise<void>) => void;
+  runDownload: (action: () => Promise<void>) => Promise<void>;
+  onPrint: () => void;
 }) {
   const [size, setSize] = useState(15);
   const [difficulty, setDifficulty] = useState<WordSearchDifficulty>(1);
@@ -888,7 +928,7 @@ function WordSearchTool({
       )}
 
       <ActionBar
-        onPrint={() => window.print()}
+        onPrint={onPrint}
         onExport={() =>
           runDownload(() =>
             downloadWordSearchDocx({
@@ -912,12 +952,14 @@ function WorksheetTool({
   klass,
   imageMap,
   runDownload,
+  onPrint,
 }: {
   words: string[];
   grade: number;
   klass: number;
   imageMap: ImageMap;
-  runDownload: (action: () => Promise<void>) => void;
+  runDownload: (action: () => Promise<void>) => Promise<void>;
+  onPrint: () => void;
 }) {
   const [columns, setColumns] = useState(5);
   const [syllables, setSyllables] = useState(false);
@@ -957,7 +999,7 @@ function WorksheetTool({
       </div>
 
       <ActionBar
-        onPrint={() => window.print()}
+        onPrint={onPrint}
         onExport={() =>
           runDownload(() =>
             downloadWorksheetDocx({
@@ -980,10 +1022,12 @@ function FlickerTool({
   words,
   imageMap,
   runDownload,
+  onPrint,
 }: {
   words: string[];
   imageMap: ImageMap;
-  runDownload: (action: () => Promise<void>) => void;
+  runDownload: (action: () => Promise<void>) => Promise<void>;
+  onPrint: () => void;
 }) {
   const [templates, setTemplates] = useState<FlickerTemplate[]>(['word', 'image', 'word-image']);
   const sequence = useMemo(() => buildFlickerSequence(templates, words), [templates, words]);
@@ -1038,7 +1082,7 @@ function FlickerTool({
       )}
 
       <ActionBar
-        onPrint={() => window.print()}
+        onPrint={onPrint}
         onExport={() => runDownload(() => downloadFlickerPptx(words, imageMap, templates))}
         exportLabel="PPTX 다운로드"
       />
@@ -1050,11 +1094,14 @@ function DobbleTool({
   words,
   imageMap,
   runDownload,
+  onPrint,
 }: {
   words: string[];
   imageMap: ImageMap;
-  runDownload: (action: () => Promise<void>) => void;
+  runDownload: (action: () => Promise<void>) => Promise<void>;
+  onPrint: () => void;
 }) {
+  const [displayMode, setDisplayMode] = useState<DobbleDisplayMode>('image-word');
   const plan = useMemo(() => selectDobblePlan(words.length), [words.length]);
   const indexes = plan.kind === 'unavailable' ? [] : plan.cards;
   const usedWordCount = plan.kind === 'unavailable' ? 0 : plan.usedWordCount;
@@ -1121,6 +1168,24 @@ function DobbleTool({
         )}
       </section>
 
+      <div className="dobble-display-controls" role="group" aria-label="도블 표시 방식">
+        <div className="control-kicker">카드에 넣을 내용</div>
+        <div className="dobble-display-grid">
+          {DOBBLE_DISPLAY_OPTIONS.map((option) => (
+            <button
+              className="option-card-button"
+              type="button"
+              key={option.value}
+              aria-pressed={displayMode === option.value}
+              onClick={() => setDisplayMode(option.value)}
+            >
+              <strong>{option.label}</strong>
+              <span>{option.description}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {indexes.length > 0 ? (
         <>
           <h3 className="preview-heading">실제 카드 미리보기</h3>
@@ -1132,23 +1197,32 @@ function DobbleTool({
                   className="dobble-card-preview"
                   role="group"
                   aria-label={`도블 카드 ${index + 1}`}
+                  data-display-mode={displayMode}
                 >
                   {card.map((symbolIndex, symbolPosition) => {
                     const word = words[symbolIndex];
+                    const showImage = displayMode !== 'word';
+                    const showLabel = displayMode !== 'image';
                     return (
                       <div
                         className="dobble-symbol"
                         key={symbolIndex}
+                        aria-label={word}
+                        data-display-mode={displayMode}
                         style={dobbleSymbolStyle(symbolPosition, card.length, index)}
                       >
-                        <span className="dobble-symbol-image">
-                          {imageMap[word] ? (
-                            <img src={imageMap[word]} alt="" />
-                          ) : (
-                            <span aria-hidden="true">{dobbleInitial(word)}</span>
-                          )}
-                        </span>
-                        <span className="dobble-symbol-label">{word}</span>
+                        {showImage ? (
+                          <span className="dobble-symbol-image">
+                            {imageMap[word] ? (
+                              <img src={imageMap[word]} alt={showLabel ? '' : word} />
+                            ) : (
+                              <span aria-hidden="true">{dobbleInitial(word)}</span>
+                            )}
+                            {showLabel && <span className="dobble-symbol-label">{word}</span>}
+                          </span>
+                        ) : (
+                          <span className="dobble-word-symbol">{word}</span>
+                        )}
                       </div>
                     );
                   })}
@@ -1162,7 +1236,7 @@ function DobbleTool({
       )}
 
       <ActionBar
-        onPrint={() => window.print()}
+        onPrint={onPrint}
         onExport={() =>
           runDownload(() =>
             downloadDobblePptx(
@@ -1173,6 +1247,7 @@ function DobbleTool({
                 })),
               ),
               picturesPerCard,
+              displayMode,
             ),
           )
         }
@@ -1191,17 +1266,16 @@ function dobbleSymbolStyle(
 ): CSSProperties {
   const centeredSymbol = symbolIndex === 0 && symbolCount % 2 === 1;
   const angle = -90 + (symbolIndex * 360) / symbolCount + (cardIndex % 2 === 0 ? -7 : 9);
-  const radius = centeredSymbol ? 0 : 30 + ((symbolIndex + cardIndex) % 3) * 4;
+  const radius = centeredSymbol ? 0 : 21 + ((symbolIndex + cardIndex) % 3) * 2;
   const radians = (angle * Math.PI) / 180;
   const x = 50 + Math.cos(radians) * radius;
   const y = 50 + Math.sin(radians) * radius;
-  const rotate = ((symbolIndex * 17 + cardIndex * 11) % 30) - 15;
-  const scale = 0.92 + ((symbolIndex + cardIndex) % 3) * 0.06;
+  const scale = 0.98 + ((symbolIndex + cardIndex) % 3) * 0.04;
 
   return {
     '--symbol-x': `${x}%`,
     '--symbol-y': `${y}%`,
-    '--symbol-rotate': `${rotate}deg`,
+    '--symbol-rotate': '0deg',
     '--symbol-scale': scale.toString(),
   } as CSSProperties;
 }
@@ -1343,7 +1417,7 @@ function ImagePickerDialog({
             type="submit"
             disabled={!trimmedSearchQuery || findMoreLoading}
           >
-            <Search size={15} />
+            {findMoreLoading ? <ButtonSpinner /> : <Search size={15} />}
             {findMoreLoading ? '다시 찾는 중' : '다시 찾기'}
           </button>
         </form>
@@ -1401,7 +1475,7 @@ function ImagePickerDialog({
             onClick={() => onFindMore(trimmedSearchQuery || state.word)}
             disabled={findMoreLoading || !trimmedSearchQuery}
           >
-            <Search size={15} />
+            {findMoreLoading ? <ButtonSpinner /> : <Search size={15} />}
             {findMoreLoading ? '더 찾는 중' : '사진 더 찾기'}
           </button>
         </div>
@@ -1513,10 +1587,12 @@ function Toggle({
   label,
   checked,
   onChange,
+  disabled = false,
 }: {
   label: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
     <label className="toggle-row">
@@ -1524,6 +1600,7 @@ function Toggle({
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
+        disabled={disabled}
       />
       <span>{label}</span>
     </label>
@@ -1556,6 +1633,10 @@ function EmptyState({ text }: { text: string }) {
   return <div className="empty-state">{text}</div>;
 }
 
+function ButtonSpinner() {
+  return <span className="button-spinner" aria-hidden="true" />;
+}
+
 function ActionBar({
   onPrint,
   onExport,
@@ -1564,12 +1645,27 @@ function ActionBar({
   disabledReason,
 }: {
   onPrint: () => void;
-  onExport: () => void;
+  onExport: () => Promise<void>;
   exportLabel: string;
   exportDisabled?: boolean;
   disabledReason?: string;
 }) {
+  const [isExporting, setIsExporting] = useState(false);
+  const isDisabled = exportDisabled || isExporting;
   const disabledTitle = exportDisabled ? disabledReason : undefined;
+
+  async function handleExport() {
+    if (isDisabled) {
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      await onExport();
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   return (
     <div className="action-bar">
@@ -1577,21 +1673,23 @@ function ActionBar({
         className="secondary-button"
         type="button"
         onClick={onPrint}
-        disabled={exportDisabled}
+        disabled={isExporting}
         title={disabledTitle}
       >
         <Printer size={15} />
-        인쇄
+        미리보기 인쇄
       </button>
       <button
         className="primary-button"
         type="button"
-        onClick={onExport}
-        disabled={exportDisabled}
+        onClick={() => {
+          void handleExport();
+        }}
+        disabled={isDisabled}
         title={disabledTitle}
       >
-        <Download size={15} />
-        {exportLabel}
+        {isExporting ? <ButtonSpinner /> : <Download size={15} />}
+        {isExporting ? '파일 생성 중' : exportLabel}
       </button>
     </div>
   );

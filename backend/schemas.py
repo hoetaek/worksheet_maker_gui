@@ -54,3 +54,4 @@ class WordSearchRequest(BaseModel):
 class DobbleRequest(BaseModel):
     cards: list[list[WordImage]] = Field(min_length=1)
     pictures_per_card: int = Field(ge=3, le=8)
+    display_mode: Literal["image-word", "image", "word"] = "image-word"

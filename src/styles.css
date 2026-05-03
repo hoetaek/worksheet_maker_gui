@@ -324,6 +324,35 @@ h3 {
   font-weight: 700;
 }
 
+.button-spinner {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 800ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.photo-readiness {
+  grid-column: 1 / -1;
+  min-height: 28px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--surface-tint);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: var(--light-ring);
+}
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
@@ -692,6 +721,7 @@ select {
 .tool-panel > .template-picker,
 .tool-panel > .callout,
 .tool-panel > .dobble-plan-panel,
+.tool-panel > .dobble-display-controls,
 .tool-panel > .empty-state,
 .tool-panel > .action-bar {
   margin-left: 24px;
@@ -1002,7 +1032,7 @@ select {
 }
 
 .dobble-grid {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
   gap: 18px;
 }
 
@@ -1021,7 +1051,7 @@ select {
 
 .dobble-card-preview {
   position: relative;
-  width: min(100%, 248px);
+  width: min(100%, 286px);
   aspect-ratio: 1;
   overflow: hidden;
   border-radius: 50%;
@@ -1050,15 +1080,15 @@ select {
   z-index: 1;
   display: grid;
   justify-items: center;
-  gap: 4px;
-  width: clamp(58px, 30%, 78px);
+  width: clamp(74px, 35%, 98px);
   transform: translate(-50%, -50%) rotate(var(--symbol-rotate)) scale(var(--symbol-scale));
   transform-origin: center;
 }
 
 .dobble-symbol-image {
+  position: relative;
   display: grid;
-  width: clamp(46px, 78%, 62px);
+  width: 100%;
   aspect-ratio: 1;
   place-items: center;
   overflow: hidden;
@@ -1082,17 +1112,44 @@ select {
 }
 
 .dobble-symbol-label {
-  max-width: 86px;
-  padding: 3px 6px;
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  left: 6px;
+  display: -webkit-box;
+  max-height: 28px;
+  padding: 3px 5px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.92);
   color: var(--text);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
+  line-height: 1.15;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  text-align: center;
+  box-shadow: rgba(0, 0, 0, 0.12) 0 0 0 1px;
+}
+
+.dobble-word-symbol {
+  display: grid;
+  width: clamp(78px, 36%, 108px);
+  min-height: 54px;
+  place-items: center;
+  padding: 8px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 800;
   line-height: 1.15;
   overflow-wrap: anywhere;
   text-align: center;
-  box-shadow: rgba(0, 0, 0, 0.12) 0 0 0 1px;
+  box-shadow:
+    rgba(0, 0, 0, 0.16) 0 0 0 1px,
+    rgba(0, 0, 0, 0.12) 0 8px 20px -14px;
 }
 
 .callout,
@@ -1206,6 +1263,22 @@ select {
 
 .dobble-plan-note {
   color: #795548;
+}
+
+.dobble-display-controls {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfbfa 100%);
+  box-shadow: var(--light-ring);
+}
+
+.dobble-display-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .preview-heading {
@@ -1618,19 +1691,23 @@ select {
     background: #ffffff;
   }
 
-  .topbar,
-  .control-panel,
-  .tool-heading,
-  .tool-controls,
-  .template-picker,
-  .action-bar,
-  .toast,
-  .callout {
+  body[data-print-target='material'] .topbar,
+  body[data-print-target='material'] .control-panel,
+  body[data-print-target='material'] .tool-heading,
+  body[data-print-target='material'] .tool-controls,
+  body[data-print-target='material'] .word-search-controls,
+  body[data-print-target='material'] .template-picker,
+  body[data-print-target='material'] .dobble-plan-panel,
+  body[data-print-target='material'] .dobble-display-controls,
+  body[data-print-target='material'] .action-bar,
+  body[data-print-target='material'] .toast,
+  body[data-print-target='material'] .callout,
+  body[data-print-target='material'] .empty-state {
     display: none !important;
   }
 
-  .workspace,
-  .tool-panel {
+  body[data-print-target='material'] .workspace,
+  body[data-print-target='material'] .tool-panel {
     display: block;
     width: 100%;
     margin: 0;
@@ -1638,7 +1715,7 @@ select {
     box-shadow: none;
   }
 
-  .printable {
+  body[data-print-target='material'] .printable {
     break-inside: avoid;
   }
 }
