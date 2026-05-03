@@ -98,12 +98,29 @@ async def make_dobble_pptx(request: DobbleRequest) -> bytes:
         slide = presentation.slides.add_slide(presentation.slide_layouts[6])
         add_dobble_card_frame(slide)
         add_small_label(slide, f"도블 카드 {index + 1}")
-        positions = card_positions(len(card))
+        symbol_layout = card_symbol_layout(len(card), index)
         symbol_size = card_symbol_size(len(card))
-        for item, (left, top) in zip(card, positions, strict=False):
+        for item, (left, top, rotation) in zip(card, symbol_layout, strict=False):
             image = await resolve_image(item.image) if request.display_mode != "word" else None
             if image and request.display_mode != "word":
-                add_image(slide, image, left=left, top=top, width=symbol_size, height=symbol_size)
+                image_shape = add_image(
+                    slide,
+                    image,
+                    left=left,
+                    top=top,
+                    width=symbol_size,
+                    height=symbol_size,
+                )
+                image_shape.rotation = rotation
+            elif request.display_mode != "word":
+                symbol = add_dobble_initial_symbol(
+                    slide,
+                    item.word,
+                    left=left,
+                    top=top,
+                    size=symbol_size,
+                )
+                symbol.rotation = rotation
             if request.display_mode == "image":
                 continue
 
@@ -114,9 +131,7 @@ async def make_dobble_pptx(request: DobbleRequest) -> bytes:
                 else top + symbol_size * 0.3
             )
             text_width = (
-                symbol_size + 0.6
-                if request.display_mode == "image-word"
-                else symbol_size + 0.9
+                symbol_size + 0.6 if request.display_mode == "image-word" else symbol_size + 0.9
             )
             text_height = 0.52 if request.display_mode == "image-word" else symbol_size * 0.55
             textbox = slide.shapes.add_textbox(
@@ -125,6 +140,7 @@ async def make_dobble_pptx(request: DobbleRequest) -> bytes:
                 Inches(text_width),
                 Inches(text_height),
             )
+            textbox.rotation = rotation
             paragraph = textbox.text_frame.paragraphs[0]
             paragraph.text = item.word
             paragraph.alignment = PP_ALIGN.CENTER
@@ -532,28 +548,107 @@ def add_dobble_card_frame(slide: Slide) -> None:
     card.line.width = PptPt(2)
 
 
+def add_dobble_initial_symbol(
+    slide: Slide,
+    word: str,
+    left: float,
+    top: float,
+    size: float,
+) -> BaseShape:
+    symbol = slide.shapes.add_shape(
+        MSO_SHAPE.OVAL,
+        Inches(left),
+        Inches(top),
+        Inches(size),
+        Inches(size),
+    )
+    symbol.fill.solid()
+    symbol.fill.fore_color.rgb = RGBColor(240, 241, 242)  # type: ignore[no-untyped-call]
+    symbol.line.color.rgb = RGBColor(255, 255, 255)  # type: ignore[no-untyped-call]
+    symbol.line.width = PptPt(2)
+
+    text_frame = symbol.text_frame
+    text_frame.margin_left = 0
+    text_frame.margin_right = 0
+    text_frame.margin_top = 0
+    text_frame.margin_bottom = 0
+    paragraph = text_frame.paragraphs[0]
+    paragraph.text = word.strip()[0].upper()
+    paragraph.alignment = PP_ALIGN.CENTER
+    paragraph.font.size = PptPt(30)
+    paragraph.font.bold = True
+    paragraph.font.color.rgb = RGBColor(23, 23, 23)  # type: ignore[no-untyped-call]
+    return symbol
+
+
 def card_positions(count: int) -> list[tuple[float, float]]:
+    return [(left, top) for left, top, _rotation in card_symbol_layout(count)]
+
+
+def card_symbol_layout(count: int, card_index: int = 0) -> list[tuple[float, float, int]]:
     size = card_symbol_size(count)
     center_x = 5.0
     center_y = 5.08
-    use_center_symbol = count >= 5 and count % 2 == 1
-    ring_count = count - 1 if use_center_symbol else count
-    radius = 2.8 if ring_count <= 4 else 3.16
-    positions: list[tuple[float, float]] = []
+    fixed_centers: dict[int, list[tuple[float, float]]] = {
+        3: [(5.0, 2.68), (7.16, 6.33), (2.84, 6.33)],
+        4: [(3.14, 3.21), (6.86, 3.21), (6.86, 6.95), (3.14, 6.95)],
+        5: [(5.0, 5.08), (2.84, 2.92), (7.16, 2.92), (7.16, 7.24), (2.84, 7.24)],
+    }
+    fixed_layout = fixed_centers.get(count)
 
-    if use_center_symbol:
-        positions.append((center_x - size / 2, center_y - size / 2))
+    if fixed_layout is not None:
+        return [
+            (
+                left - size / 2,
+                top - size / 2,
+                dobble_symbol_rotation(left, top, index, card_index),
+            )
+            for index, (left, top) in enumerate(fixed_layout)
+        ]
 
-    for index in range(ring_count):
-        angle = -math.pi / 2 + (index * 2 * math.pi) / ring_count
-        left = center_x + math.cos(angle) * radius - size / 2
-        top = center_y + math.sin(angle) * radius - size / 2
-        positions.append((left, top))
+    radius = 3.16
+    positions: list[tuple[float, float, int]] = []
+
+    for index in range(count):
+        angle = -math.pi / 2 + (index * 2 * math.pi) / count
+        symbol_center_x = center_x + math.cos(angle) * radius
+        symbol_center_y = center_y + math.sin(angle) * radius
+        left = symbol_center_x - size / 2
+        top = symbol_center_y - size / 2
+        positions.append(
+            (
+                left,
+                top,
+                dobble_symbol_rotation(symbol_center_x, symbol_center_y, index, card_index),
+            )
+        )
 
     return positions
 
 
+def dobble_symbol_rotation(x: float, y: float, index: int, card_index: int) -> int:
+    dx = x - 5.0
+    dy = y - 5.08
+    jitter = dobble_rotation_jitter(index, card_index)
+
+    if math.hypot(dx, dy) < 0.01:
+        return jitter % 360
+
+    return round((math.degrees(math.atan2(dy, dx)) - 90 + jitter) % 360)
+
+
+def dobble_rotation_jitter(index: int, card_index: int) -> int:
+    jitters = [-7, 6, -4, 8, -6, 5, 3]
+    return jitters[(card_index * 3 + index * 2) % len(jitters)]
+
+
 def card_symbol_size(count: int) -> float:
+    if count == 3:
+        return 2.65
+    if count == 4:
+        return 2.32
+    if count == 5:
+        return 2.02
     if count >= 8:
         return 1.32
     if count >= 6:

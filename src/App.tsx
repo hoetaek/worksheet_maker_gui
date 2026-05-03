@@ -7,13 +7,16 @@ import {
   ExternalLink,
   FileText,
   Grid3X3,
+  HelpCircle,
   Images,
   Layers3,
   Menu,
   Minus,
+  Pencil,
   Plus,
   Printer,
   Search,
+  Settings,
   Sparkles,
   X,
 } from 'lucide-react';
@@ -34,10 +37,12 @@ import { createWordSearch, type FillerMode, type WordSearchDifficulty } from './
 import { buildKeywordRows, detectLanguage, parseWords, wordCountStatus } from './lib/words';
 
 type ToolId = 'word-search' | 'worksheet' | 'flicker' | 'dobble';
+type RouteId = 'home' | ToolId;
 
 type ImageMap = Record<string, string>;
 type ImageCandidateMap = Record<string, ImageCandidate[]>;
 type ImageSearchQueryMap = Record<string, string>;
+type QuizMap = Record<string, string>;
 type DobbleDisplayMode = 'image-word' | 'image' | 'word';
 
 type Toast = {
@@ -55,6 +60,8 @@ type WorkspaceDraft = {
   activeTool?: ToolId;
   wordInput?: string;
   imageMap?: ImageMap;
+  quizMap?: QuizMap;
+  wordCart?: string[];
   grade?: number;
   klass?: number;
   imageCandidatesByWord?: ImageCandidateMap;
@@ -92,7 +99,13 @@ const TOOL_OPTIONS: Array<{
   { id: 'dobble', label: '도블 카드', description: '게임 카드', icon: Layers3, accent: 'ship' },
 ];
 
-const SAMPLE_WORDS = '토끼, 거북이, 사자, banana, peach, police_officer';
+const SAMPLE_WORDS_BY_TOOL: Record<ToolId, string> = {
+  'word-search': '토끼, 거북이, 사자, 강아지, 고양이, 코끼리',
+  worksheet: '토끼, 거북이, 사자, 강아지, 고양이, 코끼리',
+  flicker: 'apple, banana, cat, dog, milk, pencil',
+  dobble:
+    'apple, banana, cherry, date, elderberry, fig, grape, honeydew, kiwi, lemon, mango, nectarine, orange',
+};
 const FLICKER_TEMPLATES: Array<{ id: FlickerTemplate; label: string }> = [
   { id: 'word', label: '단어' },
   { id: 'image', label: '사진' },
@@ -111,6 +124,14 @@ const IMAGE_EXPANDED_SEARCH_LIMIT = 12;
 const WORKSPACE_STORAGE_KEY = 'worksheet-maker-workspace-v1';
 const WORD_SEARCH_MIN_SIZE = 5;
 const WORD_SEARCH_MAX_SIZE = 28;
+
+const ROUTE_PATHS: Record<RouteId, string> = {
+  home: '/',
+  'word-search': '/word-search',
+  worksheet: '/worksheet',
+  flicker: '/flicker',
+  dobble: '/dobble',
+};
 
 const WORD_SEARCH_DIFFICULTIES: Array<{
   value: WordSearchDifficulty;
@@ -145,11 +166,25 @@ const DOBBLE_DISPLAY_OPTIONS: Array<{
 
 function App() {
   const [workspaceDraft] = useState(readWorkspaceDraft);
-  const [activeTool, setActiveTool] = useState<ToolId>(workspaceDraft.activeTool ?? 'word-search');
-  const [wordInput, setWordInput] = useState(workspaceDraft.wordInput ?? SAMPLE_WORDS);
+  const [currentRoute, setCurrentRoute] = useState<RouteId>(() =>
+    routeFromPath(window.location.pathname),
+  );
+  const [activeTool, setActiveTool] = useState<ToolId>(() => {
+    const initialRoute = routeFromPath(window.location.pathname);
+    return initialRoute === 'home' ? (workspaceDraft.activeTool ?? 'word-search') : initialRoute;
+  });
+  const [wordInput, setWordInput] = useState(
+    workspaceDraft.wordInput ?? SAMPLE_WORDS_BY_TOOL['word-search'],
+  );
   const [imageMap, setImageMap] = useState<ImageMap>(workspaceDraft.imageMap ?? {});
+  const [quizMap, setQuizMap] = useState<QuizMap>(workspaceDraft.quizMap ?? {});
+  const [wordCart, setWordCart] = useState<string[]>(workspaceDraft.wordCart ?? []);
   const [grade, setGrade] = useState(workspaceDraft.grade ?? 3);
   const [klass, setKlass] = useState(workspaceDraft.klass ?? 1);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [wordDrawerOpen, setWordDrawerOpen] = useState(false);
+  const [dobbleDisplayMode, setDobbleDisplayMode] = useState<DobbleDisplayMode>('image-word');
+  const [dobbleInfoOpen, setDobbleInfoOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [imageLoadingWord, setImageLoadingWord] = useState<string | null>(null);
@@ -168,12 +203,18 @@ function App() {
   const preparedImageCount = words.filter((word) => Boolean(imageMap[word])).length;
   const language = detectLanguage(words);
   const activeToolConfig = TOOL_OPTIONS.find((tool) => tool.id === activeTool) ?? TOOL_OPTIONS[0];
+  const dobbleDetails = useMemo(
+    () => getDobblePlanDetails(words, imageMap, dobbleDisplayMode),
+    [dobbleDisplayMode, imageMap, words],
+  );
 
   useEffect(() => {
     writeWorkspaceDraft({
       activeTool,
       wordInput,
       imageMap: pickExistingWordEntries(imageMap, words),
+      quizMap: pickExistingWordEntries(quizMap, words),
+      wordCart,
       grade,
       klass,
       imageCandidatesByWord: pickExistingWordEntries(imageCandidatesByWord, words),
@@ -186,9 +227,42 @@ function App() {
     imageMap,
     imageSearchQueryByWord,
     klass,
+    quizMap,
+    wordCart,
     wordInput,
     words,
   ]);
+
+  useEffect(() => {
+    function handlePopState() {
+      const nextRoute = routeFromPath(window.location.pathname);
+      setCurrentRoute(nextRoute);
+      if (nextRoute !== 'home') {
+        setActiveTool(nextRoute);
+      }
+      setMobileNavOpen(false);
+      setWordDrawerOpen(false);
+      setDobbleInfoOpen(false);
+    }
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  function navigateToRoute(route: RouteId) {
+    const nextPath = ROUTE_PATHS[route];
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState(null, '', nextPath);
+    }
+
+    setCurrentRoute(route);
+    if (route !== 'home') {
+      setActiveTool(route);
+    }
+    setMobileNavOpen(false);
+    setWordDrawerOpen(false);
+    setDobbleInfoOpen(false);
+  }
 
   function notify(text: string) {
     toastIdRef.current += 1;
@@ -201,6 +275,28 @@ function App() {
 
   function updateImage(word: string, value: string) {
     setImageMap((current) => ({ ...current, [word]: value }));
+  }
+
+  function updateQuizHint(word: string, value: string) {
+    setQuizMap((current) => ({ ...current, [word]: value }));
+  }
+
+  function addCurrentWordsToCart() {
+    if (words.length === 0) {
+      notify('담을 단어를 먼저 입력해주세요.');
+      return;
+    }
+
+    setWordCart((current) => mergeWordLists(current, words));
+    notify('현재 단어를 담았습니다.');
+  }
+
+  function addCartWordToInput(word: string) {
+    setWordInput((current) => mergeWordLists(parseWords(current), [word]).join(', '));
+  }
+
+  function removeCartWord(word: string) {
+    setWordCart((current) => current.filter((item) => item !== word));
   }
 
   function applyImageCandidates(word: string, result: ImageSearchResult): boolean {
@@ -243,6 +339,21 @@ function App() {
         delete document.body.dataset.printTarget;
       }
     }, 250);
+  }
+
+  function exportDobble() {
+    return runDownload(() =>
+      downloadDobblePptx(
+        dobbleDetails.indexes.map((card) =>
+          card.map((index) => ({
+            word: words[index],
+            image: imageMap[words[index]] || undefined,
+          })),
+        ),
+        dobbleDetails.picturesPerCard,
+        dobbleDisplayMode,
+      ),
+    );
   }
 
   async function findImage(row: { word: string; keyword: string }) {
@@ -406,145 +517,373 @@ function App() {
     reader.readAsDataURL(file);
   }
 
-  return (
-    <div className="app-shell">
-      <header className="topbar">
-        <div className="brand-lockup">
-          <div className="mark" aria-hidden="true">
-            <Sparkles size={16} />
-          </div>
-          <div>
-            <p className="mono-label">학습 자료 제작기</p>
-            <h1>학습 자료 제작 스튜디오</h1>
-          </div>
-        </div>
+  function renderWordSetupPanel(variant: 'home' | 'drawer') {
+    const isHome = variant === 'home';
 
-        <button
-          className="icon-button mobile-menu"
-          type="button"
-          aria-label="도구 메뉴 열기"
-          onClick={() => setMobileNavOpen((open) => !open)}
-        >
-          <Menu size={18} />
-        </button>
-
-        <nav className={`tool-tabs ${mobileNavOpen ? 'is-open' : ''}`} aria-label="도구">
-          {TOOL_OPTIONS.map((tool) => {
-            const Icon = tool.icon;
-            return (
-              <button
-                key={tool.id}
-                className={`tab-button accent-${tool.accent}`}
-                type="button"
-                data-active={activeTool === tool.id}
-                aria-current={activeTool === tool.id ? 'page' : undefined}
-                onClick={() => {
-                  setActiveTool(tool.id);
-                  setMobileNavOpen(false);
-                }}
-              >
-                <Icon size={16} />
-                <span className="tab-copy">
-                  <span>{tool.label}</span>
-                  <small>{tool.description}</small>
-                </span>
-              </button>
-            );
-          })}
-        </nav>
-      </header>
-
-      <main className="workspace">
-        <section className="control-panel" aria-label="입력 설정">
-          <div className="panel-heading">
+    if (isHome) {
+      return (
+        <section className="word-prep-home" aria-label="단어 준비 홈">
+          <div className="word-prep-hero">
             <div>
-              <p className="mono-label">입력</p>
-              <h2>단어와 사진</h2>
+              <p className="mono-label">준비</p>
+              <h2>학습 단어 준비</h2>
             </div>
+            <div className="word-prep-status">
+              <Badge tone={wordCountStatus(words.length).tone}>
+                {wordCountStatus(words.length).label}
+              </Badge>
+              <span>
+                사진 {preparedImageCount}/{words.length}
+              </span>
+              <button
+                className="secondary-button settings-button"
+                type="button"
+                aria-label="학급 정보 수정"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <Settings size={15} />
+                학급 정보
+              </button>
+            </div>
+          </div>
+
+          <div className="word-prep-grid">
+            <section className="word-prep-panel word-entry-panel" aria-label="단어 입력">
+              <div className="word-prep-panel-heading">
+                <div>
+                  <span className="control-kicker">단어</span>
+                  <h3>목록 만들기</h3>
+                </div>
+              </div>
+              <label className="field-label" htmlFor="word-input">
+                단어 목록
+              </label>
+              <textarea
+                id="word-input"
+                className="word-area"
+                value={wordInput}
+                onChange={(event) => setWordInput(event.target.value)}
+                spellCheck={false}
+              />
+
+              <div className="word-action-panel" role="group" aria-label="단어 빠른 작업">
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => setWordInput(SAMPLE_WORDS_BY_TOOL[activeTool])}
+                >
+                  <Grid3X3 size={15} />
+                  예시 단어 넣기
+                </button>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => {
+                    void copyWords();
+                  }}
+                  disabled={words.length === 0}
+                >
+                  <Copy size={15} />
+                  단어 복사
+                </button>
+              </div>
+            </section>
+
+            <section
+              className="word-prep-panel word-media-prep-panel"
+              aria-label="단어별 사진과 힌트"
+            >
+              <div className="word-prep-panel-heading">
+                <div>
+                  <span className="control-kicker">단어별 준비</span>
+                  <h3>사진과 힌트</h3>
+                </div>
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={() => {
+                    void findAllImages();
+                  }}
+                  disabled={words.length === 0 || allImagesLoading}
+                >
+                  {allImagesLoading ? <ButtonSpinner /> : <Images size={16} />}
+                  {allImagesLoading ? '검색 중' : '사진 전체 찾기'}
+                </button>
+              </div>
+
+              <div className="word-media-list" aria-label="단어별 사진과 힌트 목록">
+                {keywordRows.length === 0 ? (
+                  <EmptyState text="단어를 입력하면 사진과 힌트 행이 만들어집니다." />
+                ) : (
+                  keywordRows.map((row) => (
+                    <div className="word-media-row" key={row.word}>
+                      <ImagePreview word={row.word} imageUrl={imageMap[row.word]} />
+                      <div className="word-media-main">
+                        <div className="word-photo-copy">
+                          <span className="word-token">{row.word}</span>
+                          <span>{imageMap[row.word] ? '사진 선택됨' : '사진 없음'}</span>
+                        </div>
+                        <label className="word-hint-field">
+                          <span className="sr-only">{row.word} 힌트</span>
+                          <input
+                            aria-label={`${row.word} 퀴즈 힌트`}
+                            value={quizMap[row.word] ?? ''}
+                            onChange={(event) =>
+                              updateQuizHint(row.word, event.currentTarget.value)
+                            }
+                            placeholder="빈칸 힌트나 단어 설명"
+                          />
+                        </label>
+                      </div>
+                      <div className="image-controls">
+                        <button
+                          className="tiny-button"
+                          type="button"
+                          onClick={() => {
+                            void findImage(row);
+                          }}
+                          disabled={imageLoadingWord === row.word || allImagesLoading}
+                        >
+                          {imageLoadingWord === row.word && <ButtonSpinner />}
+                          {imageLoadingWord === row.word ? '검색 중' : '사진 찾기'}
+                        </button>
+                        <button
+                          className="tiny-button"
+                          type="button"
+                          onClick={() => openImagePicker(row.word)}
+                          disabled={(imageCandidatesByWord[row.word] ?? []).length === 0}
+                        >
+                          다른 사진
+                        </button>
+                        <label className="tiny-upload">
+                          직접 올리기
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(event) =>
+                              uploadImage(row.word, event.target.files?.[0] ?? null)
+                            }
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section className="word-cart-panel word-prep-panel" aria-label="담은 단어">
+              <div className="word-cart-heading">
+                <div>
+                  <span className="control-kicker">보관함</span>
+                  <h3>담은 단어</h3>
+                </div>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={addCurrentWordsToCart}
+                  disabled={words.length === 0}
+                >
+                  현재 단어 담기
+                </button>
+              </div>
+              {wordCart.length === 0 ? (
+                <EmptyState text="현재 단어를 담아두면 다시 추가할 수 있습니다." />
+              ) : (
+                <div className="word-cart-list">
+                  {wordCart.map((word) => (
+                    <span className="word-cart-item" key={word}>
+                      <button
+                        className="word-cart-chip"
+                        type="button"
+                        aria-label={`${word} 추가`}
+                        onClick={() => addCartWordToInput(word)}
+                      >
+                        {word}
+                      </button>
+                      <button
+                        className="word-cart-remove"
+                        type="button"
+                        aria-label={`${word} 제거`}
+                        onClick={() => removeCartWord(word)}
+                      >
+                        <X size={13} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        </section>
+      );
+    }
+
+    return (
+      <section
+        className={`control-panel word-setup-panel word-setup-panel-${variant}`}
+        aria-label={isHome ? '단어 준비 홈' : '입력 설정'}
+      >
+        <div className="panel-heading">
+          <div>
+            <p className="mono-label">{isHome ? '준비' : '입력'}</p>
+            <h2>{isHome ? '학습 단어 준비' : '단어 수정'}</h2>
+          </div>
+          <div className="panel-heading-actions">
             <Badge tone={wordCountStatus(words.length).tone}>
               {wordCountStatus(words.length).label}
             </Badge>
+            {isHome ? (
+              <button
+                className="secondary-button settings-button"
+                type="button"
+                aria-label="학급 정보 수정"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <Settings size={15} />
+                학급 정보
+              </button>
+            ) : (
+              <button
+                className="icon-button"
+                type="button"
+                aria-label="단어 드로어 닫기"
+                onClick={() => setWordDrawerOpen(false)}
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
+        </div>
 
-          <label className="field-label" htmlFor="word-input">
-            단어 목록
-          </label>
-          <textarea
-            id="word-input"
-            className="word-area"
-            value={wordInput}
-            onChange={(event) => setWordInput(event.target.value)}
-            spellCheck={false}
-          />
+        {isHome && (
+          <p className="word-setup-intro">
+            단어를 먼저 정하고, 필요한 사진이나 퀴즈 힌트를 준비한 뒤 상단 메뉴에서 만들 자료를
+            고르세요.
+          </p>
+        )}
 
-          <div className="word-action-panel" role="group" aria-label="단어 빠른 작업">
-            <button
-              className="primary-button word-photo-search-action"
-              type="button"
-              onClick={() => {
-                void findAllImages();
-              }}
-              disabled={words.length === 0 || allImagesLoading}
-            >
-              {allImagesLoading ? <ButtonSpinner /> : <Images size={16} />}
-              {allImagesLoading ? '사진 전체 검색 중' : '사진 전체 찾기'}
-            </button>
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => setWordInput(SAMPLE_WORDS)}
-            >
-              <Grid3X3 size={15} />
-              예시 단어 넣기
-            </button>
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => {
-                void copyWords();
-              }}
-              disabled={words.length === 0}
-            >
-              <Copy size={15} />
-              단어 복사
-            </button>
-            <div className="photo-readiness" aria-live="polite">
-              사진 {preparedImageCount}/{words.length} 준비됨
+        <label className="field-label" htmlFor="word-input">
+          단어 목록
+        </label>
+        <textarea
+          id="word-input"
+          className="word-area"
+          value={wordInput}
+          onChange={(event) => setWordInput(event.target.value)}
+          spellCheck={false}
+        />
+
+        <div className="word-action-panel" role="group" aria-label="단어 빠른 작업">
+          <button
+            className="primary-button word-photo-search-action"
+            type="button"
+            onClick={() => {
+              void findAllImages();
+            }}
+            disabled={words.length === 0 || allImagesLoading}
+          >
+            {allImagesLoading ? <ButtonSpinner /> : <Images size={16} />}
+            {allImagesLoading ? '사진 전체 검색 중' : '사진 전체 찾기'}
+          </button>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => setWordInput(SAMPLE_WORDS_BY_TOOL[activeTool])}
+          >
+            <Grid3X3 size={15} />
+            예시 단어 넣기
+          </button>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => {
+              void copyWords();
+            }}
+            disabled={words.length === 0}
+          >
+            <Copy size={15} />
+            단어 복사
+          </button>
+          <div className="photo-readiness" aria-live="polite">
+            사진 {preparedImageCount}/{words.length} 준비됨
+          </div>
+        </div>
+
+        {isHome && (
+          <section className="word-cart-panel" aria-label="담은 단어">
+            <div className="word-cart-heading">
+              <div>
+                <span className="control-kicker">단어 보관함</span>
+                <strong>필요한 단어 담기</strong>
+              </div>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={addCurrentWordsToCart}
+                disabled={words.length === 0}
+              >
+                현재 단어 담기
+              </button>
+            </div>
+            {wordCart.length === 0 ? (
+              <EmptyState text="현재 단어를 담아두면 다른 자료를 만들 때 다시 추가할 수 있습니다." />
+            ) : (
+              <div className="word-cart-list">
+                {wordCart.map((word) => (
+                  <span className="word-cart-item" key={word}>
+                    <button
+                      className="word-cart-chip"
+                      type="button"
+                      aria-label={`${word} 추가`}
+                      onClick={() => addCartWordToInput(word)}
+                    >
+                      {word}
+                    </button>
+                    <button
+                      className="word-cart-remove"
+                      type="button"
+                      aria-label={`${word} 제거`}
+                      onClick={() => removeCartWord(word)}
+                    >
+                      <X size={13} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        <section className="word-drawer-media-section" aria-label="사진과 힌트">
+          <div className="word-prep-panel-heading">
+            <div>
+              <span className="control-kicker">단어별 준비</span>
+              <h3>사진과 힌트</h3>
             </div>
           </div>
 
-          <div className="settings-grid student-settings">
-            <label>
-              <span>학년</span>
-              <input
-                type="number"
-                min={1}
-                max={6}
-                value={grade}
-                onChange={(event) => setGrade(Number(event.target.value))}
-              />
-            </label>
-            <label>
-              <span>반</span>
-              <input
-                type="number"
-                min={1}
-                value={klass}
-                onChange={(event) => setKlass(Number(event.target.value))}
-              />
-            </label>
-          </div>
-
-          <div className="keyword-table photo-list" aria-label="단어별 사진">
+          <div className="word-media-list" aria-label="단어별 사진">
             {keywordRows.length === 0 ? (
-              <EmptyState text="단어를 입력하면 사진 행이 만들어집니다." />
+              <EmptyState text="단어를 입력하면 사진과 힌트 행이 만들어집니다." />
             ) : (
               keywordRows.map((row) => (
-                <div className="keyword-row" key={row.word}>
+                <div className="word-media-row" key={row.word}>
                   <ImagePreview word={row.word} imageUrl={imageMap[row.word]} />
-                  <div className="word-photo-copy">
-                    <span className="word-token">{row.word}</span>
-                    <span>{imageMap[row.word] ? '사진 준비됨 · 확인 필요' : '사진 없음'}</span>
+                  <div className="word-media-main">
+                    <div className="word-photo-copy">
+                      <span className="word-token">{row.word}</span>
+                      <span>{imageMap[row.word] ? '사진 선택됨' : '사진 없음'}</span>
+                    </div>
+                    <label className="word-hint-field">
+                      <span className="sr-only">{row.word} 힌트</span>
+                      <input
+                        aria-label={`${row.word} 퀴즈 힌트`}
+                        value={quizMap[row.word] ?? ''}
+                        onChange={(event) => updateQuizHint(row.word, event.currentTarget.value)}
+                        placeholder="빈칸 힌트나 단어 설명"
+                      />
+                    </label>
                   </div>
                   <div className="image-controls">
                     <button
@@ -580,54 +919,211 @@ function App() {
             )}
           </div>
         </section>
+      </section>
+    );
+  }
 
-        <section
-          className={`tool-panel accent-${activeToolConfig.accent}`}
-          aria-label={activeToolConfig.label}
+  function renderMaterialSettingsRail() {
+    const Icon = activeToolConfig.icon;
+
+    return (
+      <aside className="material-settings-rail" role="complementary" aria-label="자료 설정">
+        {activeTool === 'dobble' ? (
+          <DobblePlanPanel
+            tool={activeToolConfig}
+            details={dobbleDetails}
+            onInfoOpen={() => setDobbleInfoOpen(true)}
+          />
+        ) : (
+          <section className="material-tool-summary" aria-label="현재 자료">
+            <p className="mono-label">
+              {LANGUAGE_LABELS[language]} · {activeToolConfig.description} · 단어 {words.length}개
+            </p>
+            <div className="material-tool-title">
+              <Icon size={19} />
+              <strong>{activeToolConfig.label}</strong>
+            </div>
+          </section>
+        )}
+
+        <div className="material-rail-actions">
+          <button
+            className="secondary-button"
+            type="button"
+            aria-label="학급 정보 수정"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings size={15} />
+            학급 정보
+          </button>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => setWordDrawerOpen(true)}
+          >
+            <Pencil size={15} />
+            단어 수정
+          </button>
+        </div>
+
+        {activeTool === 'dobble' && (
+          <>
+            <DobbleDisplayControls
+              canExportDobble={dobbleDetails.canExportDobble}
+              displayMode={dobbleDisplayMode}
+              onDisplayModeChange={setDobbleDisplayMode}
+            />
+            <ActionBar
+              variant="inline"
+              onPrint={printMaterialPreview}
+              onExport={exportDobble}
+              exportLabel="PPTX 다운로드"
+              exportDisabled={!dobbleDetails.canExportDobble}
+              disabledReason={dobbleDetails.disabledReason}
+            />
+          </>
+        )}
+      </aside>
+    );
+  }
+
+  return (
+    <div className="app-shell">
+      <header className="topbar">
+        <button
+          className="brand-lockup brand-home-button"
+          type="button"
+          aria-label="홈으로 이동"
+          onClick={() => navigateToRoute('home')}
         >
-          <ToolHeader tool={activeToolConfig} words={words} language={language} />
+          <span className="mark" aria-hidden="true">
+            <Sparkles size={16} />
+          </span>
+          <span className="brand-copy" aria-hidden="true">
+            <span className="mono-label">학습 자료 제작기</span>
+            <span className="brand-title">학습 자료 제작 스튜디오</span>
+          </span>
+        </button>
+        <h1 className="sr-only">학습 자료 제작 스튜디오</h1>
 
-          {activeTool === 'word-search' && (
-            <WordSearchTool
-              words={words}
-              grade={grade}
-              klass={klass}
-              imageMap={imageMap}
-              runDownload={runDownload}
-              onPrint={printMaterialPreview}
+        <button
+          className="icon-button mobile-menu"
+          type="button"
+          aria-label="도구 메뉴 열기"
+          onClick={() => setMobileNavOpen((open) => !open)}
+        >
+          <Menu size={18} />
+        </button>
+
+        <nav className={`tool-tabs ${mobileNavOpen ? 'is-open' : ''}`} aria-label="도구">
+          {TOOL_OPTIONS.map((tool) => {
+            const Icon = tool.icon;
+            return (
+              <button
+                key={tool.id}
+                className={`tab-button accent-${tool.accent}`}
+                type="button"
+                data-active={currentRoute === tool.id}
+                aria-current={currentRoute === tool.id ? 'page' : undefined}
+                onClick={() => navigateToRoute(tool.id)}
+              >
+                <Icon size={16} />
+                <span className="tab-copy">
+                  <span>{tool.label}</span>
+                  <small>{tool.description}</small>
+                </span>
+              </button>
+            );
+          })}
+        </nav>
+      </header>
+
+      {currentRoute === 'home' ? (
+        <main className="workspace home-workspace">{renderWordSetupPanel('home')}</main>
+      ) : (
+        <main className="workspace material-workspace">
+          {renderMaterialSettingsRail()}
+
+          <section
+            className={`tool-panel accent-${activeToolConfig.accent}`}
+            aria-label={activeToolConfig.label}
+          >
+            {activeTool !== 'dobble' && (
+              <ToolHeader tool={activeToolConfig} words={words} language={language} />
+            )}
+
+            {activeTool === 'word-search' && (
+              <WordSearchTool
+                words={words}
+                grade={grade}
+                klass={klass}
+                imageMap={imageMap}
+                runDownload={runDownload}
+                onPrint={printMaterialPreview}
+              />
+            )}
+
+            {activeTool === 'worksheet' && (
+              <WorksheetTool
+                words={words}
+                grade={grade}
+                klass={klass}
+                imageMap={imageMap}
+                runDownload={runDownload}
+                onPrint={printMaterialPreview}
+              />
+            )}
+
+            {activeTool === 'flicker' && (
+              <FlickerTool
+                words={words}
+                imageMap={imageMap}
+                runDownload={runDownload}
+                onPrint={printMaterialPreview}
+              />
+            )}
+
+            {activeTool === 'dobble' && (
+              <DobbleTool
+                words={words}
+                imageMap={imageMap}
+                details={dobbleDetails}
+                displayMode={dobbleDisplayMode}
+              />
+            )}
+          </section>
+
+          {wordDrawerOpen && (
+            <button
+              className="word-drawer-scrim"
+              type="button"
+              aria-label="단어 드로어 밖 닫기"
+              onClick={() => setWordDrawerOpen(false)}
             />
           )}
 
-          {activeTool === 'worksheet' && (
-            <WorksheetTool
-              words={words}
-              grade={grade}
-              klass={klass}
-              imageMap={imageMap}
-              runDownload={runDownload}
-              onPrint={printMaterialPreview}
-            />
-          )}
+          <aside
+            className="word-drawer"
+            role="complementary"
+            aria-label="단어 편집 드로어"
+            data-open={wordDrawerOpen}
+          >
+            {renderWordSetupPanel('drawer')}
+          </aside>
+        </main>
+      )}
 
-          {activeTool === 'flicker' && (
-            <FlickerTool
-              words={words}
-              imageMap={imageMap}
-              runDownload={runDownload}
-              onPrint={printMaterialPreview}
-            />
-          )}
+      {settingsOpen && (
+        <OutputSettingsDialog
+          grade={grade}
+          klass={klass}
+          onGradeChange={setGrade}
+          onKlassChange={setKlass}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
 
-          {activeTool === 'dobble' && (
-            <DobbleTool
-              words={words}
-              imageMap={imageMap}
-              runDownload={runDownload}
-              onPrint={printMaterialPreview}
-            />
-          )}
-        </section>
-      </main>
+      {dobbleInfoOpen && <DobbleInfoDialog onClose={() => setDobbleInfoOpen(false)} />}
 
       {imagePicker && (
         <ImagePickerDialog
@@ -677,6 +1173,8 @@ function parseWorkspaceDraft(value: unknown): WorkspaceDraft {
     activeTool: isToolId(value.activeTool) ? value.activeTool : undefined,
     wordInput: typeof value.wordInput === 'string' ? value.wordInput : undefined,
     imageMap: isStringRecord(value.imageMap) ? value.imageMap : undefined,
+    quizMap: isStringRecord(value.quizMap) ? value.quizMap : undefined,
+    wordCart: isStringArray(value.wordCart) ? value.wordCart : undefined,
     grade: typeof value.grade === 'number' ? Math.max(1, Math.min(6, value.grade)) : undefined,
     klass: typeof value.klass === 'number' ? Math.max(1, value.klass) : undefined,
     imageCandidatesByWord: isImageCandidateMap(value.imageCandidatesByWord)
@@ -696,6 +1194,17 @@ function writeWorkspaceDraft(draft: WorkspaceDraft) {
   }
 }
 
+function routeFromPath(pathname: string): RouteId {
+  const normalizedPath = pathname.replace(/\/+$/, '') || '/';
+  const routeEntry = Object.entries(ROUTE_PATHS).find(([, path]) => path === normalizedPath);
+
+  if (!routeEntry) {
+    return 'home';
+  }
+
+  return routeEntry[0] as RouteId;
+}
+
 function pickExistingWordEntries<T>(record: Record<string, T>, words: string[]): Record<string, T> {
   return words.reduce<Record<string, T>>((entries, word) => {
     if (Object.hasOwn(record, word)) {
@@ -703,6 +1212,17 @@ function pickExistingWordEntries<T>(record: Record<string, T>, words: string[]):
     }
     return entries;
   }, {});
+}
+
+function mergeWordLists(currentWords: string[], nextWords: string[]): string[] {
+  const mergedWords = new Set(currentWords);
+  nextWords.forEach((word) => {
+    const trimmedWord = word.trim();
+    if (trimmedWord) {
+      mergedWords.add(trimmedWord);
+    }
+  });
+  return Array.from(mergedWords);
 }
 
 function mergeImageCandidates(
@@ -736,6 +1256,10 @@ function isImageProvider(value: unknown): value is ImageCandidate['provider'] {
 
 function isStringRecord(value: unknown): value is Record<string, string> {
   return isRecord(value) && Object.values(value).every((item) => typeof item === 'string');
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
 }
 
 function isImageCandidate(value: unknown): value is ImageCandidate {
@@ -832,6 +1356,9 @@ function WordSearchTool({
   const hasError = puzzle instanceof Error;
   const generatedPuzzle = !hasError && puzzle ? puzzle : null;
   const currentGrid = !hasError && puzzle ? (showAnswer ? puzzle.answerGrid : puzzle.grid) : [];
+  const preparedImageCount = getPreparedImageCount(words, imageMap);
+  const exportDisabled = !generatedPuzzle;
+  const exportDisabledReason = exportDisabled ? '먼저 퍼즐을 만들 단어를 입력하세요.' : undefined;
   const decreaseDifficulty = () =>
     setDifficulty(WORD_SEARCH_DIFFICULTIES[Math.max(difficultyIndex - 1, 0)].value);
   const increaseDifficulty = () =>
@@ -941,6 +1468,9 @@ function WordSearchTool({
           )
         }
         exportLabel="DOCX 다운로드"
+        exportDisabled={exportDisabled}
+        disabledReason={exportDisabledReason}
+        summary={`DOCX · 퍼즐 ${size} x ${size} · 단어 ${words.length}개 · 사진 ${preparedImageCount}/${words.length}개 준비`}
       />
     </>
   );
@@ -964,6 +1494,7 @@ function WorksheetTool({
   const [columns, setColumns] = useState(5);
   const [syllables, setSyllables] = useState(false);
   const worksheet = useMemo(() => buildWorksheetCells(words, columns), [columns, words]);
+  const preparedImageCount = getPreparedImageCount(words, imageMap);
 
   return (
     <>
@@ -1013,6 +1544,7 @@ function WorksheetTool({
           )
         }
         exportLabel="DOCX 다운로드"
+        summary={`DOCX · 단어 ${words.length}개 · 한 줄 ${columns}칸 · 사진 ${preparedImageCount}/${words.length}개 준비`}
       />
     </>
   );
@@ -1031,6 +1563,11 @@ function FlickerTool({
 }) {
   const [templates, setTemplates] = useState<FlickerTemplate[]>(['word', 'image', 'word-image']);
   const sequence = useMemo(() => buildFlickerSequence(templates, words), [templates, words]);
+  const templateSummary = templates
+    .map((template) => FLICKER_TEMPLATES.find((item) => item.id === template)?.label)
+    .filter((label): label is string => Boolean(label))
+    .join(' · ');
+  const hasSelectedTemplate = templates.length > 0;
 
   function toggleTemplate(template: FlickerTemplate) {
     setTemplates((current) => {
@@ -1085,177 +1622,206 @@ function FlickerTool({
         onPrint={onPrint}
         onExport={() => runDownload(() => downloadFlickerPptx(words, imageMap, templates))}
         exportLabel="PPTX 다운로드"
+        exportDisabled={!hasSelectedTemplate}
+        disabledReason={hasSelectedTemplate ? undefined : '슬라이드 양식을 하나 이상 선택하세요.'}
+        summary={`PPTX · 슬라이드 ${sequence.length}장 · ${templateSummary || '양식 0개'}`}
       />
     </>
+  );
+}
+
+function getDobblePlanDetails(words: string[], imageMap: ImageMap, displayMode: DobbleDisplayMode) {
+  const plan = selectDobblePlan(words.length);
+  const indexes = plan.kind === 'unavailable' ? [] : plan.cards;
+  const usedWords = Array.from(new Set(indexes.flat().map((wordIndex) => words[wordIndex]))).filter(
+    (word): word is string => Boolean(word),
+  );
+  const canExportDobble = plan.kind !== 'unavailable';
+  const usedWordCount = plan.kind === 'unavailable' ? 0 : plan.usedWordCount;
+  const unusedWordCount =
+    plan.kind === 'unavailable' ? 0 : Math.max(0, words.length - usedWordCount);
+  const showDobblePhotoStatus = plan.kind !== 'unavailable' && displayMode !== 'word';
+  const preparedDobbleImageCount = usedWords.filter((word) => Boolean(imageMap[word])).length;
+  const missingDobbleImageCount = Math.max(0, usedWords.length - preparedDobbleImageCount);
+  const showDobbleInitialFallback = showDobblePhotoStatus && missingDobbleImageCount > 0;
+  const picturesPerCard =
+    plan.kind === 'unavailable' ? plan.suggestedPicturesPerCard : plan.picturesPerCard;
+  const wordsUntilComplete =
+    plan.kind === 'partial' ? Math.max(0, plan.requiredWords - words.length) : 0;
+  const disabledReason =
+    plan.kind === 'unavailable' ? `단어 ${plan.wordsNeeded}개를 더 넣어주세요.` : undefined;
+  const dobblePlanTitle =
+    plan.kind === 'unavailable' ? `단어 ${plan.wordsNeeded}개 더 필요` : '바로 출력 가능';
+  const dobblePlanSummary =
+    plan.kind === 'unavailable'
+      ? `현재 ${words.length}개 · 최소 ${plan.minimumSafeWords}개`
+      : `카드 ${indexes.length}장 · 카드당 단어 ${picturesPerCard}개`;
+  const dobbleCompletionHint =
+    plan.kind === 'partial' && wordsUntilComplete > 0
+      ? `단어 ${wordsUntilComplete}개 더 넣으면 카드 ${plan.requiredWords}장 가능`
+      : undefined;
+  const dobblePhotoIssue = showDobbleInitialFallback
+    ? `사진 ${missingDobbleImageCount}개 필요 · 부족한 사진은 첫 글자로 대체됨`
+    : undefined;
+  const dobbleExcludedIssue =
+    unusedWordCount > 0 ? `단어 ${unusedWordCount}개는 카드에 안 들어감` : undefined;
+
+  return {
+    plan,
+    indexes,
+    canExportDobble,
+    picturesPerCard,
+    disabledReason,
+    dobblePlanTitle,
+    dobblePlanSummary,
+    dobbleCompletionHint,
+    dobblePhotoIssue,
+    dobbleExcludedIssue,
+  };
+}
+
+function DobblePlanPanel({
+  tool,
+  details,
+  onInfoOpen,
+}: {
+  tool: (typeof TOOL_OPTIONS)[number];
+  details: ReturnType<typeof getDobblePlanDetails>;
+  onInfoOpen: () => void;
+}) {
+  const Icon = tool.icon;
+
+  return (
+    <section
+      className="dobble-plan-panel"
+      data-kind={details.plan.kind}
+      aria-label="도블 생성 방식"
+    >
+      <div className="dobble-plan-hero">
+        <div className="dobble-plan-title">
+          <div className="dobble-title-row">
+            <Icon size={20} />
+            <h2>{tool.label}</h2>
+            <span>{details.dobblePlanTitle}</span>
+            <button
+              className="icon-button dobble-info-button"
+              type="button"
+              aria-label="도블 설명 보기"
+              title="도블 설명 보기"
+              onClick={onInfoOpen}
+            >
+              <HelpCircle size={16} />
+            </button>
+          </div>
+          <p>{details.dobblePlanSummary}</p>
+        </div>
+      </div>
+
+      {(details.dobbleCompletionHint ||
+        details.dobblePhotoIssue ||
+        details.dobbleExcludedIssue) && (
+        <div className="dobble-plan-alerts" role="status" aria-live="polite">
+          {details.dobbleCompletionHint && <span>{details.dobbleCompletionHint}</span>}
+          {details.dobblePhotoIssue && <span data-tone="warning">{details.dobblePhotoIssue}</span>}
+          {details.dobbleExcludedIssue && <span>{details.dobbleExcludedIssue}</span>}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function DobbleDisplayControls({
+  canExportDobble,
+  displayMode,
+  onDisplayModeChange,
+}: {
+  canExportDobble: boolean;
+  displayMode: DobbleDisplayMode;
+  onDisplayModeChange: (mode: DobbleDisplayMode) => void;
+}) {
+  if (!canExportDobble) {
+    return null;
+  }
+
+  return (
+    <div className="dobble-display-controls" role="group" aria-label="도블 표시 방식">
+      <div className="control-kicker">카드에 넣을 내용</div>
+      <div className="dobble-display-grid">
+        {DOBBLE_DISPLAY_OPTIONS.map((option) => (
+          <button
+            className="option-card-button"
+            type="button"
+            key={option.value}
+            aria-pressed={displayMode === option.value}
+            onClick={() => onDisplayModeChange(option.value)}
+            title={option.description}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
 function DobbleTool({
   words,
   imageMap,
-  runDownload,
-  onPrint,
+  details,
+  displayMode,
 }: {
   words: string[];
   imageMap: ImageMap;
-  runDownload: (action: () => Promise<void>) => Promise<void>;
-  onPrint: () => void;
+  details: ReturnType<typeof getDobblePlanDetails>;
+  displayMode: DobbleDisplayMode;
 }) {
-  const [displayMode, setDisplayMode] = useState<DobbleDisplayMode>('image-word');
-  const plan = useMemo(() => selectDobblePlan(words.length), [words.length]);
-  const indexes = plan.kind === 'unavailable' ? [] : plan.cards;
-  const usedWordCount = plan.kind === 'unavailable' ? 0 : plan.usedWordCount;
-  const canExportDobble = plan.kind !== 'unavailable';
-  const unusedWordCount = Math.max(0, words.length - usedWordCount);
-  const picturesPerCard =
-    plan.kind === 'unavailable' ? plan.suggestedPicturesPerCard : plan.picturesPerCard;
-  const disabledReason =
-    plan.kind === 'unavailable'
-      ? `안전한 도블은 단어 ${plan.minimumSafeWords}개부터 가능합니다.`
-      : undefined;
-
-  return (
+  return details.indexes.length > 0 ? (
     <>
-      <section className="dobble-plan-panel" data-kind={plan.kind} aria-label="도블 생성 방식">
-        <div className="dobble-plan-header">
-          <div>
-            <p className="mono-label">현재 단어 {words.length}개</p>
-            <h3>
-              {plan.kind === 'complete'
-                ? '완전 도블 준비됨'
-                : plan.kind === 'partial'
-                  ? '현재 단어로 만들기'
-                  : '단어가 더 필요합니다'}
-            </h3>
-          </div>
-          <Badge tone={plan.kind === 'unavailable' ? 'warning' : 'success'}>
-            {plan.kind === 'complete'
-              ? '완전 도블'
-              : plan.kind === 'partial'
-                ? '부분 도블'
-                : `${plan.wordsNeeded}개 더 필요`}
-          </Badge>
-        </div>
-
-        {plan.kind === 'unavailable' ? (
-          <div className="dobble-plan-copy" role="status" aria-live="polite">
-            <p>안전한 도블은 단어 {plan.minimumSafeWords}개부터 가능합니다.</p>
-            <p>단어 {plan.wordsNeeded}개를 더 넣어주세요.</p>
-            <span>가장 작은 완전 도블은 단어 {plan.suggestedRequiredWords}개입니다.</span>
-          </div>
-        ) : (
-          <>
-            <p className="dobble-plan-copy">
-              {plan.kind === 'complete'
-                ? '입력한 단어 수가 도블 수학 규칙에 딱 맞습니다.'
-                : `완전 도블은 단어 ${plan.requiredWords}개가 필요해서, 현재 단어 안에서 안전한 부분 도블을 만듭니다.`}
-            </p>
-            <div className="dobble-plan-stats" role="status" aria-live="polite">
-              <span>카드 {indexes.length}장</span>
-              <span>한 카드에 단어 {picturesPerCard}개</span>
-              <span>
-                {usedWordCount}/{words.length}개 사용
-              </span>
-              <span>카드끼리 공통 그림 1개</span>
-            </div>
-            {unusedWordCount > 0 && (
-              <p className="dobble-plan-note">
-                이번 세트에는 {unusedWordCount}개 단어가 제외됩니다. 단어 수를 맞추면 더 큰 완전
-                도블을 만들 수 있습니다.
-              </p>
-            )}
-          </>
-        )}
-      </section>
-
-      <div className="dobble-display-controls" role="group" aria-label="도블 표시 방식">
-        <div className="control-kicker">카드에 넣을 내용</div>
-        <div className="dobble-display-grid">
-          {DOBBLE_DISPLAY_OPTIONS.map((option) => (
-            <button
-              className="option-card-button"
-              type="button"
-              key={option.value}
-              aria-pressed={displayMode === option.value}
-              onClick={() => setDisplayMode(option.value)}
+      <h3 className="preview-heading">실제 카드 미리보기</h3>
+      <div className="dobble-grid printable">
+        {details.indexes.map((card, index) => (
+          <div className="dobble-card" key={index}>
+            <span className="mono-label">카드 {index + 1}</span>
+            <div
+              className="dobble-card-preview"
+              role="group"
+              aria-label={`도블 카드 ${index + 1}`}
+              data-display-mode={displayMode}
             >
-              <strong>{option.label}</strong>
-              <span>{option.description}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {indexes.length > 0 ? (
-        <>
-          <h3 className="preview-heading">실제 카드 미리보기</h3>
-          <div className="dobble-grid printable">
-            {indexes.map((card, index) => (
-              <div className="dobble-card" key={index}>
-                <span className="mono-label">카드 {index + 1}</span>
-                <div
-                  className="dobble-card-preview"
-                  role="group"
-                  aria-label={`도블 카드 ${index + 1}`}
-                  data-display-mode={displayMode}
-                >
-                  {card.map((symbolIndex, symbolPosition) => {
-                    const word = words[symbolIndex];
-                    const showImage = displayMode !== 'word';
-                    const showLabel = displayMode !== 'image';
-                    return (
-                      <div
-                        className="dobble-symbol"
-                        key={symbolIndex}
-                        aria-label={word}
-                        data-display-mode={displayMode}
-                        style={dobbleSymbolStyle(symbolPosition, card.length, index)}
-                      >
-                        {showImage ? (
-                          <span className="dobble-symbol-image">
-                            {imageMap[word] ? (
-                              <img src={imageMap[word]} alt={showLabel ? '' : word} />
-                            ) : (
-                              <span aria-hidden="true">{dobbleInitial(word)}</span>
-                            )}
-                            {showLabel && <span className="dobble-symbol-label">{word}</span>}
-                          </span>
+              {card.map((symbolIndex, symbolPosition) => {
+                const word = words[symbolIndex];
+                const showImage = displayMode !== 'word';
+                const showLabel = displayMode !== 'image';
+                return (
+                  <div
+                    className="dobble-symbol"
+                    key={symbolIndex}
+                    aria-label={word}
+                    data-display-mode={displayMode}
+                    style={dobbleSymbolStyle(symbolPosition, card.length, index)}
+                  >
+                    {showImage ? (
+                      <span className="dobble-symbol-image">
+                        {imageMap[word] ? (
+                          <img src={imageMap[word]} alt={showLabel ? '' : word} />
                         ) : (
-                          <span className="dobble-word-symbol">{word}</span>
+                          <span aria-hidden="true">{dobbleInitial(word)}</span>
                         )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+                        {showLabel && <span className="dobble-symbol-label">{word}</span>}
+                      </span>
+                    ) : (
+                      <span className="dobble-word-symbol">{word}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </>
-      ) : (
-        <EmptyState text="단어를 더 넣으면 안전한 도블 카드 미리보기가 여기에 나타납니다." />
-      )}
-
-      <ActionBar
-        onPrint={onPrint}
-        onExport={() =>
-          runDownload(() =>
-            downloadDobblePptx(
-              indexes.map((card) =>
-                card.map((index) => ({
-                  word: words[index],
-                  image: imageMap[words[index]] || undefined,
-                })),
-              ),
-              picturesPerCard,
-              displayMode,
-            ),
-          )
-        }
-        exportLabel="PPTX 다운로드"
-        exportDisabled={!canExportDobble}
-        disabledReason={disabledReason}
-      />
+        ))}
+      </div>
     </>
+  ) : (
+    <EmptyState text="단어를 더 넣으면 안전한 도블 카드 미리보기가 여기에 나타납니다." />
   );
 }
 
@@ -1264,24 +1830,202 @@ function dobbleSymbolStyle(
   symbolCount: number,
   cardIndex: number,
 ): CSSProperties {
-  const centeredSymbol = symbolIndex === 0 && symbolCount % 2 === 1;
-  const angle = -90 + (symbolIndex * 360) / symbolCount + (cardIndex % 2 === 0 ? -7 : 9);
-  const radius = centeredSymbol ? 0 : 21 + ((symbolIndex + cardIndex) % 3) * 2;
-  const radians = (angle * Math.PI) / 180;
-  const x = 50 + Math.cos(radians) * radius;
-  const y = 50 + Math.sin(radians) * radius;
-  const scale = 0.98 + ((symbolIndex + cardIndex) % 3) * 0.04;
+  const { rotation, size, x, y } = dobbleSymbolLayout(symbolIndex, symbolCount, cardIndex);
 
   return {
+    '--symbol-size': `${size}%`,
     '--symbol-x': `${x}%`,
     '--symbol-y': `${y}%`,
-    '--symbol-rotate': '0deg',
-    '--symbol-scale': scale.toString(),
+    '--symbol-rotate': `${rotation}deg`,
+    '--symbol-scale': '1',
   } as CSSProperties;
+}
+
+function dobbleSymbolLayout(
+  symbolIndex: number,
+  symbolCount: number,
+  cardIndex: number,
+): { rotation: number; size: number; x: number; y: number } {
+  const fixedLayouts: Partial<Record<number, Array<[number, number]>>> = {
+    3: [
+      [50, 26],
+      [73, 67],
+      [27, 67],
+    ],
+    4: [
+      [29, 29],
+      [71, 29],
+      [71, 71],
+      [29, 71],
+    ],
+    5: [
+      [50, 50],
+      [27, 27],
+      [73, 27],
+      [73, 73],
+      [27, 73],
+    ],
+  };
+  const fixedLayout = fixedLayouts[symbolCount];
+
+  if (fixedLayout) {
+    const layouts = withDobbleRotations(
+      spreadDobbleSymbols(
+        fixedLayout.map(([x, y]) => ({
+          rotation: 0,
+          size: dobbleSymbolSize(symbolCount),
+          x,
+          y,
+        })),
+      ),
+      cardIndex,
+    );
+
+    return layouts[symbolIndex];
+  }
+
+  const symbolSize = dobbleSymbolSize(symbolCount);
+  const initialLayouts = Array.from({ length: symbolCount }, (_, index) => {
+    const angle = -90 + (index * 360) / symbolCount + (cardIndex % 2 === 0 ? -4 : 4);
+    const radius = dobbleSymbolRadius(symbolCount);
+    const radians = (angle * Math.PI) / 180;
+
+    return {
+      rotation: 0,
+      size: symbolSize,
+      x: 50 + Math.cos(radians) * radius,
+      y: 50 + Math.sin(radians) * radius,
+    };
+  });
+
+  return withDobbleRotations(spreadDobbleSymbols(initialLayouts), cardIndex)[symbolIndex];
+}
+
+function withDobbleRotations(
+  layouts: Array<{ rotation: number; size: number; x: number; y: number }>,
+  cardIndex: number,
+): Array<{ rotation: number; size: number; x: number; y: number }> {
+  return layouts.map((layout, index) => ({
+    ...layout,
+    rotation: dobbleSymbolRotation(layout.x, layout.y, index, cardIndex),
+  }));
+}
+
+function spreadDobbleSymbols(
+  layouts: Array<{ rotation: number; size: number; x: number; y: number }>,
+): Array<{ rotation: number; size: number; x: number; y: number }> {
+  const padding = 5;
+  const collisionGap = 2;
+  const nextLayouts = layouts.map((layout) => ({ ...layout }));
+
+  for (let iteration = 0; iteration < 8; iteration += 1) {
+    for (let leftIndex = 0; leftIndex < nextLayouts.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < nextLayouts.length; rightIndex += 1) {
+        const left = nextLayouts[leftIndex];
+        const right = nextLayouts[rightIndex];
+        const dx = right.x - left.x;
+        const dy = right.y - left.y;
+        const distance = Math.hypot(dx, dy) || 1;
+        const minimumDistance = (left.size + right.size) / 2 + collisionGap;
+
+        if (distance >= minimumDistance) {
+          continue;
+        }
+
+        const push = (minimumDistance - distance) / 2;
+        const pushX = (dx / distance) * push;
+        const pushY = (dy / distance) * push;
+
+        left.x -= pushX;
+        left.y -= pushY;
+        right.x += pushX;
+        right.y += pushY;
+      }
+    }
+
+    nextLayouts.forEach((layout) => {
+      const radius = layout.size / 2;
+      layout.x = clampNumber(layout.x, radius + padding, 100 - radius - padding);
+      layout.y = clampNumber(layout.y, radius + padding, 100 - radius - padding);
+    });
+  }
+
+  return nextLayouts;
+}
+
+function clampNumber(value: number, minimum: number, maximum: number): number {
+  return Math.min(Math.max(value, minimum), maximum);
+}
+
+function dobbleSymbolRotation(
+  x: number,
+  y: number,
+  symbolIndex: number,
+  cardIndex: number,
+): number {
+  const dx = x - 50;
+  const dy = y - 50;
+  const jitter = dobbleRotationJitter(symbolIndex, cardIndex);
+
+  if (Math.hypot(dx, dy) < 1) {
+    return normalizeDegrees(jitter);
+  }
+
+  return normalizeDegrees((Math.atan2(dy, dx) * 180) / Math.PI - 90 + jitter);
+}
+
+function dobbleRotationJitter(symbolIndex: number, cardIndex: number): number {
+  const jitters = [-7, 6, -4, 8, -6, 5, 3];
+
+  return jitters[(cardIndex * 3 + symbolIndex * 2) % jitters.length];
+}
+
+function normalizeDegrees(value: number): number {
+  return Math.round(((value % 360) + 360) % 360);
+}
+
+function dobbleSymbolSize(symbolCount: number): number {
+  if (symbolCount === 3) {
+    return 40;
+  }
+
+  if (symbolCount <= 4) {
+    return 38;
+  }
+
+  if (symbolCount === 5) {
+    return 28;
+  }
+
+  if (symbolCount === 6) {
+    return 23;
+  }
+
+  return 19;
+}
+
+function dobbleSymbolRadius(symbolCount: number): number {
+  if (symbolCount <= 4) {
+    return 25;
+  }
+
+  if (symbolCount === 5) {
+    return 32;
+  }
+
+  if (symbolCount === 6) {
+    return 34;
+  }
+
+  return 36;
 }
 
 function dobbleInitial(word: string): string {
   return word.trim().charAt(0).toUpperCase();
+}
+
+function getPreparedImageCount(words: string[], imageMap: ImageMap): number {
+  return words.filter((word) => Boolean(imageMap[word])).length;
 }
 
 function WordImageHints({
@@ -1338,6 +2082,145 @@ function MaterialTile({
       <strong>{syllables ? word.split('').join(' · ') : word}</strong>
     </div>
   );
+}
+
+function OutputSettingsDialog({
+  grade,
+  klass,
+  onGradeChange,
+  onKlassChange,
+  onClose,
+}: {
+  grade: number;
+  klass: number;
+  onGradeChange: (value: number) => void;
+  onKlassChange: (value: number) => void;
+  onClose: () => void;
+}) {
+  const [draftGrade, setDraftGrade] = useState(String(grade));
+  const [draftKlass, setDraftKlass] = useState(String(klass));
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  function saveAndClose() {
+    onGradeChange(clampNumberInput(draftGrade, 1, 6));
+    onKlassChange(clampNumberInput(draftKlass, 1, 99));
+    onClose();
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <section
+        className="settings-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label="학급 정보"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="dialog-heading">
+          <div>
+            <p className="mono-label">설정</p>
+            <h2>학급 정보</h2>
+          </div>
+          <button className="icon-button" type="button" aria-label="닫기" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="settings-form">
+          <label>
+            <span>학년</span>
+            <input
+              type="number"
+              min={1}
+              max={6}
+              value={draftGrade}
+              onChange={(event) => setDraftGrade(event.currentTarget.value)}
+            />
+          </label>
+          <label>
+            <span>반</span>
+            <input
+              type="number"
+              min={1}
+              value={draftKlass}
+              onChange={(event) => setDraftKlass(event.currentTarget.value)}
+            />
+          </label>
+        </div>
+
+        <div className="dialog-actions">
+          <button className="primary-button" type="button" onClick={saveAndClose}>
+            완료
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function DobbleInfoDialog({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <section
+        className="dobble-info-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label="도블 카드 설명"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="dialog-heading">
+          <div>
+            <p className="mono-label">도블 카드</p>
+            <h2>도블 카드 설명</h2>
+          </div>
+          <button className="icon-button" type="button" aria-label="닫기" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="dobble-info-body">
+          <p>카드 두 장에서 똑같이 들어 있는 그림 하나를 찾는 게임입니다.</p>
+          <ul>
+            <li>카드 수와 카드당 단어 수는 단어 수에 맞춰 자동으로 정합니다.</li>
+            <li>사진이 부족하면 그 단어는 첫 글자로 표시됩니다.</li>
+            <li>사진만으로 놀이하려면 단어 준비 화면의 사진과 카드 미리보기를 확인하면 됩니다.</li>
+            <li>단어가 부족하면 출력 버튼이 꺼지고, 몇 개를 더 넣어야 하는지 표시됩니다.</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function clampNumberInput(value: string, min: number, max: number): number {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return min;
+  }
+
+  return Math.max(min, Math.min(max, number));
 }
 
 function ImagePickerDialog({
@@ -1643,16 +2526,21 @@ function ActionBar({
   exportLabel,
   exportDisabled = false,
   disabledReason,
+  summary,
+  variant = 'sticky',
 }: {
   onPrint: () => void;
   onExport: () => Promise<void>;
   exportLabel: string;
   exportDisabled?: boolean;
   disabledReason?: string;
+  summary?: string;
+  variant?: 'sticky' | 'inline';
 }) {
   const [isExporting, setIsExporting] = useState(false);
   const isDisabled = exportDisabled || isExporting;
   const disabledTitle = exportDisabled ? disabledReason : undefined;
+  const isCompact = variant === 'inline';
 
   async function handleExport() {
     if (isDisabled) {
@@ -1667,30 +2555,57 @@ function ActionBar({
     }
   }
 
+  const printButton = (
+    <button
+      className={isCompact ? 'primary-button' : 'secondary-button'}
+      type="button"
+      aria-label="미리보기 인쇄"
+      onClick={onPrint}
+      disabled={isDisabled}
+      title={disabledTitle ?? '미리보기 인쇄'}
+    >
+      <Printer size={15} />
+      {!isCompact && '미리보기 인쇄'}
+    </button>
+  );
+  const exportButton = (
+    <button
+      className={isCompact ? 'secondary-button' : 'primary-button'}
+      type="button"
+      aria-label={isExporting ? '파일 생성 중' : exportLabel}
+      onClick={() => {
+        void handleExport();
+      }}
+      disabled={isDisabled}
+      title={disabledTitle ?? exportLabel}
+    >
+      {isExporting ? <ButtonSpinner /> : <Download size={15} />}
+      {!isCompact && (isExporting ? '파일 생성 중' : exportLabel)}
+    </button>
+  );
+
   return (
-    <div className="action-bar">
-      <button
-        className="secondary-button"
-        type="button"
-        onClick={onPrint}
-        disabled={isExporting}
-        title={disabledTitle}
-      >
-        <Printer size={15} />
-        미리보기 인쇄
-      </button>
-      <button
-        className="primary-button"
-        type="button"
-        onClick={() => {
-          void handleExport();
-        }}
-        disabled={isDisabled}
-        title={disabledTitle}
-      >
-        {isExporting ? <ButtonSpinner /> : <Download size={15} />}
-        {isExporting ? '파일 생성 중' : exportLabel}
-      </button>
+    <div className="action-bar" data-variant={variant} role="group" aria-label="출력 작업">
+      {isCompact && <div className="control-kicker action-kicker">출력</div>}
+      {summary && <p className="action-summary">{summary}</p>}
+      {disabledReason && exportDisabled && (
+        <p className="action-disabled-reason" aria-live="polite">
+          {disabledReason}
+        </p>
+      )}
+      <div className="action-buttons">
+        {isCompact ? (
+          <>
+            {exportButton}
+            {printButton}
+          </>
+        ) : (
+          <>
+            {printButton}
+            {exportButton}
+          </>
+        )}
+      </div>
     </div>
   );
 }

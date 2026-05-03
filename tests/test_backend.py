@@ -302,6 +302,49 @@ def test_dobble_endpoint_respects_image_only_display_mode() -> None:
     assert archive_has_media(response.content, "ppt/media/")
 
 
+def test_dobble_endpoint_uses_initial_fallback_for_missing_image_only_symbols() -> None:
+    response = client.post(
+        "/api/materials/dobble.pptx",
+        json={
+            "cards": [[{"word": "dog"}]],
+            "pictures_per_card": 3,
+            "display_mode": "image",
+        },
+    )
+
+    assert response.status_code == 200
+    slide_xml = pptx_slide_xmls(response.content)[0]
+    assert "<a:t>D</a:t>" in slide_xml
+    assert "dog" not in slide_xml
+
+
+def test_dobble_endpoint_rotates_symbols_for_multi_sided_cards() -> None:
+    response = client.post(
+        "/api/materials/dobble.pptx",
+        json={
+            "cards": [
+                [
+                    {"word": "cat"},
+                    {"word": "dog"},
+                    {"word": "pig"},
+                    {"word": "fox"},
+                ]
+            ],
+            "pictures_per_card": 4,
+            "display_mode": "image",
+        },
+    )
+
+    assert response.status_code == 200
+    slide_xml = pptx_slide_xmls(response.content)[0]
+    assert 'cx="2121408"' in slide_xml
+    assert 'cy="2121408"' in slide_xml
+    assert 'rot="2880000"' in slide_xml
+    assert 'rot="7680000"' in slide_xml
+    assert 'rot="13260000"' in slide_xml
+    assert 'rot="18540000"' in slide_xml
+
+
 def test_image_search_validates_query() -> None:
     response = client.get("/api/images/search", params={"query": "", "limit": 3})
 

@@ -64,4 +64,97 @@ describe('responsive stylesheet contracts', () => {
       /@media \(max-width:\s*480px\)[\s\S]*\.image-result-card\s*{[^}]*grid-template-columns:\s*88px minmax\(0,\s*1fr\)/,
     );
   });
+
+  it('keeps output actions sticky with room for a readiness summary', () => {
+    expect(stylesheet).toMatch(/\.action-bar\s*{[^}]*position:\s*sticky/s);
+    expect(stylesheet).toMatch(/\.action-bar\s*{[^}]*bottom:\s*0/s);
+    expect(stylesheet).toMatch(/\.action-bar\s*{[^}]*display:\s*flex/s);
+    expect(stylesheet).toMatch(/\.action-summary\s*{[^}]*overflow-wrap:\s*anywhere/s);
+    expect(stylesheet).toMatch(/\.action-disabled-reason\s*{[^}]*overflow-wrap:\s*anywhere/s);
+    expect(stylesheet).toMatch(
+      /@media \(max-width:\s*620px\)[\s\S]*\.action-buttons\s*{[^}]*grid-template-columns:\s*1fr/s,
+    );
+  });
+
+  it('gives dobble cards enough preview area for image recognition', () => {
+    expect(stylesheet).toMatch(
+      /\.dobble-grid\s*{[^}]*grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(min\(100%,\s*320px\),\s*1fr\)\)/s,
+    );
+    expect(stylesheet).toMatch(/\.dobble-card-preview\s*{[^}]*width:\s*min\(100%,\s*320px\)/s);
+  });
+
+  it('opens the word drawer from the right edge', () => {
+    expect(stylesheet).toMatch(/\.word-drawer\s*{[^}]*right:\s*0/s);
+    expect(stylesheet).toMatch(
+      /\.word-drawer\s*{[^}]*transform:\s*translateX\(calc\(100% \+ 28px\)\)/s,
+    );
+    expect(stylesheet).toMatch(/\.word-drawer-scrim\s*{[^}]*position:\s*fixed/s);
+  });
+
+  it('keeps the word drawer header visible while scrolling', () => {
+    expect(stylesheet).toMatch(
+      /\.word-drawer \.word-setup-panel-drawer > \.panel-heading\s*{[^}]*position:\s*sticky/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.word-drawer \.word-setup-panel-drawer > \.panel-heading\s*{[^}]*top:\s*0/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.word-drawer \.word-setup-panel-drawer > \.panel-heading\s*{[^}]*z-index:\s*1/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.word-drawer \.word-setup-panel-drawer > \.panel-heading\s*{[^}]*margin:\s*-18px -18px 0/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.word-drawer \.word-setup-panel-drawer > \.panel-heading\s*{[^}]*padding:\s*24px 18px 12px/s,
+    );
+  });
+
+  it('keeps dobble rail content visually flat instead of nesting cards', () => {
+    expect(stylesheet).toMatch(
+      /\.material-settings-rail \.dobble-plan-panel\s*{[^}]*padding:\s*0/s,
+    );
+    expect(stylesheet).toMatch(/\.material-settings-rail \.dobble-plan-panel\s*{[^}]*border:\s*0/s);
+    expect(stylesheet).toMatch(
+      /\.material-settings-rail \.dobble-plan-panel\s*{[^}]*background:\s*transparent/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.material-settings-rail \.dobble-display-controls\s*{[^}]*background:\s*transparent/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.material-settings-rail \.dobble-display-controls\s*{[^}]*box-shadow:\s*none/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.material-settings-rail \.dobble-display-controls \.option-card-button\s*{[^}]*display:\s*flex/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.material-settings-rail \.dobble-display-controls \.option-card-button\s*{[^}]*align-items:\s*center/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.material-settings-rail \.dobble-display-controls \.option-card-button\s*{[^}]*justify-content:\s*center/s,
+    );
+  });
+
+  it('groups compact dobble output actions in a contained footer toolbar', () => {
+    expect(stylesheet).toMatch(
+      /\.material-settings-rail \.action-bar\[data-variant='inline'\]\s*{[^}]*width:\s*100%/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.material-settings-rail \.action-bar\[data-variant='inline'\]\s*{[^}]*padding-top:\s*10px/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.material-settings-rail \.action-bar\[data-variant='inline'\]\s*{[^}]*display:\s*grid/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.material-settings-rail \.action-bar\[data-variant='inline'\] \.action-buttons\s*{[^}]*display:\s*flex/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.material-settings-rail \.action-bar\[data-variant='inline'\] \.action-buttons\s*{[^}]*justify-content:\s*flex-end/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.material-settings-rail \.action-bar\[data-variant='inline'\] \.secondary-button,[\s\S]*\.material-settings-rail \.action-bar\[data-variant='inline'\] \.primary-button\s*{[^}]*width:\s*44px/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.material-settings-rail \.action-bar\[data-variant='inline'\] \.secondary-button,[\s\S]*\.material-settings-rail \.action-bar\[data-variant='inline'\] \.primary-button\s*{[^}]*min-height:\s*44px/s,
+    );
+  });
 });
