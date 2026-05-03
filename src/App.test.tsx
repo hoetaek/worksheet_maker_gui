@@ -51,6 +51,46 @@ describe('App', () => {
     expect(within(cart).getByRole('button', { name: 'banana 추가' })).toBeInTheDocument();
   });
 
+  it('orders the word preparation home around the next teacher action', async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(null, '', '/');
+    render(<App />);
+
+    const home = screen.getByRole('region', { name: '단어 준비 홈' });
+    const status = within(home).getByText('단어 6개 · 사진 0/6 준비');
+    const wordEntry = within(home).getByRole('region', { name: '단어 입력' });
+    const mediaPrep = within(home).getByRole('region', { name: '단어별 사진과 힌트' });
+    const materialChoice = within(home).getByRole('region', { name: '다음 자료 선택' });
+    const cart = within(home).getByRole('region', { name: '담은 단어' });
+
+    expect(status).toHaveClass('word-prep-summary');
+    expect(within(home).queryByText(/^사진 0\/6$/)).not.toBeInTheDocument();
+    expect(
+      wordEntry.compareDocumentPosition(mediaPrep) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      mediaPrep.compareDocumentPosition(materialChoice) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      materialChoice.compareDocumentPosition(cart) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      within(materialChoice).getByRole('button', { name: '낱말 찾기 만들기' }),
+    ).toBeInTheDocument();
+    expect(
+      within(materialChoice).getByRole('button', { name: '단어 활동지 만들기' }),
+    ).toBeInTheDocument();
+    expect(
+      within(materialChoice).getByRole('button', { name: '단어 깜빡이 만들기' }),
+    ).toBeInTheDocument();
+    expect(
+      within(materialChoice).getByRole('button', { name: '도블 카드 만들기' }),
+    ).toBeInTheDocument();
+
+    await user.click(within(materialChoice).getByRole('button', { name: '단어 활동지 만들기' }));
+    expect(screen.getByRole('heading', { level: 3, name: '단어 활동지' })).toBeInTheDocument();
+  });
+
   it('moves class information into a class information dialog', async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -110,23 +150,27 @@ describe('App', () => {
   it('returns to the word preparation home when the top-left brand is clicked', async () => {
     const user = userEvent.setup();
     render(<App />);
+    const nav = screen.getByRole('navigation', { name: '도구' });
 
-    await user.click(screen.getByRole('button', { name: /도블 카드/i }));
+    await user.click(within(nav).getByRole('button', { name: /도블 카드/i }));
     expect(screen.getByRole('heading', { level: 2, name: /도블 카드/i })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '홈으로 이동' }));
 
     expect(window.location.pathname).toBe('/');
     expect(screen.getByRole('heading', { level: 2, name: '학습 단어 준비' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /낱말 찾기/i })).not.toHaveAttribute('aria-current');
+    expect(within(nav).getByRole('button', { name: /낱말 찾기/i })).not.toHaveAttribute(
+      'aria-current',
+    );
   });
 
   it('separates material navigation into routes and opens the word drawer for edits', async () => {
     const user = userEvent.setup();
     window.history.replaceState(null, '', '/');
     render(<App />);
+    const nav = screen.getByRole('navigation', { name: '도구' });
 
-    await user.click(screen.getByRole('button', { name: /도블 카드/i }));
+    await user.click(within(nav).getByRole('button', { name: /도블 카드/i }));
 
     expect(window.location.pathname).toBe('/dobble');
     expect(screen.getByRole('region', { name: '도블 카드' })).toBeInTheDocument();
@@ -1095,10 +1139,9 @@ describe('App', () => {
 
     await user.click(within(fillerControl).getByRole('button', { name: /더 어렵게/ }));
 
-    expect(within(fillerControl).getByRole('button', { name: /더 어렵게/ })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    const harderButton = within(fillerControl).getByRole('button', { name: /더 어렵게/ });
+    expect(harderButton).toHaveAttribute('aria-pressed', 'true');
+    expect(harderButton).toHaveAttribute('data-active', 'true');
   });
 
   it('hides letter splitting for Korean worksheet words', async () => {

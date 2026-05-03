@@ -611,12 +611,9 @@ function App() {
               <h2>학습 단어 준비</h2>
             </div>
             <div className="word-prep-status">
-              <Badge tone={wordCountStatus(words.length).tone}>
-                {wordCountStatus(words.length).label}
-              </Badge>
-              <span>
-                사진 {preparedImageCount}/{words.length}
-              </span>
+              <p className="word-prep-summary">
+                단어 {words.length}개 · 사진 {preparedImageCount}/{words.length} 준비
+              </p>
               <button
                 className="secondary-button settings-button"
                 type="button"
@@ -751,6 +748,36 @@ function App() {
                     </div>
                   ))
                 )}
+              </div>
+            </section>
+
+            <section className="word-prep-panel material-choice-panel" aria-label="다음 자료 선택">
+              <div className="word-prep-panel-heading">
+                <div>
+                  <span className="control-kicker">다음</span>
+                  <h3>자료 만들기</h3>
+                </div>
+              </div>
+              <div className="material-choice-list">
+                {TOOL_OPTIONS.map((tool) => {
+                  const Icon = tool.icon;
+                  return (
+                    <button
+                      className={`material-choice-button accent-${tool.accent}`}
+                      type="button"
+                      key={tool.id}
+                      aria-label={`${tool.label} 만들기`}
+                      onClick={() => navigateToRoute(tool.id)}
+                      disabled={words.length === 0}
+                    >
+                      <Icon size={16} />
+                      <span>
+                        <strong>{tool.label}</strong>
+                        <small>{tool.description}</small>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </section>
 
@@ -1607,6 +1634,7 @@ function WordSearchSettings({
               type="button"
               key={option.value}
               aria-pressed={fillerMode === option.value}
+              data-active={fillerMode === option.value}
               onClick={() => onFillerModeChange(option.value)}
               title={option.description}
             >

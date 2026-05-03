@@ -541,9 +541,10 @@ h3 {
   font-weight: 700;
 }
 
-.word-prep-status > span {
+.word-prep-summary {
   display: inline-flex;
   min-height: 28px;
+  margin: 0;
   align-items: center;
   padding: 5px 9px;
   border-radius: 9999px;
@@ -643,6 +644,70 @@ h3 {
 .word-prep-grid > .word-cart-panel {
   grid-column: span 4;
   background: var(--surface);
+}
+
+.material-choice-panel {
+  grid-column: span 8;
+}
+
+.material-choice-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.material-choice-button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  min-height: 58px;
+  padding: 10px;
+  border: 0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text);
+  text-align: left;
+  box-shadow: var(--light-ring);
+}
+
+.material-choice-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    rgba(17, 24, 39, 0.08) 0 0 0 1px,
+    rgba(17, 24, 39, 0.12) 0 14px 30px -24px;
+}
+
+.material-choice-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.material-choice-button svg {
+  color: var(--accent);
+}
+
+.material-choice-button span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.material-choice-button strong,
+.material-choice-button small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.material-choice-button strong {
+  font-size: 13px;
+}
+
+.material-choice-button small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .material-workspace {
@@ -2504,6 +2569,10 @@ select {
     width: 100%;
   }
 
+  .material-choice-list {
+    grid-template-columns: 1fr;
+  }
+
   .image-result-grid {
     grid-template-columns: 1fr;
     gap: 10px;
@@ -2571,6 +2640,13 @@ select {
     padding-top: 24px;
   }
 
+  .word-entry-panel,
+  .word-media-prep-panel,
+  .material-choice-panel,
+  .word-prep-grid > .word-cart-panel {
+    grid-column: 1 / -1;
+  }
+
   .material-workspace {
     height: auto;
     overflow: visible;
@@ -2601,6 +2677,19 @@ select {
   .control-panel,
   .tool-panel {
     padding: 16px;
+  }
+
+  .word-prep-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .word-prep-status {
+    justify-content: flex-start;
+  }
+
+  .material-choice-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .settings-grid,
