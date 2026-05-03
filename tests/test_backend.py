@@ -27,6 +27,11 @@ from backend.schemas import ImageCandidate
 
 client = TestClient(app)
 PPTX_NS = {"p": "http://schemas.openxmlformats.org/presentationml/2006/main"}
+REL_NS = {"pr": "http://schemas.openxmlformats.org/package/2006/relationships"}
+R_NS_URI = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+P14_NS_URI = "http://schemas.microsoft.com/office/powerpoint/2010/main"
+AUDIO_REL_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio"
+IMAGE_MEDIA_EXTENSIONS = (".bmp", ".gif", ".jpeg", ".jpg", ".png", ".tif", ".tiff")
 
 
 def test_health_endpoint() -> None:
@@ -86,9 +91,70 @@ def test_flicker_endpoint_adds_auto_advance_fade_transitions() -> None:
         transition = slide.find("p:transition", PPTX_NS)
         assert transition is not None
         assert transition.attrib["spd"] == "med"
+        assert transition.attrib[f"{{{P14_NS_URI}}}dur"] == "700"
         assert transition.attrib["advClick"] == "0"
         assert transition.attrib["advTm"] == "1000"
         assert transition.find("p:fade", PPTX_NS) is not None
+
+
+def test_flicker_endpoint_embeds_transition_sound() -> None:
+    response = client.post(
+        "/api/materials/flicker.pptx",
+        json={
+            "items": [{"word": "cat"}],
+            "templates": ["word"],
+        },
+    )
+
+    assert response.status_code == 200
+    with ZipFile(BytesIO(response.content)) as archive:
+        media_names = sorted(
+            name
+            for name in archive.namelist()
+            if name.startswith("ppt/media/") and name.endswith(".wav")
+        )
+        assert media_names == ["ppt/media/audio1.wav"]
+        assert archive.read(media_names[0]).startswith(b"RIFF")
+        slide_xml = archive.read("ppt/slides/slide1.xml").decode("utf-8")
+        slide_rel_xml = archive.read("ppt/slides/_rels/slide1.xml.rels").decode("utf-8")
+
+    slide = ElementTree.fromstring(slide_xml)
+    sound = slide.find("p:transition/p:sndAc/p:stSnd/p:snd", PPTX_NS)
+    assert sound is not None
+    assert sound.attrib["name"] == "whoosh.wav"
+
+    sound_rel_id = sound.attrib[f"{{{R_NS_URI}}}embed"]
+    slide_rels = ElementTree.fromstring(slide_rel_xml)
+    sound_rel = slide_rels.find(f"pr:Relationship[@Id='{sound_rel_id}']", REL_NS)
+    assert sound_rel is not None
+    assert sound_rel.attrib["Type"] == AUDIO_REL_TYPE
+    assert sound_rel.attrib["Target"] == "../media/audio1.wav"
+
+
+def test_flicker_word_image_slide_adds_fade_reveal_timing() -> None:
+    response = client.post(
+        "/api/materials/flicker.pptx",
+        json={
+            "items": [{"word": "cat", "image": tiny_png_data_uri()}],
+            "templates": ["word-image"],
+        },
+    )
+
+    assert response.status_code == 200
+    slide_xml = pptx_slide_xmls(response.content)[0]
+    slide = ElementTree.fromstring(slide_xml)
+    timing = slide.find("p:timing", PPTX_NS)
+    assert timing is not None
+    effects = {
+        (effect.attrib["transition"], effect.attrib["filter"])
+        for effect in timing.findall(".//p:animEffect", PPTX_NS)
+    }
+    assert ("out", "fade") in effects
+    assert ("in", "fade") in effects
+    assert any(
+        time_node.attrib.get("dur") == "500"
+        for time_node in timing.findall(".//p:cTn", PPTX_NS)
+    )
 
 
 def test_worksheet_endpoint_returns_docx() -> None:
@@ -386,7 +452,7 @@ def media_dimensions(content: bytes, prefix: str) -> set[tuple[int, int]]:
     dimensions: set[tuple[int, int]] = set()
     with ZipFile(BytesIO(content)) as archive:
         for name in archive.namelist():
-            if name.startswith(prefix):
+            if name.startswith(prefix) and name.lower().endswith(IMAGE_MEDIA_EXTENSIONS):
                 with Image.open(BytesIO(archive.read(name))) as image:
                     dimensions.add(image.size)
     return dimensions

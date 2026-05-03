@@ -1,3 +1,5 @@
+import math
+import wave
 from base64 import b64decode
 from collections.abc import Sequence
 from io import BytesIO
@@ -14,9 +16,13 @@ from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_CONNECTOR
 from pptx.enum.text import PP_ALIGN
-from pptx.oxml.ns import qn
-from pptx.oxml.xmlchemy import OxmlElement
+from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+from pptx.opc.package import Part
+from pptx.oxml import parse_xml
+from pptx.oxml.ns import nsdecls, qn
+from pptx.oxml.xmlchemy import BaseOxmlElement, OxmlElement
 from pptx.presentation import Presentation as PptxPresentation
+from pptx.shapes.base import BaseShape
 from pptx.slide import Slide
 from pptx.util import Inches
 from pptx.util import Pt as PptPt
@@ -30,29 +36,52 @@ from backend.schemas import (
 )
 
 FLICKER_AUTO_ADVANCE_MS = 1000
+FLICKER_TRANSITION_DURATION_MS = 700
 FLICKER_TRANSITION_SPEED = "med"
+FLICKER_REVEAL_DELAY_MS = 500
+FLICKER_REVEAL_DURATION_MS = 500
+P14_NS_URI = "http://schemas.microsoft.com/office/powerpoint/2010/main"
+WAV_CONTENT_TYPE = "audio/x-wav"
 
 
 async def make_flicker_pptx(request: FlickerRequest) -> bytes:
     presentation = Presentation()
     presentation.slide_width = Inches(13.333)
     presentation.slide_height = Inches(7.5)
+    transition_audio = make_transition_audio_part(presentation)
 
     for item in request.items:
         for template in request.templates:
             slide = presentation.slides.add_slide(presentation.slide_layouts[6])
-            add_auto_advance_transition(slide)
+            sound_rel_id = slide.part.relate_to(transition_audio, RT.AUDIO)
+            add_auto_advance_transition(slide, sound_rel_id)
             add_slide_frame(slide, item.word)
+            word_shape: BaseShape | None = None
+            image_shape: BaseShape | None = None
 
             if template in {"word", "word-image"}:
-                add_center_text(slide, item.word, top=0.75 if template == "word-image" else 2.45)
+                word_shape = add_center_text(
+                    slide,
+                    item.word,
+                    top=0.75 if template == "word-image" else 2.45,
+                )
 
             if template in {"image", "word-image"}:
                 image = await resolve_image(item.image)
                 if image:
-                    add_image(slide, image, left=4.65, top=2.15, width=4.0, height=3.35)
+                    image_shape = add_image(
+                        slide,
+                        image,
+                        left=4.65,
+                        top=2.15,
+                        width=4.0,
+                        height=3.35,
+                    )
                 else:
                     add_placeholder(slide, "사진 없음")
+
+            if template == "word-image" and word_shape is not None and image_shape is not None:
+                add_word_image_reveal_timing(slide, word_shape.shape_id, image_shape.shape_id)
 
             if template == "blank":
                 add_center_text(slide, "", top=2.45)
@@ -257,12 +286,49 @@ def add_slide_frame(slide: Slide, label: str) -> None:
     line.line.color.rgb = RGBColor(235, 235, 235)  # type: ignore[no-untyped-call]
 
 
-def add_auto_advance_transition(slide: Slide) -> None:
+def make_transition_audio_part(presentation: PptxPresentation) -> Part:
+    package = presentation.part.package
+    return Part(
+        package.next_partname("/ppt/media/audio%d.wav"),
+        WAV_CONTENT_TYPE,
+        package,
+        blob=build_transition_sound(),
+    )
+
+
+def build_transition_sound() -> bytes:
+    sample_rate = 11025
+    duration_seconds = 0.16
+    frame_count = int(sample_rate * duration_seconds)
+    frames = bytearray()
+
+    for index in range(frame_count):
+        progress = index / frame_count
+        envelope = (1 - progress) ** 2
+        frequency = 1200 - (420 * progress)
+        sample = 128 + int(
+            72 * envelope * math.sin(2 * math.pi * frequency * (index / sample_rate))
+        )
+        frames.append(min(255, max(0, sample)))
+
+    buffer = BytesIO()
+    with wave.open(buffer, "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(1)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(bytes(frames))
+
+    return buffer.getvalue()
+
+
+def add_auto_advance_transition(slide: Slide, sound_rel_id: str) -> None:
     transition = OxmlElement("p:transition")
     transition.set("spd", FLICKER_TRANSITION_SPEED)
+    transition.set(f"{{{P14_NS_URI}}}dur", str(FLICKER_TRANSITION_DURATION_MS))
     transition.set("advClick", "0")
     transition.set("advTm", str(FLICKER_AUTO_ADVANCE_MS))
     transition.append(OxmlElement("p:fade"))
+    transition.append(make_transition_sound_action(sound_rel_id))
 
     slide_element = slide.element
     for existing_transition in slide_element.findall(qn("p:transition")):
@@ -277,6 +343,121 @@ def add_auto_advance_transition(slide: Slide) -> None:
     slide_element.insert(insert_index, transition)
 
 
+def make_transition_sound_action(sound_rel_id: str) -> BaseOxmlElement:
+    sound_action = OxmlElement("p:sndAc")
+    start_sound = OxmlElement("p:stSnd")
+    sound = OxmlElement("p:snd")
+    sound.set(qn("r:embed"), sound_rel_id)
+    sound.set("name", "whoosh.wav")
+    start_sound.append(sound)
+    sound_action.append(start_sound)
+    return sound_action
+
+
+def add_word_image_reveal_timing(
+    slide: Slide,
+    word_shape_id: int,
+    image_shape_id: int,
+) -> None:
+    timing = parse_xml(
+        f"""
+        <p:timing {nsdecls("p")}>
+          <p:tnLst>
+            <p:par>
+              <p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot">
+                <p:childTnLst>
+                  <p:seq concurrent="1" nextAc="seek">
+                    <p:cTn id="2" dur="indefinite" nodeType="mainSeq">
+                      <p:childTnLst>
+                        <p:par>
+                          <p:cTn id="3" fill="hold">
+                            <p:stCondLst>
+                              <p:cond delay="{FLICKER_REVEAL_DELAY_MS}"/>
+                            </p:stCondLst>
+                            <p:childTnLst>
+                              <p:par>
+                                <p:cTn id="4" presetID="10" presetClass="exit"
+                                  presetSubtype="0" fill="hold" grpId="0"
+                                  nodeType="afterEffect">
+                                  <p:stCondLst>
+                                    <p:cond delay="0"/>
+                                  </p:stCondLst>
+                                  <p:childTnLst>
+                                    <p:animEffect transition="out" filter="fade">
+                                      <p:cBhvr>
+                                        <p:cTn id="5" dur="{FLICKER_REVEAL_DURATION_MS}"/>
+                                        <p:tgtEl>
+                                          <p:spTgt spid="{word_shape_id}"/>
+                                        </p:tgtEl>
+                                      </p:cBhvr>
+                                    </p:animEffect>
+                                  </p:childTnLst>
+                                </p:cTn>
+                              </p:par>
+                              <p:par>
+                                <p:cTn id="6" presetID="10" presetClass="entr"
+                                  presetSubtype="0" fill="hold" grpId="0"
+                                  nodeType="withEffect">
+                                  <p:stCondLst>
+                                    <p:cond delay="0"/>
+                                  </p:stCondLst>
+                                  <p:childTnLst>
+                                    <p:animEffect transition="in" filter="fade">
+                                      <p:cBhvr>
+                                        <p:cTn id="7" dur="{FLICKER_REVEAL_DURATION_MS}"/>
+                                        <p:tgtEl>
+                                          <p:spTgt spid="{image_shape_id}"/>
+                                        </p:tgtEl>
+                                      </p:cBhvr>
+                                    </p:animEffect>
+                                  </p:childTnLst>
+                                </p:cTn>
+                              </p:par>
+                            </p:childTnLst>
+                          </p:cTn>
+                        </p:par>
+                      </p:childTnLst>
+                    </p:cTn>
+                    <p:prevCondLst>
+                      <p:cond evt="onPrev" delay="0">
+                        <p:tgtEl>
+                          <p:sldTgt/>
+                        </p:tgtEl>
+                      </p:cond>
+                    </p:prevCondLst>
+                    <p:nextCondLst>
+                      <p:cond evt="onNext" delay="0">
+                        <p:tgtEl>
+                          <p:sldTgt/>
+                        </p:tgtEl>
+                      </p:cond>
+                    </p:nextCondLst>
+                  </p:seq>
+                </p:childTnLst>
+              </p:cTn>
+            </p:par>
+          </p:tnLst>
+          <p:bldLst>
+            <p:bldP spid="{word_shape_id}" grpId="0" build="p"/>
+            <p:bldP spid="{image_shape_id}" grpId="0" build="p"/>
+          </p:bldLst>
+        </p:timing>
+        """
+    )
+
+    slide_element = slide.element
+    for existing_timing in slide_element.findall(qn("p:timing")):
+        slide_element.remove(existing_timing)
+
+    insert_index = len(slide_element)
+    for index, child in enumerate(slide_element):
+        if child.tag == qn("p:extLst"):
+            insert_index = index
+            break
+
+    slide_element.insert(insert_index, timing)
+
+
 def add_small_label(slide: Slide, label: str) -> None:
     textbox = slide.shapes.add_textbox(Inches(0.55), Inches(0.35), Inches(4), Inches(0.35))
     paragraph = textbox.text_frame.paragraphs[0]
@@ -285,13 +466,14 @@ def add_small_label(slide: Slide, label: str) -> None:
     paragraph.font.bold = True
 
 
-def add_center_text(slide: Slide, text: str, top: float) -> None:
+def add_center_text(slide: Slide, text: str, top: float) -> BaseShape:
     textbox = slide.shapes.add_textbox(Inches(1.0), Inches(top), Inches(11.3), Inches(1.2))
     paragraph = textbox.text_frame.paragraphs[0]
     paragraph.text = text
     paragraph.alignment = PP_ALIGN.CENTER
     paragraph.font.size = PptPt(44)
     paragraph.font.bold = True
+    return textbox
 
 
 def add_placeholder(slide: Slide, text: str) -> None:
@@ -309,9 +491,9 @@ def add_image(
     top: float,
     width: float,
     height: float,
-) -> None:
+) -> BaseShape:
     image.seek(0)
-    slide.shapes.add_picture(
+    return slide.shapes.add_picture(
         image,
         Inches(left),
         Inches(top),
