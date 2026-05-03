@@ -1116,7 +1116,6 @@ function App() {
         exportLabel="PPTX 다운로드"
         exportDisabled={Boolean(flickerExportDisabledReason)}
         disabledReason={flickerExportDisabledReason}
-        showDisabledReason={flickerExportDisabledReason === EMPTY_MATERIAL_REASON}
       />
     );
   }
@@ -1146,6 +1145,7 @@ function App() {
             statusLabel={wordSearchExportDisabled ? '단어 필요' : undefined}
             statusTone="danger"
             summary={`퍼즐 ${wordSearchSize} x ${wordSearchSize} · 단어 ${words.length}개`}
+            readiness={getPhotoReadinessLabel(words, imageMap)}
           />
         );
       }
@@ -1155,6 +1155,7 @@ function App() {
           <MaterialPlanPanel
             tool={activeToolConfig}
             summary={`단어 ${words.length}개 · 한 줄 ${worksheetColumns}칸`}
+            readiness={getPhotoReadinessLabel(words, imageMap)}
           />
         );
       }
@@ -1165,6 +1166,7 @@ function App() {
           statusLabel={hasSelectedFlickerTemplate ? undefined : '양식 선택 필요'}
           statusTone="danger"
           summary={`슬라이드 ${flickerSequence.length}장 · ${flickerTemplateSummary || '양식 0개'}`}
+          readiness={getPhotoReadinessLabel(words, imageMap)}
         />
       );
     }
@@ -1551,11 +1553,13 @@ function MaterialPlanPanel({
   statusLabel,
   statusTone,
   summary,
+  readiness,
 }: {
   tool: (typeof TOOL_OPTIONS)[number];
   statusLabel?: string;
   statusTone?: 'success' | 'danger';
   summary: string;
+  readiness?: string;
 }) {
   const Icon = tool.icon;
 
@@ -1568,6 +1572,7 @@ function MaterialPlanPanel({
           {statusLabel && <span data-tone={statusTone}>{statusLabel}</span>}
         </div>
         <p>{summary}</p>
+        {readiness && <p className="material-readiness">{readiness}</p>}
       </div>
     </section>
   );
@@ -1882,11 +1887,33 @@ function getDobblePlanDetails(words: string[], imageMap: ImageMap, displayMode: 
         ? `사진만 카드에는 사진이 모두 필요합니다. 사진 ${missingRequiredImageCount}개를 더 준비해주세요.`
         : undefined;
   const dobblePlanTitle =
-    plan.kind === 'unavailable' ? `단어 ${plan.wordsNeeded}개 더 필요` : '바로 출력 가능';
+    plan.kind === 'unavailable'
+      ? `단어 ${plan.wordsNeeded}개 더 필요`
+      : missingRequiredImageCount > 0
+        ? '사진 준비 필요'
+        : showDobbleInitialFallback
+          ? '단어 카드로 출력 가능'
+          : '바로 출력 가능';
+  const dobblePlanTone =
+    plan.kind === 'unavailable' || missingRequiredImageCount > 0 ? 'danger' : 'success';
   const dobblePlanSummary =
     plan.kind === 'unavailable'
       ? `현재 ${words.length}개 · 최소 ${plan.minimumSafeWords}개`
       : `카드 ${indexes.length}장 · 카드당 단어 ${picturesPerCard}개`;
+  const dobblePhotoReadiness =
+    plan.kind !== 'unavailable' && showDobblePhotoStatus
+      ? [
+          `사진 ${preparedDobbleImageCount}/${usedWords.length} 준비`,
+          displayMode === 'image-word' && missingDobbleImageCount > 0
+            ? `첫 글자 ${missingDobbleImageCount}개 대체`
+            : undefined,
+          displayMode === 'image' && missingRequiredImageCount > 0
+            ? `사진 ${missingRequiredImageCount}개 더 필요`
+            : undefined,
+        ]
+          .filter((item): item is string => Boolean(item))
+          .join(' · ')
+      : undefined;
   const dobbleCompletionHint =
     plan.kind === 'partial' && wordsUntilComplete > 0
       ? `단어 ${wordsUntilComplete}개 더 넣으면 카드 ${plan.requiredWords}장 가능`
@@ -1895,7 +1922,7 @@ function getDobblePlanDetails(words: string[], imageMap: ImageMap, displayMode: 
     missingRequiredImageCount > 0
       ? `사진만 카드에는 사진 ${missingRequiredImageCount}개가 더 필요합니다`
       : showDobbleInitialFallback
-        ? `사진 ${missingDobbleImageCount}개 필요 · 부족한 사진은 첫 글자로 대체됨`
+        ? `사진 ${missingDobbleImageCount}개 미준비 · 현재는 첫 글자로 대체됨`
         : undefined;
   const dobbleExcludedIssue =
     unusedWordCount > 0 ? `단어 ${unusedWordCount}개는 카드에 안 들어감` : undefined;
@@ -1907,7 +1934,9 @@ function getDobblePlanDetails(words: string[], imageMap: ImageMap, displayMode: 
     picturesPerCard,
     disabledReason,
     dobblePlanTitle,
+    dobblePlanTone,
     dobblePlanSummary,
+    dobblePhotoReadiness,
     dobbleCompletionHint,
     dobblePhotoIssue,
     dobbleExcludedIssue,
@@ -1936,9 +1965,7 @@ function DobblePlanPanel({
           <div className="dobble-title-row">
             <Icon size={20} />
             <h2>{tool.label}</h2>
-            <span data-tone={details.plan.kind === 'unavailable' ? 'danger' : 'success'}>
-              {details.dobblePlanTitle}
-            </span>
+            <span data-tone={details.dobblePlanTone}>{details.dobblePlanTitle}</span>
             <button
               className="icon-button dobble-info-button"
               type="button"
@@ -1950,6 +1977,9 @@ function DobblePlanPanel({
             </button>
           </div>
           <p>{details.dobblePlanSummary}</p>
+          {details.dobblePhotoReadiness && (
+            <p className="material-readiness">{details.dobblePhotoReadiness}</p>
+          )}
         </div>
       </div>
 
@@ -2265,6 +2295,14 @@ function dobbleInitial(word: string): string {
 
 function getPreparedImageCount(words: string[], imageMap: ImageMap): number {
   return words.filter((word) => Boolean(imageMap[word])).length;
+}
+
+function getPhotoReadinessLabel(words: string[], imageMap: ImageMap): string | undefined {
+  if (words.length === 0) {
+    return undefined;
+  }
+
+  return `사진 ${getPreparedImageCount(words, imageMap)}/${words.length} 준비`;
 }
 
 function WordImageHints({
@@ -2802,7 +2840,7 @@ function ActionBar({
       title={disabledTitle ?? '미리보기 인쇄'}
     >
       <Printer size={15} />
-      {!isCompact && '미리보기 인쇄'}
+      미리보기 인쇄
     </button>
   );
   const exportButton = (
@@ -2817,7 +2855,7 @@ function ActionBar({
       title={disabledTitle ?? exportLabel}
     >
       {isExporting ? <ButtonSpinner /> : <Download size={15} />}
-      {!isCompact && (isExporting ? '파일 생성 중' : exportLabel)}
+      {isExporting ? '파일 생성 중' : exportLabel}
     </button>
   );
 

@@ -151,11 +151,28 @@ describe('responsive stylesheet contracts', () => {
       /\.material-preview-toolbar \.action-bar\[data-variant='inline'\] \.action-buttons\s*{[^}]*justify-content:\s*flex-end/s,
     );
     expect(stylesheet).toMatch(
-      /\.material-preview-toolbar \.action-bar\[data-variant='inline'\] \.secondary-button,[\s\S]*\.material-preview-toolbar \.action-bar\[data-variant='inline'\] \.primary-button\s*{[^}]*width:\s*44px/s,
-    );
-    expect(stylesheet).toMatch(
       /\.material-preview-toolbar \.action-bar\[data-variant='inline'\] \.secondary-button,[\s\S]*\.material-preview-toolbar \.action-bar\[data-variant='inline'\] \.primary-button\s*{[^}]*min-height:\s*44px/s,
     );
+    expect(stylesheet).toMatch(
+      /\.material-preview-toolbar \.action-bar\[data-variant='inline'\] \.secondary-button,[\s\S]*\.material-preview-toolbar \.action-bar\[data-variant='inline'\] \.primary-button\s*{[^}]*width:\s*auto/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.material-preview-toolbar \.action-bar\[data-variant='inline'\] \.secondary-button,[\s\S]*\.material-preview-toolbar \.action-bar\[data-variant='inline'\] \.primary-button\s*{[^}]*padding:\s*0 12px/s,
+    );
+  });
+
+  it('stacks word preparation panel headers on narrow screens', () => {
+    expect(stylesheet).toMatch(
+      /@media \(max-width:\s*620px\)[\s\S]*\.word-prep-panel-heading\s*{[^}]*flex-direction:\s*column/s,
+    );
+    expect(stylesheet).toMatch(
+      /@media \(max-width:\s*620px\)[\s\S]*\.word-prep-panel-heading > \.primary-button,[\s\S]*\.word-prep-panel-heading > \.secondary-button\s*{[^}]*width:\s*100%/s,
+    );
+  });
+
+  it('shows material readiness as a compact rail status', () => {
+    expect(stylesheet).toMatch(/\.material-readiness\s*{[^}]*font-size:\s*12px/s);
+    expect(stylesheet).toMatch(/\.material-readiness\s*{[^}]*overflow-wrap:\s*anywhere/s);
   });
 
   it('uses distinct dobble status tones for opportunity, caution, and blocking states', () => {
