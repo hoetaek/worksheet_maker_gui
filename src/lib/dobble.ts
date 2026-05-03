@@ -1,5 +1,10 @@
 export type DobbleCard = number[];
 
+export type DobbleWordCountOption = {
+  picturesPerCard: number;
+  requiredWords: number;
+};
+
 type Field = {
   order: number;
   add: (left: number, right: number) => number;
@@ -13,6 +18,23 @@ export function requiredDobbleWordCount(picturesPerCard: number): number {
 
 export function validPicturesPerCard(): number[] {
   return [3, 4, 5, 6, 8];
+}
+
+export function dobbleWordCountOptions(): DobbleWordCountOption[] {
+  return validPicturesPerCard().map((picturesPerCard) => ({
+    picturesPerCard,
+    requiredWords: requiredDobbleWordCount(picturesPerCard),
+  }));
+}
+
+export function suggestPicturesPerCardForWordCount(wordCount: number): number {
+  const options = dobbleWordCountOptions();
+
+  return options.reduce((best, option) => {
+    const optionDistance = Math.abs(option.requiredWords - wordCount);
+    const bestDistance = Math.abs(best.requiredWords - wordCount);
+    return optionDistance < bestDistance ? option : best;
+  }, options[0]).picturesPerCard;
 }
 
 export function nearestValidPicturesPerCard(value: number): number {
@@ -52,6 +74,75 @@ export function buildDobbleCards(picturesPerCard: number): DobbleCard[] {
   }
 
   return cards;
+}
+
+export function buildPartialDobbleCards(
+  picturesPerCard: number,
+  availableSymbols: number,
+): DobbleCard[] {
+  if (availableSymbols < picturesPerCard * 2 - 1) {
+    return [];
+  }
+
+  const fullCards = buildDobbleCards(picturesPerCard);
+  const selectedCards: DobbleCard[] = [];
+  const selectedIndexes = new Set<number>();
+  const usedSymbols = new Set<number>();
+
+  while (selectedIndexes.size < fullCards.length) {
+    const remainingSymbols = availableSymbols - usedSymbols.size;
+    let nextIndex = -1;
+    let nextNewSymbolCount = Number.POSITIVE_INFINITY;
+
+    fullCards.forEach((card, index) => {
+      if (selectedIndexes.has(index)) {
+        return;
+      }
+
+      const newSymbolCount = card.filter((symbol) => !usedSymbols.has(symbol)).length;
+
+      if (newSymbolCount > remainingSymbols) {
+        return;
+      }
+
+      if (newSymbolCount < nextNewSymbolCount) {
+        nextIndex = index;
+        nextNewSymbolCount = newSymbolCount;
+      }
+    });
+
+    if (nextIndex === -1) {
+      break;
+    }
+
+    selectedIndexes.add(nextIndex);
+    selectedCards.push(fullCards[nextIndex]);
+    fullCards[nextIndex].forEach((symbol) => usedSymbols.add(symbol));
+  }
+
+  if (selectedCards.length < 2) {
+    return [];
+  }
+
+  return compactSymbolIndexes(selectedCards);
+}
+
+function compactSymbolIndexes(cards: DobbleCard[]): DobbleCard[] {
+  const indexBySymbol = new Map<number, number>();
+
+  return cards.map((card) =>
+    card.map((symbol) => {
+      const existingIndex = indexBySymbol.get(symbol);
+
+      if (existingIndex !== undefined) {
+        return existingIndex;
+      }
+
+      const nextIndex = indexBySymbol.size;
+      indexBySymbol.set(symbol, nextIndex);
+      return nextIndex;
+    }),
+  );
 }
 
 function createField(order: number): Field {

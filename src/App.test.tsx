@@ -52,6 +52,81 @@ describe('App', () => {
     expect(screen.getByText(/단어 31개가 정확히 필요합니다/i)).toBeInTheDocument();
   });
 
+  it('blocks incomplete dobble exports and suggests the closest valid card size', async () => {
+    const user = userEvent.setup();
+    const words = [
+      'apple',
+      'banana',
+      'cherry',
+      'date',
+      'elderberry',
+      'fig',
+      'grape',
+      'honeydew',
+      'kiwi',
+      'lemon',
+      'mango',
+      'nectarine',
+      'orange',
+    ];
+    render(<App />);
+
+    await user.clear(screen.getByLabelText(/단어 목록/i));
+    await user.type(screen.getByLabelText(/단어 목록/i), words.join(', '));
+    await user.click(screen.getByRole('button', { name: /도블 카드/i }));
+
+    expect(screen.getByText(/13개 단어는 카드당 4개 도블에 가장 가깝습니다/i)).toBeInTheDocument();
+    expect(screen.queryByText('word 14')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'PPTX 다운로드' })).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: '카드당 4개로 변경' }));
+
+    expect(screen.getByText('13/13 준비됨')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'PPTX 다운로드' })).toBeEnabled();
+  });
+
+  it('offers partial dobble as an explicit safe mode for incomplete word counts', async () => {
+    const user = userEvent.setup();
+    const words = [
+      'alpha',
+      'bravo',
+      'charlie',
+      'delta',
+      'echo',
+      'foxtrot',
+      'golf',
+      'hotel',
+      'india',
+      'juliet',
+      'kilo',
+      'lima',
+      'mike',
+      'november',
+      'oscar',
+      'papa',
+      'quebec',
+      'romeo',
+      'sierra',
+      'tango',
+    ];
+    render(<App />);
+
+    await user.clear(screen.getByLabelText(/단어 목록/i));
+    await user.type(screen.getByLabelText(/단어 목록/i), words.join(', '));
+    await user.click(screen.getByRole('button', { name: /도블 카드/i }));
+
+    expect(screen.getByText(/단어 31개가 정확히 필요합니다/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'PPTX 다운로드' })).toBeDisabled();
+    expect(screen.queryByText('word 21')).not.toBeInTheDocument();
+
+    await user.click(screen.getByLabelText('부분 도블 만들기'));
+
+    expect(screen.getByText(/안전한 부분 도블/i)).toBeInTheDocument();
+    expect(screen.getByText(/모든 카드 쌍은 공통 그림 1개를 유지합니다/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'PPTX 다운로드' })).toBeEnabled();
+    expect(screen.queryByText('word 21')).not.toBeInTheDocument();
+  });
+
   it('uses a square puzzle size and stepper-based word search difficulty', async () => {
     const user = userEvent.setup();
     render(<App />);

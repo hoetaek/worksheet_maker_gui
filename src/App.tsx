@@ -19,9 +19,11 @@ import {
 } from 'lucide-react';
 import {
   buildDobbleCards,
+  buildPartialDobbleCards,
+  dobbleWordCountOptions,
   nearestValidPicturesPerCard,
   requiredDobbleWordCount,
-  validPicturesPerCard,
+  suggestPicturesPerCardForWordCount,
 } from './lib/dobble';
 import {
   downloadDobblePptx,
@@ -1061,14 +1063,36 @@ function DobbleTool({
   runDownload: (action: () => Promise<void>) => void;
 }) {
   const [picturesPerCard, setPicturesPerCard] = useState(6);
+  const [allowPartialDobble, setAllowPartialDobble] = useState(false);
   const safePicturesPerCard = nearestValidPicturesPerCard(picturesPerCard);
   const requiredWords = requiredDobbleWordCount(safePicturesPerCard);
+  const minimumPartialWords = safePicturesPerCard * 2 - 1;
+  const isDobbleReady = words.length === requiredWords;
+  const suggestedPicturesPerCard = suggestPicturesPerCardForWordCount(words.length);
+  const suggestedRequiredWords = requiredDobbleWordCount(suggestedPicturesPerCard);
   const status = wordCountStatus(words.length, requiredWords);
-  const indexes = useMemo(() => buildDobbleCards(safePicturesPerCard), [safePicturesPerCard]);
-  const symbols = useMemo(
-    () => Array.from({ length: requiredWords }, (_, index) => words[index] ?? `word ${index + 1}`),
-    [requiredWords, words],
+  const completeIndexes = useMemo(
+    () => (isDobbleReady ? buildDobbleCards(safePicturesPerCard) : []),
+    [isDobbleReady, safePicturesPerCard],
   );
+  const partialIndexes = useMemo(
+    () =>
+      !isDobbleReady && allowPartialDobble
+        ? buildPartialDobbleCards(safePicturesPerCard, words.length)
+        : [],
+    [allowPartialDobble, isDobbleReady, safePicturesPerCard, words.length],
+  );
+  const isPartialDobbleReady = !isDobbleReady && allowPartialDobble && partialIndexes.length > 0;
+  const indexes = useMemo(
+    () => (isDobbleReady ? completeIndexes : isPartialDobbleReady ? partialIndexes : []),
+    [completeIndexes, isDobbleReady, isPartialDobbleReady, partialIndexes],
+  );
+  const usedWordCount = useMemo(() => new Set(indexes.flat()).size, [indexes]);
+  const canExportDobble = isDobbleReady || isPartialDobbleReady;
+  const disabledReason =
+    allowPartialDobble && words.length < minimumPartialWords
+      ? `부분 도블은 단어 ${minimumPartialWords}개 이상이 필요합니다.`
+      : `도블 카드는 단어 ${requiredWords}개가 정확히 필요합니다.`;
 
   return (
     <>
@@ -1079,9 +1103,9 @@ function DobbleTool({
             value={safePicturesPerCard}
             onChange={(event) => setPicturesPerCard(Number(event.target.value))}
           >
-            {validPicturesPerCard().map((value) => (
-              <option value={value} key={value}>
-                {value}
+            {dobbleWordCountOptions().map((option) => (
+              <option value={option.picturesPerCard} key={option.picturesPerCard}>
+                {option.picturesPerCard}개 · 단어 {option.requiredWords}개
               </option>
             ))}
           </select>
@@ -1089,30 +1113,67 @@ function DobbleTool({
         <Badge tone={status.tone}>{status.label}</Badge>
       </div>
 
-      {words.length !== requiredWords && (
-        <Callout tone="warning">
-          그림 {safePicturesPerCard}개짜리 도블 카드는 단어 {requiredWords}개가 정확히 필요합니다.
+      {!isDobbleReady && (
+        <>
+          <Callout tone="warning">
+            <span>
+              그림 {safePicturesPerCard}개짜리 완전 도블은 단어 {requiredWords}개가 정확히
+              필요합니다. 현재 {words.length}개입니다. {words.length}개 단어는 카드당{' '}
+              {suggestedPicturesPerCard}개 도블에 가장 가깝습니다. 카드당 {suggestedPicturesPerCard}
+              개는 단어 {suggestedRequiredWords}개가 필요합니다.
+            </span>
+            <button
+              className="inline-action"
+              type="button"
+              onClick={() => setPicturesPerCard(suggestedPicturesPerCard)}
+            >
+              카드당 {suggestedPicturesPerCard}개로 변경
+            </button>
+          </Callout>
+
+          <div className="partial-dobble-panel">
+            <Toggle
+              label="부분 도블 만들기"
+              checked={allowPartialDobble}
+              onChange={setAllowPartialDobble}
+            />
+            <p>
+              완전 도블 세트에서 안전하게 일부 카드만 사용합니다. 단어가 {minimumPartialWords}개
+              이상이면 카드끼리 공통 그림 1개 규칙을 유지할 수 있습니다.
+            </p>
+          </div>
+        </>
+      )}
+
+      {isPartialDobbleReady && (
+        <Callout tone="success">
+          안전한 부분 도블 {indexes.length}장을 만듭니다. 단어 {usedWordCount}/{words.length}개를
+          사용하고, 모든 카드 쌍은 공통 그림 1개를 유지합니다.
         </Callout>
       )}
 
-      <div className="dobble-grid printable">
-        {indexes.map((card, index) => (
-          <div className="dobble-card" key={index}>
-            <span className="mono-label">카드 {index + 1}</span>
-            <div className="dobble-symbols">
-              {card.map((symbolIndex) => {
-                const word = symbols[symbolIndex];
-                return (
-                  <span key={symbolIndex}>
-                    {imageMap[word] ? <img src={imageMap[word]} alt="" /> : null}
-                    {word}
-                  </span>
-                );
-              })}
+      {indexes.length > 0 ? (
+        <div className="dobble-grid printable">
+          {indexes.map((card, index) => (
+            <div className="dobble-card" key={index}>
+              <span className="mono-label">카드 {index + 1}</span>
+              <div className="dobble-symbols">
+                {card.map((symbolIndex) => {
+                  const word = words[symbolIndex];
+                  return (
+                    <span key={symbolIndex}>
+                      {imageMap[word] ? <img src={imageMap[word]} alt="" /> : null}
+                      {word}
+                    </span>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <EmptyState text="완전 도블은 정확한 단어 수가 필요합니다. 단어 수를 맞추거나 부분 도블을 켜세요." />
+      )}
 
       <ActionBar
         onPrint={() => window.print()}
@@ -1121,8 +1182,8 @@ function DobbleTool({
             downloadDobblePptx(
               indexes.map((card) =>
                 card.map((index) => ({
-                  word: symbols[index],
-                  image: imageMap[symbols[index]] || undefined,
+                  word: words[index],
+                  image: imageMap[words[index]] || undefined,
                 })),
               ),
               safePicturesPerCard,
@@ -1130,6 +1191,8 @@ function DobbleTool({
           )
         }
         exportLabel="PPTX 다운로드"
+        exportDisabled={!canExportDobble}
+        disabledReason={disabledReason}
       />
     </>
   );
@@ -1469,7 +1532,7 @@ function Badge({
   );
 }
 
-function Callout({ children, tone }: { children: React.ReactNode; tone: 'warning' }) {
+function Callout({ children, tone }: { children: React.ReactNode; tone: 'warning' | 'success' }) {
   return (
     <div className="callout" data-tone={tone}>
       {children}
@@ -1485,18 +1548,36 @@ function ActionBar({
   onPrint,
   onExport,
   exportLabel,
+  exportDisabled = false,
+  disabledReason,
 }: {
   onPrint: () => void;
   onExport: () => void;
   exportLabel: string;
+  exportDisabled?: boolean;
+  disabledReason?: string;
 }) {
+  const disabledTitle = exportDisabled ? disabledReason : undefined;
+
   return (
     <div className="action-bar">
-      <button className="secondary-button" type="button" onClick={onPrint}>
+      <button
+        className="secondary-button"
+        type="button"
+        onClick={onPrint}
+        disabled={exportDisabled}
+        title={disabledTitle}
+      >
         <Printer size={15} />
         인쇄
       </button>
-      <button className="primary-button" type="button" onClick={onExport}>
+      <button
+        className="primary-button"
+        type="button"
+        onClick={onExport}
+        disabled={exportDisabled}
+        title={disabledTitle}
+      >
         <Download size={15} />
         {exportLabel}
       </button>
