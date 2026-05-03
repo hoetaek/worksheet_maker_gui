@@ -1,5 +1,6 @@
 from base64 import b64encode
 from io import BytesIO
+from xml.etree import ElementTree
 from zipfile import ZipFile
 
 import httpx
@@ -25,6 +26,7 @@ from backend.main import app
 from backend.schemas import ImageCandidate
 
 client = TestClient(app)
+PPTX_NS = {"p": "http://schemas.openxmlformats.org/presentationml/2006/main"}
 
 
 def test_health_endpoint() -> None:
@@ -65,6 +67,28 @@ def test_flicker_endpoint_embeds_item_images() -> None:
     assert response.status_code == 200
     assert archive_has_media(response.content, "ppt/media/")
     assert media_dimensions(response.content, "ppt/media/") == {(800, 600)}
+
+
+def test_flicker_endpoint_adds_auto_advance_fade_transitions() -> None:
+    response = client.post(
+        "/api/materials/flicker.pptx",
+        json={
+            "items": [{"word": "cat"}],
+            "templates": ["word", "blank"],
+        },
+    )
+
+    assert response.status_code == 200
+    slide_xmls = pptx_slide_xmls(response.content)
+    assert len(slide_xmls) == 2
+    for slide_xml in slide_xmls:
+        slide = ElementTree.fromstring(slide_xml)
+        transition = slide.find("p:transition", PPTX_NS)
+        assert transition is not None
+        assert transition.attrib["spd"] == "med"
+        assert transition.attrib["advClick"] == "0"
+        assert transition.attrib["advTm"] == "1000"
+        assert transition.find("p:fade", PPTX_NS) is not None
 
 
 def test_worksheet_endpoint_returns_docx() -> None:
@@ -371,3 +395,13 @@ def media_dimensions(content: bytes, prefix: str) -> set[tuple[int, int]]:
 def docx_picture_widths(content: bytes) -> set[int]:
     document = Document(BytesIO(content))
     return {shape.width for shape in document.inline_shapes}
+
+
+def pptx_slide_xmls(content: bytes) -> list[str]:
+    with ZipFile(BytesIO(content)) as archive:
+        slide_names = sorted(
+            name
+            for name in archive.namelist()
+            if name.startswith("ppt/slides/slide") and name.endswith(".xml")
+        )
+        return [archive.read(name).decode("utf-8") for name in slide_names]

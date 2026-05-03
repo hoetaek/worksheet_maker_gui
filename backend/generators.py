@@ -14,6 +14,8 @@ from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_CONNECTOR
 from pptx.enum.text import PP_ALIGN
+from pptx.oxml.ns import qn
+from pptx.oxml.xmlchemy import OxmlElement
 from pptx.presentation import Presentation as PptxPresentation
 from pptx.slide import Slide
 from pptx.util import Inches
@@ -27,6 +29,9 @@ from backend.schemas import (
     WorksheetRequest,
 )
 
+FLICKER_AUTO_ADVANCE_MS = 1000
+FLICKER_TRANSITION_SPEED = "med"
+
 
 async def make_flicker_pptx(request: FlickerRequest) -> bytes:
     presentation = Presentation()
@@ -36,6 +41,7 @@ async def make_flicker_pptx(request: FlickerRequest) -> bytes:
     for item in request.items:
         for template in request.templates:
             slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+            add_auto_advance_transition(slide)
             add_slide_frame(slide, item.word)
 
             if template in {"word", "word-image"}:
@@ -249,6 +255,26 @@ def add_slide_frame(slide: Slide, label: str) -> None:
         Inches(6.8),
     )
     line.line.color.rgb = RGBColor(235, 235, 235)  # type: ignore[no-untyped-call]
+
+
+def add_auto_advance_transition(slide: Slide) -> None:
+    transition = OxmlElement("p:transition")
+    transition.set("spd", FLICKER_TRANSITION_SPEED)
+    transition.set("advClick", "0")
+    transition.set("advTm", str(FLICKER_AUTO_ADVANCE_MS))
+    transition.append(OxmlElement("p:fade"))
+
+    slide_element = slide.element
+    for existing_transition in slide_element.findall(qn("p:transition")):
+        slide_element.remove(existing_transition)
+
+    insert_index = len(slide_element)
+    for index, child in enumerate(slide_element):
+        if child.tag in {qn("p:timing"), qn("p:extLst")}:
+            insert_index = index
+            break
+
+    slide_element.insert(insert_index, transition)
 
 
 def add_small_label(slide: Slide, label: str) -> None:
