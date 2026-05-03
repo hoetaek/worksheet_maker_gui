@@ -14,7 +14,7 @@ from docx.shared import Cm, Pt
 from PIL import Image, UnidentifiedImageError
 from pptx import Presentation
 from pptx.dml.color import RGBColor
-from pptx.enum.shapes import MSO_CONNECTOR
+from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE
 from pptx.enum.text import PP_ALIGN
 from pptx.opc.constants import RELATIONSHIP_TYPE as RT
 from pptx.opc.package import Part
@@ -96,16 +96,18 @@ async def make_dobble_pptx(request: DobbleRequest) -> bytes:
 
     for index, card in enumerate(request.cards):
         slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+        add_dobble_card_frame(slide)
         add_small_label(slide, f"도블 카드 {index + 1}")
         positions = card_positions(len(card))
+        symbol_size = card_symbol_size(len(card))
         for item, (left, top) in zip(card, positions, strict=False):
             image = await resolve_image(item.image)
             if image:
-                add_image(slide, image, left=left, top=top, width=1.75, height=1.75)
+                add_image(slide, image, left=left, top=top, width=symbol_size, height=symbol_size)
             textbox = slide.shapes.add_textbox(
-                Inches(left - 0.12),
-                Inches(top + 1.78),
-                Inches(2),
+                Inches(left - 0.2),
+                Inches(top + symbol_size + 0.08),
+                Inches(symbol_size + 0.4),
                 Inches(0.32),
             )
             paragraph = textbox.text_frame.paragraphs[0]
@@ -257,9 +259,7 @@ def normalize_image(image: BytesIO, size: tuple[int, int] = (800, 600)) -> Bytes
         source.thumbnail(size, Image.Resampling.LANCZOS)
         frame = Image.new("RGB", size, "#ffffff")
 
-        if source.mode in {"RGBA", "LA"} or (
-            source.mode == "P" and "transparency" in source.info
-        ):
+        if source.mode in {"RGBA", "LA"} or (source.mode == "P" and "transparency" in source.info):
             normalized = source.convert("RGBA")
             position = ((size[0] - normalized.width) // 2, (size[1] - normalized.height) // 2)
             frame.paste(normalized, position, normalized)
@@ -502,24 +502,47 @@ def add_image(
     )
 
 
+def add_dobble_card_frame(slide: Slide) -> None:
+    card = slide.shapes.add_shape(
+        MSO_SHAPE.OVAL,
+        Inches(0.55),
+        Inches(0.55),
+        Inches(8.9),
+        Inches(8.9),
+    )
+    card.fill.solid()
+    card.fill.fore_color.rgb = RGBColor(255, 255, 255)  # type: ignore[no-untyped-call]
+    card.line.color.rgb = RGBColor(224, 224, 220)  # type: ignore[no-untyped-call]
+    card.line.width = PptPt(2)
+
+
 def card_positions(count: int) -> list[tuple[float, float]]:
-    presets = {
-        3: [(4.1, 1.1), (2.1, 5.25), (6.1, 5.25)],
-        4: [(2.0, 1.35), (6.2, 1.35), (2.0, 5.4), (6.2, 5.4)],
-        5: [(4.1, 0.9), (1.55, 3.1), (6.65, 3.1), (2.45, 6.3), (5.75, 6.3)],
-        6: [(1.4, 1.25), (4.1, 1.25), (6.8, 1.25), (1.4, 5.65), (4.1, 5.65), (6.8, 5.65)],
-        8: [
-            (1.1, 1.0),
-            (3.25, 1.0),
-            (5.4, 1.0),
-            (7.55, 1.0),
-            (1.1, 5.75),
-            (3.25, 5.75),
-            (5.4, 5.75),
-            (7.55, 5.75),
-        ],
-    }
-    return presets.get(count, presets[6])
+    size = card_symbol_size(count)
+    center_x = 5.0
+    center_y = 5.08
+    use_center_symbol = count >= 5 and count % 2 == 1
+    ring_count = count - 1 if use_center_symbol else count
+    radius = 2.8 if ring_count <= 4 else 3.16
+    positions: list[tuple[float, float]] = []
+
+    if use_center_symbol:
+        positions.append((center_x - size / 2, center_y - size / 2))
+
+    for index in range(ring_count):
+        angle = -math.pi / 2 + (index * 2 * math.pi) / ring_count
+        left = center_x + math.cos(angle) * radius - size / 2
+        top = center_y + math.sin(angle) * radius - size / 2
+        positions.append((left, top))
+
+    return positions
+
+
+def card_symbol_size(count: int) -> float:
+    if count >= 8:
+        return 1.32
+    if count >= 6:
+        return 1.45
+    return 1.62
 
 
 def split_syllables(word: str) -> str:

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import {
   BookOpen,
   Check,
@@ -17,14 +17,7 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import {
-  buildDobbleCards,
-  buildPartialDobbleCards,
-  dobbleWordCountOptions,
-  nearestValidPicturesPerCard,
-  requiredDobbleWordCount,
-  suggestPicturesPerCardForWordCount,
-} from './lib/dobble';
+import { selectDobblePlan } from './lib/dobble';
 import {
   downloadDobblePptx,
   downloadFlickerPptx,
@@ -1062,117 +1055,110 @@ function DobbleTool({
   imageMap: ImageMap;
   runDownload: (action: () => Promise<void>) => void;
 }) {
-  const [picturesPerCard, setPicturesPerCard] = useState(6);
-  const [allowPartialDobble, setAllowPartialDobble] = useState(false);
-  const safePicturesPerCard = nearestValidPicturesPerCard(picturesPerCard);
-  const requiredWords = requiredDobbleWordCount(safePicturesPerCard);
-  const minimumPartialWords = safePicturesPerCard * 2 - 1;
-  const isDobbleReady = words.length === requiredWords;
-  const suggestedPicturesPerCard = suggestPicturesPerCardForWordCount(words.length);
-  const suggestedRequiredWords = requiredDobbleWordCount(suggestedPicturesPerCard);
-  const status = wordCountStatus(words.length, requiredWords);
-  const completeIndexes = useMemo(
-    () => (isDobbleReady ? buildDobbleCards(safePicturesPerCard) : []),
-    [isDobbleReady, safePicturesPerCard],
-  );
-  const partialIndexes = useMemo(
-    () =>
-      !isDobbleReady && allowPartialDobble
-        ? buildPartialDobbleCards(safePicturesPerCard, words.length)
-        : [],
-    [allowPartialDobble, isDobbleReady, safePicturesPerCard, words.length],
-  );
-  const isPartialDobbleReady = !isDobbleReady && allowPartialDobble && partialIndexes.length > 0;
-  const indexes = useMemo(
-    () => (isDobbleReady ? completeIndexes : isPartialDobbleReady ? partialIndexes : []),
-    [completeIndexes, isDobbleReady, isPartialDobbleReady, partialIndexes],
-  );
-  const usedWordCount = useMemo(() => new Set(indexes.flat()).size, [indexes]);
-  const canExportDobble = isDobbleReady || isPartialDobbleReady;
+  const plan = useMemo(() => selectDobblePlan(words.length), [words.length]);
+  const indexes = plan.kind === 'unavailable' ? [] : plan.cards;
+  const usedWordCount = plan.kind === 'unavailable' ? 0 : plan.usedWordCount;
+  const canExportDobble = plan.kind !== 'unavailable';
+  const unusedWordCount = Math.max(0, words.length - usedWordCount);
+  const picturesPerCard =
+    plan.kind === 'unavailable' ? plan.suggestedPicturesPerCard : plan.picturesPerCard;
   const disabledReason =
-    allowPartialDobble && words.length < minimumPartialWords
-      ? `부분 도블은 단어 ${minimumPartialWords}개 이상이 필요합니다.`
-      : `도블 카드는 단어 ${requiredWords}개가 정확히 필요합니다.`;
+    plan.kind === 'unavailable'
+      ? `안전한 도블은 단어 ${plan.minimumSafeWords}개부터 가능합니다.`
+      : undefined;
 
   return (
     <>
-      <div className="tool-controls">
-        <label>
-          <span>카드당 그림 수</span>
-          <select
-            value={safePicturesPerCard}
-            onChange={(event) => setPicturesPerCard(Number(event.target.value))}
-          >
-            {dobbleWordCountOptions().map((option) => (
-              <option value={option.picturesPerCard} key={option.picturesPerCard}>
-                {option.picturesPerCard}개 · 단어 {option.requiredWords}개
-              </option>
-            ))}
-          </select>
-        </label>
-        <Badge tone={status.tone}>{status.label}</Badge>
-      </div>
-
-      {!isDobbleReady && (
-        <>
-          <Callout tone="warning">
-            <span>
-              그림 {safePicturesPerCard}개짜리 완전 도블은 단어 {requiredWords}개가 정확히
-              필요합니다. 현재 {words.length}개입니다. {words.length}개 단어는 카드당{' '}
-              {suggestedPicturesPerCard}개 도블에 가장 가깝습니다. 카드당 {suggestedPicturesPerCard}
-              개는 단어 {suggestedRequiredWords}개가 필요합니다.
-            </span>
-            <button
-              className="inline-action"
-              type="button"
-              onClick={() => setPicturesPerCard(suggestedPicturesPerCard)}
-            >
-              카드당 {suggestedPicturesPerCard}개로 변경
-            </button>
-          </Callout>
-
-          <div className="partial-dobble-panel">
-            <Toggle
-              label="부분 도블 만들기"
-              checked={allowPartialDobble}
-              onChange={setAllowPartialDobble}
-            />
-            <p>
-              완전 도블 세트에서 안전하게 일부 카드만 사용합니다. 단어가 {minimumPartialWords}개
-              이상이면 카드끼리 공통 그림 1개 규칙을 유지할 수 있습니다.
-            </p>
+      <section className="dobble-plan-panel" data-kind={plan.kind} aria-label="도블 생성 방식">
+        <div className="dobble-plan-header">
+          <div>
+            <p className="mono-label">현재 단어 {words.length}개</p>
+            <h3>
+              {plan.kind === 'complete'
+                ? '완전 도블 준비됨'
+                : plan.kind === 'partial'
+                  ? '현재 단어로 만들기'
+                  : '단어가 더 필요합니다'}
+            </h3>
           </div>
-        </>
-      )}
+          <Badge tone={plan.kind === 'unavailable' ? 'warning' : 'success'}>
+            {plan.kind === 'complete'
+              ? '완전 도블'
+              : plan.kind === 'partial'
+                ? '부분 도블'
+                : `${plan.wordsNeeded}개 더 필요`}
+          </Badge>
+        </div>
 
-      {isPartialDobbleReady && (
-        <Callout tone="success">
-          안전한 부분 도블 {indexes.length}장을 만듭니다. 단어 {usedWordCount}/{words.length}개를
-          사용하고, 모든 카드 쌍은 공통 그림 1개를 유지합니다.
-        </Callout>
-      )}
+        {plan.kind === 'unavailable' ? (
+          <div className="dobble-plan-copy" role="status" aria-live="polite">
+            <p>안전한 도블은 단어 {plan.minimumSafeWords}개부터 가능합니다.</p>
+            <p>단어 {plan.wordsNeeded}개를 더 넣어주세요.</p>
+            <span>가장 작은 완전 도블은 단어 {plan.suggestedRequiredWords}개입니다.</span>
+          </div>
+        ) : (
+          <>
+            <p className="dobble-plan-copy">
+              {plan.kind === 'complete'
+                ? '입력한 단어 수가 도블 수학 규칙에 딱 맞습니다.'
+                : `완전 도블은 단어 ${plan.requiredWords}개가 필요해서, 현재 단어 안에서 안전한 부분 도블을 만듭니다.`}
+            </p>
+            <div className="dobble-plan-stats" role="status" aria-live="polite">
+              <span>카드 {indexes.length}장</span>
+              <span>한 카드에 단어 {picturesPerCard}개</span>
+              <span>
+                {usedWordCount}/{words.length}개 사용
+              </span>
+              <span>카드끼리 공통 그림 1개</span>
+            </div>
+            {unusedWordCount > 0 && (
+              <p className="dobble-plan-note">
+                이번 세트에는 {unusedWordCount}개 단어가 제외됩니다. 단어 수를 맞추면 더 큰 완전
+                도블을 만들 수 있습니다.
+              </p>
+            )}
+          </>
+        )}
+      </section>
 
       {indexes.length > 0 ? (
-        <div className="dobble-grid printable">
-          {indexes.map((card, index) => (
-            <div className="dobble-card" key={index}>
-              <span className="mono-label">카드 {index + 1}</span>
-              <div className="dobble-symbols">
-                {card.map((symbolIndex) => {
-                  const word = words[symbolIndex];
-                  return (
-                    <span key={symbolIndex}>
-                      {imageMap[word] ? <img src={imageMap[word]} alt="" /> : null}
-                      {word}
-                    </span>
-                  );
-                })}
+        <>
+          <h3 className="preview-heading">실제 카드 미리보기</h3>
+          <div className="dobble-grid printable">
+            {indexes.map((card, index) => (
+              <div className="dobble-card" key={index}>
+                <span className="mono-label">카드 {index + 1}</span>
+                <div
+                  className="dobble-card-preview"
+                  role="group"
+                  aria-label={`도블 카드 ${index + 1}`}
+                >
+                  {card.map((symbolIndex, symbolPosition) => {
+                    const word = words[symbolIndex];
+                    return (
+                      <div
+                        className="dobble-symbol"
+                        key={symbolIndex}
+                        style={dobbleSymbolStyle(symbolPosition, card.length, index)}
+                      >
+                        <span className="dobble-symbol-image">
+                          {imageMap[word] ? (
+                            <img src={imageMap[word]} alt="" />
+                          ) : (
+                            <span aria-hidden="true">{dobbleInitial(word)}</span>
+                          )}
+                        </span>
+                        <span className="dobble-symbol-label">{word}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </>
       ) : (
-        <EmptyState text="완전 도블은 정확한 단어 수가 필요합니다. 단어 수를 맞추거나 부분 도블을 켜세요." />
+        <EmptyState text="단어를 더 넣으면 안전한 도블 카드 미리보기가 여기에 나타납니다." />
       )}
 
       <ActionBar
@@ -1186,7 +1172,7 @@ function DobbleTool({
                   image: imageMap[words[index]] || undefined,
                 })),
               ),
-              safePicturesPerCard,
+              picturesPerCard,
             ),
           )
         }
@@ -1196,6 +1182,32 @@ function DobbleTool({
       />
     </>
   );
+}
+
+function dobbleSymbolStyle(
+  symbolIndex: number,
+  symbolCount: number,
+  cardIndex: number,
+): CSSProperties {
+  const centeredSymbol = symbolIndex === 0 && symbolCount % 2 === 1;
+  const angle = -90 + (symbolIndex * 360) / symbolCount + (cardIndex % 2 === 0 ? -7 : 9);
+  const radius = centeredSymbol ? 0 : 30 + ((symbolIndex + cardIndex) % 3) * 4;
+  const radians = (angle * Math.PI) / 180;
+  const x = 50 + Math.cos(radians) * radius;
+  const y = 50 + Math.sin(radians) * radius;
+  const rotate = ((symbolIndex * 17 + cardIndex * 11) % 30) - 15;
+  const scale = 0.92 + ((symbolIndex + cardIndex) % 3) * 0.06;
+
+  return {
+    '--symbol-x': `${x}%`,
+    '--symbol-y': `${y}%`,
+    '--symbol-rotate': `${rotate}deg`,
+    '--symbol-scale': scale.toString(),
+  } as CSSProperties;
+}
+
+function dobbleInitial(word: string): string {
+  return word.trim().charAt(0).toUpperCase();
 }
 
 function WordImageHints({

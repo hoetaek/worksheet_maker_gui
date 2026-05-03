@@ -152,8 +152,7 @@ def test_flicker_word_image_slide_adds_fade_reveal_timing() -> None:
     assert ("out", "fade") in effects
     assert ("in", "fade") in effects
     assert any(
-        time_node.attrib.get("dur") == "500"
-        for time_node in timing.findall(".//p:cTn", PPTX_NS)
+        time_node.attrib.get("dur") == "500" for time_node in timing.findall(".//p:cTn", PPTX_NS)
     )
 
 
@@ -256,6 +255,29 @@ def test_dobble_endpoint_embeds_card_images() -> None:
     assert response.status_code == 200
     assert archive_has_media(response.content, "ppt/media/")
     assert media_dimensions(response.content, "ppt/media/") == {(800, 600)}
+
+
+def test_dobble_endpoint_draws_circular_game_card() -> None:
+    response = client.post(
+        "/api/materials/dobble.pptx",
+        json={
+            "cards": [
+                [
+                    {"word": "cat"},
+                    {"word": "dog"},
+                    {"word": "pig"},
+                    {"word": "fox"},
+                    {"word": "cow"},
+                ]
+            ],
+            "pictures_per_card": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    slide_xml = pptx_slide_xmls(response.content)[0]
+    assert 'prst="ellipse"' in slide_xml
+    assert "도블 카드 1" in slide_xml
 
 
 def test_image_search_validates_query() -> None:

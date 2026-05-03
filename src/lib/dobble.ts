@@ -5,6 +5,32 @@ export type DobbleWordCountOption = {
   requiredWords: number;
 };
 
+export type CompleteDobblePlan = {
+  kind: 'complete';
+  picturesPerCard: number;
+  requiredWords: number;
+  cards: DobbleCard[];
+  usedWordCount: number;
+};
+
+export type PartialDobblePlan = {
+  kind: 'partial';
+  picturesPerCard: number;
+  requiredWords: number;
+  cards: DobbleCard[];
+  usedWordCount: number;
+};
+
+export type UnavailableDobblePlan = {
+  kind: 'unavailable';
+  minimumSafeWords: number;
+  wordsNeeded: number;
+  suggestedPicturesPerCard: number;
+  suggestedRequiredWords: number;
+};
+
+export type DobblePlan = CompleteDobblePlan | PartialDobblePlan | UnavailableDobblePlan;
+
 type Field = {
   order: number;
   add: (left: number, right: number) => number;
@@ -43,6 +69,56 @@ export function nearestValidPicturesPerCard(value: number): number {
     const bestDistance = Math.abs(best - value);
     return candidateDistance < bestDistance ? candidate : best;
   }, validPicturesPerCard()[0]);
+}
+
+export function selectDobblePlan(wordCount: number): DobblePlan {
+  const exactOption = dobbleWordCountOptions().find((option) => option.requiredWords === wordCount);
+
+  if (exactOption) {
+    return {
+      kind: 'complete',
+      picturesPerCard: exactOption.picturesPerCard,
+      requiredWords: exactOption.requiredWords,
+      cards: buildDobbleCards(exactOption.picturesPerCard),
+      usedWordCount: wordCount,
+    };
+  }
+
+  const partialPlans = validPicturesPerCard()
+    .map((picturesPerCard): PartialDobblePlan | null => {
+      const cards = buildPartialDobbleCards(picturesPerCard, wordCount);
+
+      if (cards.length === 0) {
+        return null;
+      }
+
+      return {
+        kind: 'partial',
+        picturesPerCard,
+        requiredWords: requiredDobbleWordCount(picturesPerCard),
+        cards,
+        usedWordCount: new Set(cards.flat()).size,
+      };
+    })
+    .filter((plan): plan is PartialDobblePlan => plan !== null)
+    .sort(comparePartialPlans);
+
+  if (partialPlans[0]) {
+    return partialPlans[0];
+  }
+
+  const suggestedPicturesPerCard = suggestPicturesPerCardForWordCount(wordCount);
+  const minimumSafeWords = Math.min(
+    ...validPicturesPerCard().map((picturesPerCard) => picturesPerCard * 2 - 1),
+  );
+
+  return {
+    kind: 'unavailable',
+    minimumSafeWords,
+    wordsNeeded: Math.max(0, minimumSafeWords - wordCount),
+    suggestedPicturesPerCard,
+    suggestedRequiredWords: requiredDobbleWordCount(suggestedPicturesPerCard),
+  };
 }
 
 export function buildDobbleCards(picturesPerCard: number): DobbleCard[] {
@@ -125,6 +201,25 @@ export function buildPartialDobbleCards(
   }
 
   return compactSymbolIndexes(selectedCards);
+}
+
+function comparePartialPlans(left: PartialDobblePlan, right: PartialDobblePlan): number {
+  if (left.usedWordCount !== right.usedWordCount) {
+    return right.usedWordCount - left.usedWordCount;
+  }
+
+  if (left.cards.length !== right.cards.length) {
+    return right.cards.length - left.cards.length;
+  }
+
+  const leftDistance = Math.abs(left.requiredWords - left.usedWordCount);
+  const rightDistance = Math.abs(right.requiredWords - right.usedWordCount);
+
+  if (leftDistance !== rightDistance) {
+    return leftDistance - rightDistance;
+  }
+
+  return left.picturesPerCard - right.picturesPerCard;
 }
 
 function compactSymbolIndexes(cards: DobbleCard[]): DobbleCard[] {

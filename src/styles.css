@@ -691,7 +691,7 @@ select {
 .tool-panel > .word-search-controls,
 .tool-panel > .template-picker,
 .tool-panel > .callout,
-.tool-panel > .partial-dobble-panel,
+.tool-panel > .dobble-plan-panel,
 .tool-panel > .empty-state,
 .tool-panel > .action-bar {
   margin-left: 24px;
@@ -1002,38 +1002,97 @@ select {
 }
 
 .dobble-grid {
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 18px;
 }
 
 .dobble-card {
-  min-height: 180px;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff, #fbfbfa);
+  box-shadow:
+    rgba(0, 0, 0, 0.08) 0 0 0 1px,
+    rgba(0, 0, 0, 0.08) 0 18px 38px -30px;
 }
 
-.dobble-symbols {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+.dobble-card-preview {
+  position: relative;
+  width: min(100%, 248px);
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.98), rgba(250, 247, 241, 0.98)),
+    var(--paper);
+  box-shadow:
+    rgba(23, 23, 23, 0.18) 0 0 0 1px,
+    rgba(23, 23, 23, 0.1) 0 22px 55px -34px,
+    rgba(255, 255, 255, 0.9) 0 2px 0 inset;
 }
 
-.dobble-symbols span {
-  display: inline-flex;
-  align-items: center;
+.dobble-card-preview::after {
+  position: absolute;
+  inset: 9%;
+  pointer-events: none;
+  border: 1px dashed rgba(23, 23, 23, 0.08);
+  border-radius: inherit;
+  content: '';
+}
+
+.dobble-symbol {
+  position: absolute;
+  left: var(--symbol-x);
+  top: var(--symbol-y);
+  z-index: 1;
+  display: grid;
+  justify-items: center;
   gap: 4px;
-  max-width: 100%;
-  padding: 4px 8px;
-  border-radius: 9999px;
-  background: var(--surface-tint);
-  color: var(--text);
-  font-size: 13px;
-  overflow-wrap: anywhere;
+  width: clamp(58px, 30%, 78px);
+  transform: translate(-50%, -50%) rotate(var(--symbol-rotate)) scale(var(--symbol-scale));
+  transform-origin: center;
 }
 
-.dobble-symbols img {
-  width: 18px;
-  height: 18px;
+.dobble-symbol-image {
+  display: grid;
+  width: clamp(46px, 78%, 62px);
+  aspect-ratio: 1;
+  place-items: center;
+  overflow: hidden;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #f0f1f2;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 700;
+  box-shadow:
+    rgba(0, 0, 0, 0.16) 0 0 0 1px,
+    rgba(0, 0, 0, 0.12) 0 8px 20px -14px;
+}
+
+.dobble-symbol-image img {
+  width: 100%;
+  height: 100%;
+  display: block;
   border-radius: 50%;
   object-fit: cover;
+}
+
+.dobble-symbol-label {
+  max-width: 86px;
+  padding: 3px 6px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  text-align: center;
+  box-shadow: rgba(0, 0, 0, 0.12) 0 0 0 1px;
 }
 
 .callout,
@@ -1068,21 +1127,92 @@ select {
   box-shadow: rgba(159, 45, 37, 0.22) 0 0 0 1px;
 }
 
-.partial-dobble-panel {
+.dobble-plan-panel {
   display: grid;
-  gap: 6px;
-  margin-top: 12px;
-  padding: 12px;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
   border-radius: 8px;
   background: #ffffff;
-  box-shadow: var(--light-ring);
+  box-shadow:
+    rgba(0, 0, 0, 0.08) 0 0 0 1px,
+    rgba(0, 0, 0, 0.07) 0 18px 45px -34px;
 }
 
-.partial-dobble-panel p {
+.dobble-plan-panel[data-kind='complete'],
+.dobble-plan-panel[data-kind='partial'] {
+  border-color: rgba(18, 99, 63, 0.28);
+  background: #f8fcfa;
+  box-shadow:
+    rgba(18, 99, 63, 0.12) 0 0 0 1px,
+    rgba(18, 99, 63, 0.1) 0 16px 34px -28px;
+}
+
+.dobble-plan-panel[data-kind='unavailable'] {
+  border-color: rgba(159, 45, 37, 0.18);
+  background: #fffafa;
+}
+
+.dobble-plan-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dobble-plan-header h3 {
+  margin-top: 4px;
+  font-size: 20px;
+}
+
+.dobble-plan-copy,
+.dobble-plan-copy p,
+.dobble-plan-note {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
+}
+
+.dobble-plan-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.dobble-plan-copy span {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.dobble-plan-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dobble-plan-stats span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 9px;
+  border-radius: 9999px;
+  background: #ffffff;
+  color: #12633f;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: rgba(18, 99, 63, 0.18) 0 0 0 1px;
+}
+
+.dobble-plan-note {
+  color: #795548;
+}
+
+.preview-heading {
+  margin: 20px 24px 0;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.35;
 }
 
 .action-bar {

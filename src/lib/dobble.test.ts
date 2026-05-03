@@ -4,6 +4,7 @@ import {
   buildPartialDobbleCards,
   dobbleWordCountOptions,
   requiredDobbleWordCount,
+  selectDobblePlan,
   suggestPicturesPerCardForWordCount,
 } from './dobble';
 
@@ -49,6 +50,43 @@ describe('dobble card generation', () => {
 
   it('does not create a one-card partial game', () => {
     expect(buildPartialDobbleCards(6, 6)).toEqual([]);
+  });
+
+  it('selects a complete plan when the word count exactly fits a dobble order', () => {
+    const plan = selectDobblePlan(13);
+
+    expect(plan.kind).toBe('complete');
+    if (plan.kind !== 'complete') {
+      throw new Error('expected complete plan');
+    }
+    expect(plan.picturesPerCard).toBe(4);
+    expect(plan.cards).toHaveLength(13);
+    expect(plan.usedWordCount).toBe(13);
+  });
+
+  it('selects the safest current-word partial plan that uses the most words', () => {
+    const plan = selectDobblePlan(20);
+
+    expect(plan.kind).toBe('partial');
+    if (plan.kind !== 'partial') {
+      throw new Error('expected partial plan');
+    }
+    expect(plan.picturesPerCard).toBe(5);
+    expect(plan.cards).toHaveLength(16);
+    expect(plan.usedWordCount).toBe(20);
+    expectEveryPairToShareOneSymbol(plan.cards);
+  });
+
+  it('explains the minimum safe word count when no dobble plan can be made', () => {
+    const plan = selectDobblePlan(3);
+
+    expect(plan).toEqual({
+      kind: 'unavailable',
+      minimumSafeWords: 5,
+      wordsNeeded: 2,
+      suggestedPicturesPerCard: 3,
+      suggestedRequiredWords: 7,
+    });
   });
 });
 
