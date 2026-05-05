@@ -35,7 +35,9 @@ describe('App', () => {
     const home = screen.getByRole('region', { name: '단어 준비 홈' });
     expect(home).toHaveClass('word-prep-home');
     expect(within(home).getByRole('region', { name: '단어 입력' })).toBeInTheDocument();
-    expect(within(home).getByRole('region', { name: '단어별 사진과 힌트' })).toBeInTheDocument();
+    expect(
+      within(home).getByRole('region', { name: '단어별 사진과 퀴즈 힌트' }),
+    ).toBeInTheDocument();
     expect(within(home).queryByRole('region', { name: '사진 준비' })).not.toBeInTheDocument();
     expect(within(home).queryByRole('region', { name: '퀴즈 준비' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: '학습 자료 선택 안내' })).not.toBeInTheDocument();
@@ -43,7 +45,9 @@ describe('App', () => {
 
     await user.clear(screen.getByLabelText(/단어 목록/i));
     await user.type(screen.getByLabelText(/단어 목록/i), 'apple, banana');
-    await user.type(screen.getByLabelText('apple 퀴즈 힌트'), 'red fruit');
+    const quizHint = screen.getByLabelText('apple 퀴즈 힌트');
+    expect(quizHint).toHaveAttribute('placeholder', '낱말 찾기 퀴즈 힌트 입력');
+    await user.type(quizHint, 'red fruit');
     await user.click(screen.getByRole('button', { name: '현재 단어 담기' }));
 
     const cart = screen.getByRole('region', { name: '담은 단어' });
@@ -57,9 +61,11 @@ describe('App', () => {
     render(<App />);
 
     const home = screen.getByRole('region', { name: '단어 준비 홈' });
-    const status = within(home).getByText('단어 6개 · 사진 0/6 준비');
+    const status = within(home).getByText('단어 6개 · 사진 0/6 · 퀴즈 힌트 0/6');
     const wordEntry = within(home).getByRole('region', { name: '단어 입력' });
-    const mediaPrep = within(home).getByRole('region', { name: '단어별 사진과 힌트' });
+    const mediaPrep = within(home).getByRole('region', {
+      name: '단어별 사진과 퀴즈 힌트',
+    });
     const materialChoice = within(home).getByRole('region', { name: '다음 자료 선택' });
     const cart = within(home).getByRole('region', { name: '담은 단어' });
 
@@ -208,7 +214,7 @@ describe('App', () => {
     await user.click(within(rail).getByRole('button', { name: '단어 수정' }));
 
     const drawer = screen.getByRole('complementary', { name: '단어 편집 드로어' });
-    const mediaSection = within(drawer).getByRole('region', { name: '사진과 힌트' });
+    const mediaSection = within(drawer).getByRole('region', { name: '사진과 퀴즈 힌트' });
     expect(within(mediaSection).getByLabelText('토끼 퀴즈 힌트')).toHaveValue('빠르게 뛰는 동물');
     expect(within(mediaSection).getAllByText('사진 선택됨')).toHaveLength(6);
 
@@ -420,14 +426,28 @@ describe('App', () => {
 
   it('gives student sheets a clear task and nearby completion spaces', async () => {
     const user = userEvent.setup();
+    window.localStorage.setItem(
+      'worksheet-maker-workspace-v1',
+      JSON.stringify({
+        wordInput: '토끼, 거북이, 사자, 강아지, 고양이, 코끼리',
+        quizMap: { 토끼: '귀가 길고 깡충깡충 뛰어요.' },
+      }),
+    );
     render(<App />);
 
     let toolPanel = screen.getByRole('region', { name: '낱말 찾기' });
-    expect(within(toolPanel).getByText('그림을 보고 낱말을 찾아 동그라미 하세요.')).toHaveClass(
-      'sheet-instruction',
-    );
-    const hintSection = within(toolPanel).getByRole('region', { name: '찾을 낱말' });
-    expect(hintSection.querySelectorAll('.hint-checkmark')).toHaveLength(6);
+    expect(
+      within(toolPanel).getByText('퀴즈 힌트를 풀고 낱말을 찾아 동그라미 하세요.'),
+    ).toHaveClass('sheet-instruction');
+    const hintSection = within(toolPanel).getByRole('region', { name: '퀴즈 힌트' });
+    const clueTable = within(hintSection).getByRole('table', {
+      name: '낱말 찾기 퀴즈 힌트',
+    });
+    expect(within(clueTable).getByText('번호')).toBeInTheDocument();
+    expect(within(clueTable).getByText('퀴즈 힌트')).toBeInTheDocument();
+    expect(within(clueTable).getByText('찾은 낱말')).toBeInTheDocument();
+    expect(within(clueTable).getByText('귀가 길고 깡충깡충 뛰어요.')).toBeInTheDocument();
+    expect(toolPanel.querySelector('.hint-checkmark')).toBeNull();
 
     await user.click(screen.getByRole('button', { name: /단어 활동지/i }));
 
@@ -472,7 +492,7 @@ describe('App', () => {
     let toolPanel = screen.getByRole('region', { name: '낱말 찾기' });
     let actionBar = within(toolPanel).getByRole('group', { name: '출력 작업' });
     expect(within(rail).getByText('퍼즐 15 x 15 · 단어 6개')).toBeInTheDocument();
-    expect(within(rail).getByText('사진 0/6 준비')).toHaveClass('material-readiness');
+    expect(within(rail).getByText('퀴즈 힌트 0/6 준비')).toHaveClass('material-readiness');
     expect(within(actionBar).getByRole('button', { name: 'DOCX 다운로드' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /단어 활동지/i }));

@@ -42,7 +42,7 @@ FLICKER_REVEAL_DELAY_MS = 500
 FLICKER_REVEAL_DURATION_MS = 500
 P14_NS_URI = "http://schemas.microsoft.com/office/powerpoint/2010/main"
 WAV_CONTENT_TYPE = "audio/x-wav"
-WORD_SEARCH_STUDENT_INSTRUCTION = "그림을 보고 낱말을 찾아 동그라미 하세요."
+WORD_SEARCH_STUDENT_INSTRUCTION = "퀴즈 힌트를 풀고 낱말을 찾아 동그라미 하세요."
 WORKSHEET_STUDENT_INSTRUCTION = "그림을 보고 단어를 읽은 뒤 빈칸에 따라 쓰세요."
 
 
@@ -235,34 +235,44 @@ async def make_word_search_docx(request: WordSearchRequest) -> bytes:
 
     if request.hints:
         document.add_paragraph("")
-        hint_heading = document.add_paragraph("찾을 낱말")
+        hint_heading = document.add_paragraph("퀴즈 힌트")
         hint_heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
         hint_heading.runs[0].bold = True
 
-        columns = min(4, len(request.hints))
-        rows = (len(request.hints) + columns - 1) // columns
-        hint_table = document.add_table(rows=rows, cols=columns, style="Table Grid")
+        hint_table = document.add_table(rows=len(request.hints) + 1, cols=3, style="Table Grid")
         hint_table.alignment = WD_TABLE_ALIGNMENT.CENTER
 
-        for row_index, row in enumerate(hint_table.rows):
-            for col_index, cell in enumerate(row.cells):
-                item_index = row_index * columns + col_index
+        header_cells = hint_table.rows[0].cells
+        for header_cell, label in zip(
+            header_cells, ["번호", "퀴즈 힌트", "찾은 낱말"], strict=True
+        ):
+            header_cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+            header_paragraph = header_cell.paragraphs[0]
+            header_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            header_run = header_paragraph.add_run(label)
+            header_run.font.size = Pt(10)
+            header_run.bold = True
+
+        for index, item in enumerate(request.hints, start=1):
+            cells = hint_table.rows[index].cells
+            for cell in cells:
                 cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
-                if item_index >= len(request.hints):
-                    continue
 
-                item = request.hints[item_index]
-                paragraph = cell.paragraphs[0]
-                paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                image = await resolve_image(item.image)
-                if image:
-                    paragraph.add_run().add_picture(image, width=Cm(3.2))
+            number_paragraph = cells[0].paragraphs[0]
+            number_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            number_run = number_paragraph.add_run(str(index))
+            number_run.font.size = Pt(10)
+            number_run.bold = True
 
-                word_paragraph = cell.add_paragraph(f"□ {item.word}")
-                word_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                word_run = word_paragraph.runs[0]
-                word_run.font.size = Pt(11)
-                word_run.bold = True
+            clue_paragraph = cells[1].paragraphs[0]
+            clue_paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            clue_run = clue_paragraph.add_run((item.clue or "").strip())
+            clue_run.font.size = Pt(11)
+
+            answer_paragraph = cells[2].paragraphs[0]
+            answer_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            answer_run = answer_paragraph.add_run(" " * 18)
+            answer_run.underline = True
 
     return save_document(document)
 

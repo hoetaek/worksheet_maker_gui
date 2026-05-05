@@ -27,6 +27,7 @@ class ImageSearchResponse(BaseModel):
 class WordImage(BaseModel):
     word: str = Field(min_length=1)
     image: str | None = None
+    clue: str | None = None
 
 
 class FlickerRequest(BaseModel):

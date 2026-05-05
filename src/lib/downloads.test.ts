@@ -12,9 +12,10 @@ describe('downloads', () => {
     vi.unstubAllGlobals();
   });
 
-  it('posts selected images to every generated document endpoint', async () => {
+  it('posts images to picture-based endpoints and quiz clues to word search', async () => {
     const fetcher = stubDownloadTransport();
     const imageMap = { cat: 'data:image/png;base64,cat-image' };
+    const quizMap = { cat: 'small animal with whiskers' };
 
     await downloadFlickerPptx(['cat'], imageMap, ['image']);
     expect(lastPost(fetcher)).toEqual({
@@ -46,7 +47,7 @@ describe('downloads', () => {
 
     await downloadWordSearchDocx({
       words: ['cat'],
-      imageMap,
+      quizMap,
       puzzle: {
         grid: [['c', 'a', 't']],
         answerGrid: [['c', 'a', 't']],
@@ -60,7 +61,7 @@ describe('downloads', () => {
       body: {
         words: ['cat'],
         grid: [['c', 'a', 't']],
-        hints: [{ word: 'cat', image: imageMap.cat }],
+        hints: [{ word: 'cat', clue: quizMap.cat }],
         grade: 3,
         class_number: 1,
         title: '낱말 찾기',

@@ -120,7 +120,7 @@ const WORKSPACE_STORAGE_KEY = 'worksheet-maker-workspace-v1';
 const WORD_SEARCH_MIN_SIZE = 5;
 const WORD_SEARCH_MAX_SIZE = 28;
 const EMPTY_MATERIAL_REASON = '단어를 입력하면 다운로드할 수 있습니다.';
-const WORD_SEARCH_STUDENT_INSTRUCTION = '그림을 보고 낱말을 찾아 동그라미 하세요.';
+const WORD_SEARCH_STUDENT_INSTRUCTION = '퀴즈 힌트를 풀고 낱말을 찾아 동그라미 하세요.';
 const WORKSHEET_STUDENT_INSTRUCTION = '그림을 보고 단어를 읽은 뒤 빈칸에 따라 쓰세요.';
 
 const ROUTE_PATHS: Record<RouteId, string> = {
@@ -211,6 +211,7 @@ function App() {
   const words = useMemo(() => parseWords(wordInput), [wordInput]);
   const keywordRows = useMemo(() => buildKeywordRows(words, '', IMAGE_SEARCH_LIMIT), [words]);
   const preparedImageCount = words.filter((word) => Boolean(imageMap[word])).length;
+  const preparedQuizHintCount = getPreparedQuizHintCount(words, quizMap);
   const language = detectLanguage(words);
   const activeToolConfig = TOOL_OPTIONS.find((tool) => tool.id === activeTool) ?? TOOL_OPTIONS[0];
   const wordSearchDifficultyIndex = WORD_SEARCH_DIFFICULTIES.findIndex(
@@ -612,7 +613,8 @@ function App() {
             </div>
             <div className="word-prep-status">
               <p className="word-prep-summary">
-                단어 {words.length}개 · 사진 {preparedImageCount}/{words.length} 준비
+                단어 {words.length}개 · 사진 {preparedImageCount}/{words.length} · 퀴즈 힌트{' '}
+                {preparedQuizHintCount}/{words.length}
               </p>
               <button
                 className="secondary-button settings-button"
@@ -670,12 +672,12 @@ function App() {
 
             <section
               className="word-prep-panel word-media-prep-panel"
-              aria-label="단어별 사진과 힌트"
+              aria-label="단어별 사진과 퀴즈 힌트"
             >
               <div className="word-prep-panel-heading">
                 <div>
                   <span className="control-kicker">단어별 준비</span>
-                  <h3>사진과 힌트</h3>
+                  <h3>사진과 퀴즈 힌트</h3>
                 </div>
                 <button
                   className="primary-button"
@@ -690,9 +692,9 @@ function App() {
                 </button>
               </div>
 
-              <div className="word-media-list" aria-label="단어별 사진과 힌트 목록">
+              <div className="word-media-list" aria-label="단어별 사진과 퀴즈 힌트 목록">
                 {keywordRows.length === 0 ? (
-                  <EmptyState text="단어를 입력하면 사진과 힌트 행이 만들어집니다." />
+                  <EmptyState text="단어를 입력하면 사진과 퀴즈 힌트 행이 만들어집니다." />
                 ) : (
                   keywordRows.map((row) => (
                     <div className="word-media-row" key={row.word}>
@@ -710,7 +712,7 @@ function App() {
                             onChange={(event) =>
                               updateQuizHint(row.word, event.currentTarget.value)
                             }
-                            placeholder="빈칸 힌트나 단어 설명"
+                            placeholder="낱말 찾기 퀴즈 힌트 입력"
                           />
                         </label>
                       </div>
@@ -964,17 +966,17 @@ function App() {
           </section>
         )}
 
-        <section className="word-drawer-media-section" aria-label="사진과 힌트">
+        <section className="word-drawer-media-section" aria-label="사진과 퀴즈 힌트">
           <div className="word-prep-panel-heading">
             <div>
               <span className="control-kicker">단어별 준비</span>
-              <h3>사진과 힌트</h3>
+              <h3>사진과 퀴즈 힌트</h3>
             </div>
           </div>
 
-          <div className="word-media-list" aria-label="단어별 사진">
+          <div className="word-media-list" aria-label="단어별 사진과 퀴즈 힌트 목록">
             {keywordRows.length === 0 ? (
-              <EmptyState text="단어를 입력하면 사진과 힌트 행이 만들어집니다." />
+              <EmptyState text="단어를 입력하면 사진과 퀴즈 힌트 행이 만들어집니다." />
             ) : (
               keywordRows.map((row) => (
                 <div className="word-media-row" key={row.word}>
@@ -990,7 +992,7 @@ function App() {
                         aria-label={`${row.word} 퀴즈 힌트`}
                         value={quizMap[row.word] ?? ''}
                         onChange={(event) => updateQuizHint(row.word, event.currentTarget.value)}
-                        placeholder="빈칸 힌트나 단어 설명"
+                        placeholder="낱말 찾기 퀴즈 힌트 입력"
                       />
                     </label>
                   </div>
@@ -1070,7 +1072,7 @@ function App() {
             runDownload(() =>
               downloadWordSearchDocx({
                 words,
-                imageMap,
+                quizMap,
                 puzzle: generatedWordSearchPuzzle,
                 grade,
                 classNumber: klass,
@@ -1145,7 +1147,7 @@ function App() {
             statusLabel={wordSearchExportDisabled ? '단어 필요' : undefined}
             statusTone="danger"
             summary={`퍼즐 ${wordSearchSize} x ${wordSearchSize} · 단어 ${words.length}개`}
-            readiness={getPhotoReadinessLabel(words, imageMap)}
+            readiness={getQuizReadinessLabel(words, quizMap)}
           />
         );
       }
@@ -1320,9 +1322,8 @@ function App() {
                 words={words}
                 grade={grade}
                 klass={klass}
-                imageMap={imageMap}
+                quizMap={quizMap}
                 size={wordSearchSize}
-                uppercase={wordSearchUppercase}
                 showAnswer={wordSearchShowAnswer}
                 puzzle={wordSearchPuzzle}
               />
@@ -1711,24 +1712,22 @@ function WordSearchTool({
   words,
   grade,
   klass,
-  imageMap,
+  quizMap,
   size,
-  uppercase,
   showAnswer,
   puzzle,
 }: {
   words: string[];
   grade: number;
   klass: number;
-  imageMap: ImageMap;
+  quizMap: QuizMap;
   size: number;
-  uppercase: boolean;
   showAnswer: boolean;
   puzzle: WordSearchPuzzleState;
 }) {
   const hasError = puzzle instanceof Error;
   const currentGrid = !hasError && puzzle ? (showAnswer ? puzzle.answerGrid : puzzle.grid) : [];
-  const preparedImageCount = getPreparedImageCount(words, imageMap);
+  const preparedQuizHintCount = getPreparedQuizHintCount(words, quizMap);
 
   return (
     <>
@@ -1758,12 +1757,12 @@ function WordSearchTool({
                 ))}
               </div>
             </div>
-            <WordImageHints words={words} imageMap={imageMap} uppercase={uppercase} />
+            <WordQuizHints words={words} quizMap={quizMap} />
           </div>
         </div>
       )}
       <p className="sr-only">
-        사진 {preparedImageCount}/{words.length}개 준비
+        퀴즈 힌트 {preparedQuizHintCount}/{words.length}개 준비
       </p>
     </>
   );
@@ -2297,6 +2296,10 @@ function getPreparedImageCount(words: string[], imageMap: ImageMap): number {
   return words.filter((word) => Boolean(imageMap[word])).length;
 }
 
+function getPreparedQuizHintCount(words: string[], quizMap: QuizMap): number {
+  return words.filter((word) => Boolean(quizMap[word]?.trim())).length;
+}
+
 function getPhotoReadinessLabel(words: string[], imageMap: ImageMap): string | undefined {
   if (words.length === 0) {
     return undefined;
@@ -2305,30 +2308,41 @@ function getPhotoReadinessLabel(words: string[], imageMap: ImageMap): string | u
   return `사진 ${getPreparedImageCount(words, imageMap)}/${words.length} 준비`;
 }
 
-function WordImageHints({
-  words,
-  imageMap,
-  uppercase,
-}: {
-  words: string[];
-  imageMap: ImageMap;
-  uppercase: boolean;
-}) {
+function getQuizReadinessLabel(words: string[], quizMap: QuizMap): string | undefined {
+  if (words.length === 0) {
+    return undefined;
+  }
+
+  return `퀴즈 힌트 ${getPreparedQuizHintCount(words, quizMap)}/${words.length} 준비`;
+}
+
+function WordQuizHints({ words, quizMap }: { words: string[]; quizMap: QuizMap }) {
   return (
-    <section className="hint-section" aria-label="찾을 낱말">
-      <div className="hint-heading">
-        <strong>찾을 낱말</strong>
-        <span>사진 힌트</span>
+    <section className="quiz-clue-section" aria-label="퀴즈 힌트">
+      <div className="quiz-clue-heading">
+        <strong>퀴즈 힌트</strong>
+        <span>힌트를 풀고 퍼즐에서 낱말을 찾습니다.</span>
       </div>
-      <div className="hint-grid">
-        {words.map((word) => (
-          <div className="hint-item" key={word}>
-            <span className="hint-checkmark" aria-hidden="true" />
-            <ImagePreview word={word} imageUrl={imageMap[word]} />
-            <span>{uppercase ? word.toUpperCase() : word}</span>
-          </div>
-        ))}
-      </div>
+      <table className="quiz-clue-table" aria-label="낱말 찾기 퀴즈 힌트">
+        <thead>
+          <tr className="quiz-clue-row">
+            <th scope="col">번호</th>
+            <th scope="col">퀴즈 힌트</th>
+            <th scope="col">찾은 낱말</th>
+          </tr>
+        </thead>
+        <tbody>
+          {words.map((word, index) => (
+            <tr className="quiz-clue-row" key={`${word}-${index}`}>
+              <td>{index + 1}</td>
+              <td>{quizMap[word]?.trim() || '\u00A0'}</td>
+              <td>
+                <span className="quiz-clue-answer" aria-label={`${index + 1}번 찾은 낱말 쓰기`} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </section>
   );
 }

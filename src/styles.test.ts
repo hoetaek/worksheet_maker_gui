@@ -38,15 +38,15 @@ describe('responsive stylesheet contracts', () => {
     );
   });
 
-  it('treats word-search hint images as primary learning material', () => {
+  it('presents word-search quiz clues as a stable answer table', () => {
+    expect(stylesheet).toMatch(/\.quiz-clue-table\s*{[^}]*display:\s*grid/s);
     expect(stylesheet).toMatch(
-      /\.hint-grid\s*{[^}]*grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(176px,\s*1fr\)\)/s,
+      /\.quiz-clue-row\s*{[^}]*grid-template-columns:\s*48px minmax\(0,\s*1fr\) minmax\(96px,\s*0\.5fr\)/s,
     );
-    expect(stylesheet).toMatch(/\.hint-item\s*{[^}]*grid-template-columns:\s*1fr/s);
+    expect(stylesheet).toMatch(/\.quiz-clue-answer\s*{[^}]*border-bottom:\s*1px solid/s);
     expect(stylesheet).toMatch(
-      /\.hint-item \.image-preview,[\s\S]*\.hint-item \.image-placeholder\s*{[^}]*height:\s*132px/s,
+      /@media \(max-width:\s*620px\)[\s\S]*\.quiz-clue-row\s*{[^}]*grid-template-columns:\s*40px minmax\(0,\s*1fr\)/,
     );
-    expect(stylesheet).toMatch(/\.hint-item \.image-preview\s*{[^}]*object-fit:\s*contain/s);
   });
 
   it('prevents the image picker modal from overflowing narrow screens', () => {

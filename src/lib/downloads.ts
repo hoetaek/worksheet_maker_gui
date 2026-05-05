@@ -4,6 +4,7 @@ import type { WordSearchResult } from './wordSearch';
 export type WordImagePayload = {
   word: string;
   image?: string;
+  clue?: string;
 };
 
 export async function downloadBlob(
@@ -38,6 +39,20 @@ export function toWordImagePayload(
     word,
     image: imageMap[word] || undefined,
   }));
+}
+
+export function toWordQuizHintPayload(
+  words: string[],
+  quizMap: Record<string, string>,
+): WordImagePayload[] {
+  return words.map((word) => {
+    const clue = quizMap[word]?.trim();
+
+    return {
+      word,
+      clue: clue || undefined,
+    };
+  });
 }
 
 export function downloadFlickerPptx(
@@ -75,7 +90,7 @@ export function downloadWorksheetDocx(options: {
 
 export function downloadWordSearchDocx(options: {
   words: string[];
-  imageMap: Record<string, string>;
+  quizMap: Record<string, string>;
   puzzle: WordSearchResult | null;
   grade: number;
   classNumber: number;
@@ -89,7 +104,7 @@ export function downloadWordSearchDocx(options: {
     {
       words: options.words,
       grid: options.puzzle.grid,
-      hints: toWordImagePayload(options.words, options.imageMap),
+      hints: toWordQuizHintPayload(options.words, options.quizMap),
       grade: options.grade,
       class_number: options.classNumber,
       title: '낱말 찾기',

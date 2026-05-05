@@ -6,7 +6,6 @@ from zipfile import ZipFile
 import httpx
 import pytest
 from docx import Document
-from docx.shared import Cm
 from fastapi.testclient import TestClient
 from PIL import Image
 
@@ -203,7 +202,10 @@ def test_word_search_endpoint_returns_premium_docx_without_underscore_name_field
         json={
             "words": ["토끼", "사자"],
             "grid": [["토", "끼"], ["사", "자"]],
-            "hints": [{"word": "토끼"}, {"word": "사자"}],
+            "hints": [
+                {"word": "토끼", "clue": "귀가 길고 깡충깡충 뛰어요."},
+                {"word": "사자", "clue": "갈기가 있는 동물이에요."},
+            ],
             "grade": 3,
             "class_number": 1,
             "title": "낱말 찾기",
@@ -216,20 +218,29 @@ def test_word_search_endpoint_returns_premium_docx_without_underscore_name_field
     )
     text = docx_text(response.content)
     assert "_______" not in text
-    assert "그림을 보고 낱말을 찾아 동그라미 하세요." in text
-    assert "□ 토끼" in text
+    assert "퀴즈 힌트를 풀고 낱말을 찾아 동그라미 하세요." in text
+    assert "퀴즈 힌트" in text
+    assert "귀가 길고 깡충깡충 뛰어요." in text
+    assert "찾은 낱말" in text
+    assert "□ 토끼" not in text
     assert "학년" in text
     assert "반" in text
     assert "이름" in text
 
 
-def test_word_search_endpoint_embeds_hint_images() -> None:
+def test_word_search_endpoint_uses_quiz_clues_instead_of_hint_images() -> None:
     response = client.post(
         "/api/materials/word-search.docx",
         json={
             "words": ["토끼"],
             "grid": [["토", "끼"]],
-            "hints": [{"word": "토끼", "image": tiny_png_data_uri(width=24, height=96)}],
+            "hints": [
+                {
+                    "word": "토끼",
+                    "image": tiny_png_data_uri(width=24, height=96),
+                    "clue": "당근을 좋아해요.",
+                }
+            ],
             "grade": 3,
             "class_number": 1,
             "title": "낱말 찾기",
@@ -237,9 +248,10 @@ def test_word_search_endpoint_embeds_hint_images() -> None:
     )
 
     assert response.status_code == 200
-    assert archive_has_media(response.content, "word/media/")
-    assert media_dimensions(response.content, "word/media/") == {(800, 600)}
-    assert docx_picture_widths(response.content) == {Cm(3.2)}
+    assert not archive_has_media(response.content, "word/media/")
+    assert media_dimensions(response.content, "word/media/") == set()
+    assert docx_picture_widths(response.content) == set()
+    assert "당근을 좋아해요." in docx_text(response.content)
 
 
 def test_dobble_endpoint_embeds_card_images() -> None:
